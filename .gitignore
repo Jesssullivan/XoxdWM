@@ -1,3 +1,27 @@
 *.elc
 *-pkg.el
 *-autoloads.el
+
+# Rust
+target/
+
+# Nix
+result
+.direnv/
+.envrc.local
+
+# Shared objects
+*.so
+*.dylib
+
+# Python
+__pycache__/
+
+# Build cache
+.cache/
+
+# Generated
+CHANGELOG.md
+
+# Claude / AI working state
+.claude/

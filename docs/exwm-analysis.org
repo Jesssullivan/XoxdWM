@@ -1,0 +1,758 @@
+#+TITLE: EXWM Codebase Analysis
+#+AUTHOR: Generated Analysis
+#+DATE: 2026-02-08
+#+OPTIONS: toc:3 num:t
+
+* Overview
+
+EXWM (Emacs X Window Manager) is a full-featured tiling window manager
+implemented as an Emacs package, built on top of XELB (X11 Emacs Lisp
+Bindings). The codebase consists of 12 Emacs Lisp modules totaling
+approximately 9,374 lines of code.
+
+| Module            | Lines | Role                                  |
+|-------------------+-------+---------------------------------------|
+| exwm-core.el      |   463 | Foundation: shared definitions        |
+| exwm-workspace.el  |  1764 | Workspace/frame management            |
+| exwm-input.el      |  1216 | Keyboard/mouse input, focus           |
+| exwm.el            |  1304 | Main entry point, orchestration       |
+| exwm-manage.el     |   834 | Window lifecycle (manage/unmanage)    |
+| exwm-floating.el   |   761 | Floating window support               |
+| exwm-layout.el     |   664 | Layout, show/hide, fullscreen         |
+| exwm-xim.el        |   794 | X Input Method server                 |
+| exwm-systemtray.el |   702 | System tray (notification area)       |
+| exwm-randr.el      |   340 | Multi-monitor via RandR 1.5           |
+| exwm-xsettings.el  |   326 | XSETTINGS protocol (themes, DPI)     |
+| exwm-background.el |   206 | Root window background color          |
+|-------------------+-------+---------------------------------------|
+| *Total*           | *9374* |                                       |
+
+* Module-by-Module Analysis
+
+** exwm-core.el (463 lines)
+
+*** Role
+Foundation module providing shared definitions, buffer-local variables,
+utility functions, and the =exwm-mode= major mode used by all managed
+window buffers.
+
+*** Dependencies
+- =compat= (compatibility library)
+- =kmacro=
+- =xcb= (core X protocol)
+- =xcb-icccm= (ICCCM compliance)
+- =xcb-ewmh= (EWMH compliance)
+- =xcb-debug= (debugging)
+
+*** Key Definitions
+
+**** Variables
+- =exwm--connection= :: The main X connection object
+- =exwm--root= :: The root window ID
+- =exwm--id-buffer-alist= :: Central data structure mapping X window IDs to Emacs buffers
+- =exwm--guide-window= :: Input focus "parking" window
+- =exwm--selected-input-mode= :: Input mode for newly managed windows
+- ~30 buffer-local variables for per-window state:
+  - =exwm--id=, =exwm--container=, =exwm--frame=, =exwm--floating-frame=
+  - =exwm-class-name=, =exwm-instance-name=, =exwm-title=, =exwm-window-type=
+  - =exwm--input-mode=, =exwm-state=, =exwm--ewmh-state=, =exwm--normal-hints-*=
+
+**** Functions
+- =exwm--id->buffer= (line 153) :: Look up buffer by X window ID
+- =exwm--buffer->id= (line 158) :: Look up X window ID by buffer
+- =exwm--lock= / =exwm--unlock= :: Reentrant lock for event processing
+- =exwm--set-geometry= (line 229) :: Set buffer-local geometry from X geometry reply
+- =exwm--intern-atom= (line 245) :: Intern an X atom, with caching
+- =exwm--color->pixel= (line 273) :: Convert Emacs color name to X pixel value
+- =exwm--get-visual-depth-colormap= (line 298) :: Get visual info for 32-bit windows
+- =exwm--global-minor-mode-body= (line 434) :: Macro for optional module init/exit lifecycle
+- =exwm--find-x-frame= (line 417) :: Find a visible frame on the X display
+
+**** =exwm--id-buffer-alist= References: 3
+1. Definition of the variable (line 75)
+2. =exwm--id->buffer=: =(alist-get id exwm--id-buffer-alist)=
+3. =exwm--buffer->id=: =(car (rassq buffer exwm--id-buffer-alist))=
+
+*** X11-Specific vs Portable Code
+Almost all code is X11-specific. The buffer-local variable definitions and
+=exwm-mode= major mode are conceptually portable, but the utility functions
+(atom interning, color-to-pixel conversion, visual/depth queries) are deeply
+tied to X11/XCB.
+
+*** Wayland Port Recommendation: TRANSFORM
+The module structure (shared core definitions, buffer-local state per window,
+central ID-to-buffer mapping) is sound and should be preserved. All X11 utility
+functions need protocol-agnostic abstractions or Wayland equivalents.
+
+** exwm-workspace.el (1764 lines)
+
+*** Role
+Manages workspaces, which are mapped to Emacs frames. Handles workspace
+switching, window movement between workspaces, the minibuffer frame, and
+workspace-to-monitor assignment.
+
+*** Dependencies
+- =server= (Emacs server for emacsclient support)
+- =exwm-core=
+
+*** Key Definitions
+
+**** Variables
+- =exwm-workspace-number= :: Initial number of workspaces (default 1)
+- =exwm-workspace--list= :: List of workspace frames
+- =exwm-workspace-current-index= :: Index of current workspace
+- =exwm-workspace--minibuffer= :: The minibuffer frame (when using own frame)
+- =exwm-workspace-show-all-buffers= :: Whether X buffers appear globally
+
+**** Functions
+- =exwm-workspace-switch= (line 548) :: Switch to workspace by index or frame
+- =exwm-workspace-move-window= (line 826) :: Move X window to another workspace
+- =exwm-workspace-add= / =exwm-workspace-delete= :: Dynamic workspace management
+- =exwm-workspace--set-fullscreen= (line 438) :: Configure workspace frame geometry to fill screen
+- =exwm-workspace--add-frame-as-workspace= (line 1297) :: Convert Emacs frame to workspace
+- =exwm-workspace--remove-frame-as-workspace= (line 1402) :: Remove workspace frame
+- =exwm-workspace--init= (line 1659) :: Initialize workspaces, create frames
+- =exwm-workspace--exit= (line 1720) :: Tear down workspaces
+
+**** =exwm--id-buffer-alist= References: 8
+Used extensively for iterating over all managed windows when switching
+workspaces, moving windows, and updating client lists. Key usages:
+1. =exwm-workspace--set-fullscreen=: iterates to reconfigure windows on workspace
+2. =exwm-workspace-switch=: updates visibility of windows per workspace
+3. =exwm-workspace-move-window=: re-parents window to new workspace
+4. =exwm-workspace--add-frame-as-workspace=: transfers windows
+5. =exwm-workspace--remove-frame-as-workspace=: redistributes windows
+6-8. Various helper functions for workspace state updates
+
+*** X11-Specific vs Portable Code
+- *X11-specific*: Frame-to-X-window mapping via =frame-parameter 'exwm-outer-id=,
+  XCB requests for reparenting, ConfigureWindow calls, setting _NET properties,
+  RandR geometry queries
+- *Portable logic*: Workspace list management, workspace switching logic,
+  minibuffer frame concept, buffer visibility rules, emacsclient integration
+
+*** Wayland Port Recommendation: TRANSFORM
+The workspace-as-frame abstraction is excellent and should be preserved.
+X11-specific window manipulation (reparenting, geometry setting via XCB) needs
+to be replaced with Wayland compositor equivalents. The minibuffer frame
+handling and emacsclient integration are largely portable.
+
+** exwm-input.el (1216 lines)
+
+*** Role
+Handles all keyboard and mouse input processing, focus management, and the
+critical line-mode/char-mode distinction. Implements key grabbing, simulation
+keys, and global/prefix key dispatching.
+
+*** Dependencies
+- =xcb-keysyms= (X keysym translation)
+- =exwm-core=
+
+*** Key Definitions
+
+**** Variables
+- =exwm-input-prefix-keys= :: Keys always passed to Emacs in line-mode
+- =exwm-input-global-keys= :: Global key bindings active in line-mode
+- =exwm-input--simulation-keys= :: Hash table mapping Emacs keys to X key events
+- =exwm-input--update-focus-interval= :: Focus debounce timer (0.01s)
+- =exwm-input-line-mode-passthrough= :: Keymap for keys passed through in line-mode
+
+**** Functions
+- =exwm-input--set-focus= (line 164) :: Set X input focus to a window
+- =exwm-input--grab-keyboard= (line 798) :: Grab all keys (enter line-mode)
+- =exwm-input--release-keyboard= (line 818) :: Release keys (enter char-mode)
+- =exwm-input-grab-keyboard= (line 836) :: User-facing line-mode command
+- =exwm-input-release-keyboard= (line 847) :: User-facing char-mode command
+- =exwm-input--on-KeyPress= (line 462) :: Key event handler (core dispatch)
+- =exwm-input--on-ButtonPress= (line 392) :: Mouse button event handler
+- =exwm-input--fake-key= (line 872) :: Send synthetic key event to X window
+- =exwm-input--update-focus= (line 325) :: Focus update with debouncing
+- =exwm-input-set-simulation-keys= (line 937) :: Configure simulation key mappings
+
+**** =exwm--id-buffer-alist= References: 0
+Uses =exwm--id->buffer= accessor instead of direct alist access.
+
+*** X11-Specific vs Portable Code
+- *X11-specific*: XGrabKey/XUngrabKey calls, XCB key event construction,
+  SendEvent for synthetic keys, X keysym translation, XSetInputFocus,
+  XAllowEvents, GrabButton/UngrabButton
+- *Portable logic*: Line-mode vs char-mode concept, simulation keys mapping,
+  prefix key dispatching, focus debouncing strategy, key translation tables
+
+*** Wayland Port Recommendation: TRANSFORM
+The input architecture is the most complex module to port. Line-mode/char-mode
+is fundamentally tied to X11's grab mechanism. Under Wayland, the compositor
+has native control over key routing, so this would need to be reimplemented
+using Wayland's keyboard protocol. The simulation keys concept and prefix key
+handling logic can be preserved.
+
+** exwm.el (1304 lines)
+
+*** Role
+Main entry point and orchestrator. Initializes/shuts down all modules, handles
+ICCCM/EWMH compliance, property change notifications, client messages, and
+the WM selection protocol.
+
+*** Dependencies
+- =server= (Emacs server)
+- =exwm-core=
+- =exwm-workspace=
+- =exwm-layout=
+- =exwm-floating=
+- =exwm-manage=
+- =exwm-input=
+
+*** Key Definitions
+
+**** Variables
+- =exwm--client-message-functions= :: Alist mapping atoms to client message handlers
+- =exwm-blocking-subrs= :: Emacs C functions that block event processing
+- =exwm-update-*-hook= :: Hooks for property update notifications
+
+**** Functions
+- =exwm--init= (line 1047) :: Master initialization (connect X, init all modules)
+- =exwm--exit= (line 1120) :: Master shutdown
+- =exwm-wm-mode= (line 1139) :: Global minor mode to enable/disable WM
+- =exwm-reset= (line 137) :: Reset window to default state (refresh, line-mode)
+- =exwm--init-icccm-ewmh= (line 819) :: Set up ICCCM/EWMH compliance atoms
+- =exwm--wmsn-acquire= (line 961) :: Acquire WM selection (WM_S0)
+- =exwm--on-PropertyNotify= :: Dispatch property change events to handlers
+- =exwm--on-ClientMessage= :: Dispatch client messages via function alist
+- =exwm--icon-to-xpm= :: Convert ARGB icon data to XPM format for Emacs
+
+**** =exwm--id-buffer-alist= References: 3
+1. =exwm--confirm-kill-emacs=: iterates to count managed windows
+2. =exwm--on-net-wm-moveresize=: looks up window for move/resize request
+3. Various cleanup in =exwm--exit=
+
+*** X11-Specific vs Portable Code
+- *X11-specific*: WM selection protocol (WM_S0), ICCCM/EWMH atom setup,
+  SubstructureRedirect event handling, property/client-message dispatching,
+  XCB event loop integration, reparenting WM architecture
+- *Portable logic*: Module orchestration pattern, property update hooks,
+  kill confirmation, icon conversion, blocking subr workarounds
+
+*** Wayland Port Recommendation: TRANSFORM
+The orchestration structure is sound. ICCCM/EWMH compliance is X11-only and
+would be replaced by Wayland protocol equivalents (xdg-shell, etc.). The WM
+selection protocol has no Wayland equivalent. The modular init/exit pattern
+should be preserved.
+
+** exwm-manage.el (834 lines)
+
+*** Role
+Manages the lifecycle of X client windows: deciding whether to manage them,
+creating Emacs buffers for managed windows, applying per-application
+configurations, and handling unmanage/destroy events.
+
+*** Dependencies
+- =exwm-core=
+
+*** Key Definitions
+
+**** Variables
+- =exwm-manage-configurations= :: Per-application configuration rules (plist-based)
+- =exwm-manage-finish-hook= :: Hook run after a window is managed
+- =exwm-manage-force-tiling= :: Force tiling for certain window types
+
+**** Functions
+- =exwm-manage--manage-window= (line 274) :: Create buffer, reparent, configure a new X window
+- =exwm-manage--unmanage-window= (line 436) :: Remove managed window, kill buffer
+- =exwm-manage--scan= (line 513) :: Scan for existing windows at startup
+- =exwm-manage--kill-buffer-query-function= (line 568) :: Prompt before killing X window buffers
+- =exwm-manage--on-ConfigureRequest= (line 677) :: Handle X configure requests
+- =exwm-manage--on-MapRequest= (line 741) :: Handle X map requests (triggers manage)
+- =exwm-manage--apply-configuration= :: Apply per-app config from =exwm-manage-configurations=
+
+**** =exwm--id-buffer-alist= References: 8
+The heaviest user of this data structure:
+1. =exwm-manage--manage-window=: adds entry =(push (cons id buffer) exwm--id-buffer-alist)=
+2. =exwm-manage--unmanage-window=: removes entry via =setf alist-get=
+3. =exwm-manage--manage-window=: early-exit check if already managed
+4. =exwm-manage--set-client-list=: builds _NET_CLIENT_LIST from alist keys
+5. =exwm-manage--scan=: checks if window already managed
+6. =exwm-manage--exit=: clears the entire alist
+7-8. Additional lookups during manage/unmanage lifecycle
+
+*** X11-Specific vs Portable Code
+- *X11-specific*: Window type queries (_NET_WM_WINDOW_TYPE), reparenting into
+  container windows, XCB ChangeWindowAttributes, MapWindow, geometry queries,
+  ConfigureRequest/MapRequest handling, ICCCM WM_STATE management
+- *Portable logic*: Buffer creation/destruction for windows, per-application
+  configuration matching (class/instance/title regex), kill confirmation,
+  the manage/unmanage lifecycle concept itself
+
+*** Wayland Port Recommendation: TRANSFORM
+The manage/unmanage lifecycle and per-application configuration system are
+excellent abstractions that should be preserved. The X11 reparenting and
+property queries need Wayland equivalents. Under Wayland, the compositor
+is informed of new surfaces directly rather than via MapRequest.
+
+** exwm-floating.el (761 lines)
+
+*** Role
+Implements floating window support: creating floating frames with container
+windows, move and resize operations with mouse, and border styling.
+
+*** Dependencies
+- =xcb-cursor= (cursor theme loading)
+- =exwm-core=
+
+*** Key Definitions
+
+**** Variables
+- =exwm-floating-border-width= :: Border width for floating windows (default 1)
+- =exwm-floating-border-color= :: Border color
+- =exwm-floating--cursor-*= :: 9 cursor shapes for move/resize directions
+- =exwm-floating-setup-hook= / =exwm-floating-exit-hook= :: Lifecycle hooks
+
+**** Functions
+- =exwm-floating--set-floating= (line 162) :: Convert tiled window to floating (creates frame + container)
+- =exwm-floating--unset-floating= (line 354) :: Convert floating window back to tiled
+- =exwm-floating-toggle-floating= (line 417) :: Toggle float/tile state
+- =exwm-floating--start-moveresize= (line 438) :: Begin mouse move/resize operation
+- =exwm-floating--do-moveresize= (line 646) :: Handle mouse motion during move/resize
+- =exwm-floating--stop-moveresize= (line 604) :: End move/resize, apply final geometry
+
+**** =exwm--id-buffer-alist= References: 2
+Used in customization setters for border color/width to iterate and update
+all floating windows.
+
+*** X11-Specific vs Portable Code
+- *X11-specific*: Container window creation (CreateWindow), reparenting,
+  XCB cursor loading (9 directional cursors), GrabPointer for move/resize,
+  ConfigureWindow calls, motion event handling
+- *Portable logic*: Float/tile toggle concept, frame creation for floating
+  windows, border width/color as customization, move/resize state machine
+
+*** Wayland Port Recommendation: TRANSFORM
+Floating window support is essential. The frame-per-floating-window approach
+works well. X11 container windows and cursor handling need Wayland equivalents.
+Wayland compositors handle move/resize natively, so the grab-based mouse
+tracking would be replaced by compositor-driven operations.
+
+** exwm-layout.el (664 lines)
+
+*** Role
+Controls window visibility (show/hide), fullscreen management, mode-line
+toggling, and the main refresh logic that keeps X window geometry in sync
+with Emacs window layout.
+
+*** Dependencies
+- =exwm-core=
+
+*** Key Definitions
+
+**** Variables
+- =exwm-layout-show-all-buffers= :: Show X buffers on all workspaces
+
+**** Functions
+- =exwm-layout--show= (line 110) :: Make X window visible (MapWindow + ConfigureWindow)
+- =exwm-layout--hide= (line 148) :: Hide X window (reparent off-screen)
+- =exwm-layout-set-fullscreen= (line 183) :: Enter fullscreen mode
+- =exwm-layout-unset-fullscreen= (line 208) :: Exit fullscreen mode
+- =exwm-layout--refresh= (line 294) :: Main refresh dispatcher
+- =exwm-layout--refresh-floating= :: Refresh floating window geometry
+- =exwm-layout--refresh-other= :: Refresh non-workspace frames
+- =exwm-layout--refresh-workspace= :: Refresh tiled windows on a workspace
+- =exwm-layout-toggle-mode-line= (line 593) :: Show/hide Emacs mode-line for X windows
+- =exwm-layout--set-client-list-stacking= (line 271) :: Update _NET_CLIENT_LIST_STACKING
+
+**** =exwm--id-buffer-alist= References: 3
+1. =exwm-layout--auto-iconify=: iterates to iconify/restore transient windows
+2. =exwm-layout--set-client-list-stacking=: builds stacking order list
+3. =exwm-layout--refresh-workspace=: finds windows on current workspace
+
+*** X11-Specific vs Portable Code
+- *X11-specific*: MapWindow/UnmapWindow, ConfigureWindow geometry,
+  reparenting for hide (move to workspace's off-screen container),
+  _NET_CLIENT_LIST_STACKING updates, XRaiseWindow
+- *Portable logic*: Fullscreen toggle concept, mode-line visibility toggling,
+  refresh-on-window-configuration-change pattern, the decision of which
+  windows to show/hide based on workspace membership
+
+*** Wayland Port Recommendation: TRANSFORM
+The layout refresh concept (syncing X window geometry to Emacs window layout)
+is the core of EXWM's tiling and must be preserved. The specific X11 calls
+need Wayland equivalents. Under Wayland, the compositor controls surface
+placement, so the refresh would communicate desired geometry to the compositor
+rather than directly configuring windows.
+
+** exwm-xim.el (794 lines)
+
+*** Role
+Implements an X Input Method (XIM) server, allowing Emacs's input methods
+to be used by X client applications. Implements the full XIM protocol
+including connection management, input context creation, and key event
+forwarding.
+
+*** Dependencies
+- =cl-lib=
+- =xcb-keysyms=
+- =xcb-xim= (XIM protocol)
+- =exwm-core=
+- =exwm-input=
+
+*** Key Definitions
+
+**** Variables
+- =exwm-xim--conn= :: Dedicated X connection for XIM
+- =exwm-xim--server-client-conn= :: Alist of per-client connections
+- =exwm-xim--im-attrs= / =exwm-xim--ic-attrs= :: IM/IC attribute definitions
+
+**** Functions
+- =exwm-xim--init= (line 676) :: Initialize XIM server
+- =exwm-xim--exit= (line 737) :: Shut down XIM server
+- =exwm-xim--on-request= (line 302) :: Main XIM request dispatcher (handles ~15 opcodes)
+- =exwm-xim--handle-forward-event-request= (line 523) :: Process forwarded key events
+- =exwm-xim--commit= :: Send committed text back to client
+
+**** =exwm--id-buffer-alist= References: 0
+This module operates independently via its own X connection.
+
+*** X11-Specific vs Portable Code
+- *X11-specific*: Entire module is X11-specific (XIM protocol, X properties
+  for server discovery, X event forwarding)
+- *Portable logic*: The concept of bridging Emacs input methods to client
+  applications could be ported, but the protocol would be completely different
+
+*** Wayland Port Recommendation: DROP/REPLACE
+XIM is an X11-only protocol. Under Wayland, input methods use different
+protocols (e.g., =zwp_input_method_v2=). This module would need to be
+rewritten from scratch using Wayland input method protocols, preserving
+only the high-level concept of bridging Emacs input methods.
+
+** exwm-systemtray.el (702 lines)
+
+*** Role
+Implements the freedesktop.org system tray specification, providing a
+notification area for tray icons. Uses XEMBED protocol for embedding
+tray icon windows.
+
+*** Dependencies
+- =xcb-ewmh=
+- =xcb-icccm=
+- =xcb-xembed= (XEMBED protocol)
+- =xcb-systemtray= (system tray protocol)
+- =exwm-core=
+- =exwm-workspace=
+
+*** Key Definitions
+
+**** Variables
+- =exwm-systemtray--connection= :: Dedicated X connection
+- =exwm-systemtray--embedder-window= :: The tray embedder window
+- =exwm-systemtray--list= :: List of embedded tray icons
+- =exwm-systemtray-height= :: Tray icon height (default 16)
+- =exwm-systemtray-background-color= :: Tray background color
+
+**** Functions
+- =exwm-systemtray--init= (line 499) :: Initialize system tray, claim selection
+- =exwm-systemtray--exit= (line 666) :: Shut down system tray
+- =exwm-systemtray--embed= (line 153) :: Embed a tray icon (XEMBED)
+- =exwm-systemtray--unembed= (line 231) :: Remove a tray icon
+- =exwm-systemtray--refresh= (line 245) :: Reposition all tray icons
+
+**** =exwm--id-buffer-alist= References: 0
+
+*** X11-Specific vs Portable Code
+- *X11-specific*: Entire module (system tray selection, XEMBED protocol,
+  tray icon reparenting, damage event handling, visual/colormap matching
+  for transparency)
+- *Portable logic*: The concept of a notification area with embedded icons
+
+*** Wayland Port Recommendation: DROP/REPLACE
+The system tray protocol is X11-only. Under Wayland, status notification
+is handled by protocols like =ext_status_notifier_v1= or via D-Bus
+(StatusNotifierItem). This module would need complete replacement.
+
+** exwm-randr.el (340 lines)
+
+*** Role
+Multi-monitor support using X RandR 1.5 extension. Maps workspaces to
+physical monitors and handles screen configuration changes.
+
+*** Dependencies
+- =xcb-randr= (RandR protocol)
+- =exwm-core=
+- =exwm-workspace=
+
+*** Key Definitions
+
+**** Variables
+- =exwm-randr-workspace-monitor-plist= :: Maps workspace indices to monitor names
+- =exwm-randr-screen-change-hook= :: Hook run on screen changes
+- =exwm-randr-refresh-hook= :: Hook run after refresh
+
+**** Functions
+- =exwm-randr-refresh= (line 181) :: Refresh workspace-to-monitor mapping
+- =exwm-randr--get-monitors= (line 124) :: Query RandR for monitor list
+- =exwm-randr--init= (line 282) :: Initialize RandR, subscribe to events
+- =exwm-randr--exit= (line 330) :: Clean up RandR
+
+**** =exwm--id-buffer-alist= References: 0
+
+*** X11-Specific vs Portable Code
+- *X11-specific*: RandR protocol queries, monitor geometry extraction,
+  screen change event subscription
+- *Portable logic*: Workspace-to-monitor mapping concept, refresh-on-change
+  pattern, the plist-based configuration
+
+*** Wayland Port Recommendation: TRANSFORM
+Multi-monitor support is essential. Under Wayland, output (monitor)
+information comes from the =wl_output= protocol. The workspace-to-monitor
+mapping concept and configuration interface can be preserved. The RandR
+queries would be replaced with Wayland output queries.
+
+** exwm-xsettings.el (326 lines)
+
+*** Role
+Implements the XSETTINGS protocol, allowing Emacs to serve as the
+system settings manager for themes, fonts, DPI, and other desktop
+preferences.
+
+*** Dependencies
+- =xcb-ewmh=
+- =xcb-xsettings= (XSETTINGS protocol)
+- =exwm-core=
+
+*** Key Definitions
+
+**** Variables
+- =exwm-xsettings--connection= :: Dedicated X connection
+- =exwm-xsettings= :: Alist of custom settings
+- =exwm-xsettings-theme= :: System theme (string or light/dark cons)
+- =exwm-xsettings-icon-theme= :: Icon theme
+
+**** Functions
+- =exwm-xsettings--init= (line 220) :: Initialize XSETTINGS manager
+- =exwm-xsettings--exit= (line 309) :: Shut down
+- =exwm-xsettings--update-settings= (line 191) :: Push updated settings to X
+- =exwm-xsettings--get-settings= (line 141) :: Merge all settings sources
+- =exwm-xsettings--pick-theme= (line 127) :: Select light/dark theme based on Emacs background
+- =exwm-xsettings--on-theme-change= :: React to Emacs theme changes
+
+**** =exwm--id-buffer-alist= References: 0
+
+*** X11-Specific vs Portable Code
+- *X11-specific*: XSETTINGS protocol (selection ownership, property encoding),
+  X connection management
+- *Portable logic*: Theme selection based on Emacs face background (light/dark
+  detection), settings merging from multiple sources, custom-set integration,
+  reactive updates on Emacs theme change
+
+*** Wayland Port Recommendation: TRANSFORM
+Desktop settings are important for GTK/Qt application theming. Under Wayland,
+settings are typically communicated via D-Bus (xdg-desktop-portal) or
+environment variables. The theme selection logic and Emacs integration are
+portable; only the transport mechanism changes.
+
+** exwm-background.el (206 lines)
+
+*** Role
+Sets the X root window background color, matching the Emacs default face
+background. Useful for preventing flash-of-black when switching workspaces
+or starting.
+
+*** Dependencies
+- =exwm-core=
+
+*** Key Definitions
+
+**** Variables
+- =exwm-background--connection= :: Dedicated X connection (may be killed by other tools)
+
+**** Functions
+- =exwm-background--init= (line 185) :: Initialize background module
+- =exwm-background--exit= (line 192) :: Clean up
+- =exwm-background--update= (line 75) :: Set root window background pixmap and color
+- =exwm-background--connect= (line 159) :: (Re)connect to X server
+
+**** =exwm--id-buffer-alist= References: 0
+
+*** X11-Specific vs Portable Code
+- *X11-specific*: Root window pixmap creation, _XROOTPMAP_ID / _XSETROOT_ID /
+  ESETROOT_PMAP_ID properties, CreatePixmap, FreePixmap, ChangeWindowAttributes
+- *Portable logic*: Matching background to Emacs default face, reactive update
+  on theme change
+
+*** Wayland Port Recommendation: DROP
+Root window background is an X11-only concept. Under Wayland, the compositor
+controls the background. This functionality would be compositor-specific
+configuration rather than a WM module.
+
+* Cross-Cutting Concerns
+
+** Inter-Module Dependency Graph
+
+#+begin_src
+                    exwm.el (orchestrator)
+                   /   |   |   \    \     \
+                  /    |   |    \    \     \
+   exwm-workspace  exwm-layout  exwm-floating  exwm-manage  exwm-input
+         |                                                      |
+         +--------------------------------------------------+---+
+         |                                                  |
+    exwm-core.el  <-----------------------------------------+
+         ^
+         |  (all optional modules also depend on exwm-core)
+         |
+    +----+--------+-------------+--------------+
+    |             |             |              |
+  exwm-randr  exwm-xim  exwm-systemtray  exwm-xsettings  exwm-background
+#+end_src
+
+- =exwm-core.el= is the foundation; every module depends on it
+- =exwm.el= orchestrates all core modules (workspace, layout, floating, manage, input)
+- Optional modules (randr, xim, systemtray, xsettings, background) use the
+  =exwm--global-minor-mode-body= macro for lifecycle management
+- =exwm-systemtray= additionally depends on =exwm-workspace= (for positioning)
+- =exwm-randr= additionally depends on =exwm-workspace= (for monitor mapping)
+- =exwm-xim= additionally depends on =exwm-input= (for key event handling)
+
+** Role of =exwm--id-buffer-alist= as Central Data Structure
+
+=exwm--id-buffer-alist= is the single most important data structure in EXWM.
+It is an association list mapping X11 window IDs (integers) to Emacs buffers,
+serving as the bridge between the X11 world and the Emacs world.
+
+*** Reference Count by Module
+
+| Module            | References | Primary Usage                           |
+|-------------------+------------+-----------------------------------------|
+| exwm-core.el      |          3 | Definition + accessor functions         |
+| exwm-manage.el    |          8 | Add/remove entries, client list, scan   |
+| exwm-workspace.el |          8 | Iterate for workspace operations        |
+| exwm-layout.el    |          3 | Stacking order, refresh, auto-iconify   |
+| exwm.el           |          3 | Kill confirmation, move/resize          |
+| exwm-floating.el  |          2 | Border updates across all windows       |
+| exwm-input.el     |          0 | Uses accessor =exwm--id->buffer=          |
+| exwm-xim.el       |          0 | Independent (own connection)            |
+| exwm-systemtray.el|          0 | Independent (own connection)            |
+| exwm-randr.el     |          0 | Independent (uses workspace API)        |
+| exwm-xsettings.el |          0 | Independent (own connection)            |
+| exwm-background.el|          0 | Independent (own connection)            |
+|-------------------+------------+-----------------------------------------|
+| *Total*           |       *27* |                                         |
+
+*** Lifecycle
+1. *Creation*: =exwm-manage--manage-window= pushes =(cons id buffer)= onto the alist
+2. *Lookup*: =exwm--id->buffer= (by ID) and =exwm--buffer->id= (by buffer)
+3. *Iteration*: Workspace and layout modules iterate the full alist frequently
+4. *Removal*: =exwm-manage--unmanage-window= removes the entry
+5. *Cleanup*: =exwm-manage--exit= clears the entire alist
+
+*** Porting Implications
+This data structure's concept (mapping compositor surface IDs to Emacs buffers)
+is protocol-agnostic and should be preserved in any Wayland port. The key type
+would change from X window ID to Wayland surface ID, but the alist structure
+and accessors would remain the same.
+
+** Input Handling: Line-Mode vs Char-Mode
+
+EXWM's most distinctive feature is its dual input mode system.
+
+*** Line-Mode (Default)
+- All keys are grabbed by Emacs via =XGrabKey= in synchronous mode
+- Every key press arrives as an X =KeyPress= event to EXWM
+- EXWM's =exwm-input--on-KeyPress= handler decides:
+  - If the key matches a prefix key or global binding: process in Emacs
+  - Otherwise: forward to the X client via =XAllowEvents= or =SendEvent=
+- Emacs keybindings (C-x, M-x, etc.) work normally
+- The =exwm-mode-map= keymap is active
+
+*** Char-Mode
+- Keys are ungrabbed via =XUngrabKey=
+- All key events go directly to the X client
+- Only keys in =exwm-input--simulation-keys= are intercepted
+- User must press a bound key (typically =s-r= for =exwm-reset=) to return to line-mode
+
+*** Simulation Keys
+A hash table maps Emacs key sequences to X key sequences. For example,
+=C-n= can be mapped to =<down>= so that Emacs-style navigation works in
+X applications even in line-mode. Configured via =exwm-input-set-simulation-keys=.
+
+*** Focus Management
+- Focus is managed by EXWM, not by X clients
+- =exwm-input--update-focus= is debounced (0.01s) to prevent focus storms
+- Focus changes are triggered by:
+  - =select-window= hooks (Emacs side)
+  - =EnterNotify= events (X side, when =exwm-input-click-to-focus= is nil)
+  - =ButtonPress= events (when =exwm-input-click-to-focus= is non-nil)
+- A "guide window" (=exwm--guide-window=) serves as a focus parking location
+  when no X window should have focus
+
+*** Porting Implications
+The grab-based line-mode mechanism is deeply X11-specific. Under Wayland:
+- The compositor controls key routing natively
+- =wl_keyboard= events go to the focused surface
+- The compositor would need to implement interception logic equivalent to
+  line-mode's grab behavior
+- Char-mode is more natural under Wayland (direct delivery is the default)
+
+** Workspace Management
+
+*** Architecture
+- Each workspace is an Emacs frame
+- Workspace frames are stored in =exwm-workspace--list=
+- One workspace per monitor (by default), configurable via =exwm-randr=
+- The frame's X window serves as the parent container for tiled X windows
+
+*** Frame-as-Workspace Model
+- Workspace creation: =make-frame= creates a new Emacs frame, which
+  becomes a workspace via =exwm-workspace--add-frame-as-workspace=
+- Workspace destruction: =exwm-workspace--remove-frame-as-workspace=
+  redistributes windows and deletes the frame
+- Dynamic workspace add/delete is supported
+
+*** Window Placement
+- *Tiled windows*: Reparented into the workspace frame's X window, geometry
+  set to match the Emacs window displaying the buffer
+- *Floating windows*: Each gets its own Emacs frame (=exwm--floating-frame=)
+  with a container X window for borders
+- The =exwm-layout--refresh= function synchronizes X window geometry with
+  Emacs window layout on every window configuration change
+
+*** Minibuffer Handling
+Two modes:
+1. *Shared minibuffer frame*: A separate frame (=exwm-workspace--minibuffer=)
+   holds the minibuffer, shared across all workspaces. Positioned at screen
+   bottom/top.
+2. *Per-workspace minibuffer*: Each workspace frame has its own minibuffer.
+   This is the simpler mode.
+
+*** Monitor Assignment
+- =exwm-randr-workspace-monitor-plist= maps workspace indices to monitor names
+- =exwm-randr-refresh= queries RandR for monitor geometry and positions
+  workspace frames accordingly
+- Monitor hotplug triggers a screen change event and refresh
+
+*** Porting Implications
+The workspace-as-frame model is a strong abstraction that maps well to
+Wayland outputs. Under Wayland:
+- Each workspace/output pair would correspond to a compositor output
+- Window reparenting would be replaced by surface-to-output assignment
+- The refresh mechanism would communicate desired layout to the compositor
+- The minibuffer frame handling is largely Emacs-internal and portable
+
+* Summary: Wayland Porting Recommendations
+
+| Module             | Recommendation | Rationale                                        |
+|--------------------+----------------+--------------------------------------------------|
+| exwm-core.el       | TRANSFORM      | Abstractable; buffer-local state is portable     |
+| exwm-workspace.el  | TRANSFORM      | Frame-as-workspace is strong; replace X11 calls  |
+| exwm-input.el      | TRANSFORM      | Most complex port; grab mechanism is X11-only    |
+| exwm.el            | TRANSFORM      | Orchestration portable; ICCCM/EWMH is X11-only  |
+| exwm-manage.el     | TRANSFORM      | Lifecycle concept portable; X11 calls replaceable|
+| exwm-floating.el   | TRANSFORM      | Floating concept portable; container windows X11 |
+| exwm-layout.el     | TRANSFORM      | Refresh concept essential; X11 calls replaceable |
+| exwm-xim.el        | DROP/REPLACE   | XIM protocol is X11-only                         |
+| exwm-systemtray.el | DROP/REPLACE   | System tray protocol is X11-only                 |
+| exwm-randr.el      | TRANSFORM      | Monitor concept portable; RandR is X11-only      |
+| exwm-xsettings.el  | TRANSFORM      | Theme logic portable; transport is X11-only      |
+| exwm-background.el | DROP           | Root window concept is X11-only                  |
+
+*Core modules to transform*: 7 (core, workspace, input, main, manage, floating, layout)
+*Modules needing replacement*: 2 (xim, systemtray)
+*Modules to transform with new transport*: 2 (randr, xsettings)
+*Modules to drop*: 1 (background)

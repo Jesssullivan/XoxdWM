@@ -1,0 +1,3 @@
+*.el diff=lisp linguist-language=Emacs-Lisp
+*.rs diff=rust linguist-language=Rust
+*.nix linguist-language=Nix

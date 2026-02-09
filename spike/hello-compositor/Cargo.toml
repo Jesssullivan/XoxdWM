@@ -1,0 +1,20 @@
+[package]
+name = "hello-compositor"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Minimal Smithay compositor spike for EXWM-VR"
+
+[dependencies]
+smithay = { version = "0.7", default-features = false, features = [
+    "backend_winit",
+    "backend_drm",
+    "backend_libinput",
+    "renderer_gl",
+    "desktop",
+    "wayland_frontend",
+    "xwayland",
+] }
+calloop = "0.14"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# EXWM-VR pre-commit hook
+set -euo pipefail
+
+echo "Running pre-commit checks..."
+
+# (a) Byte-compile modified .el files
+MODIFIED_EL=$(git diff --cached --name-only --diff-filter=ACM | grep '\.el$' | grep -v '\-pkg\.el$' | grep -v '\-autoloads\.el$' || true)
+if [ -n "$MODIFIED_EL" ]; then
+    echo "  Byte-compiling: $MODIFIED_EL"
+    emacs --batch \
+        -L "$(git rev-parse --show-toplevel)" \
+        --eval '(setq byte-compile-error-on-warn t)' \
+        -f batch-byte-compile $MODIFIED_EL
+    # Clean up generated .elc files from hook
+    for f in $MODIFIED_EL; do
+        rm -f "${f}c"
+    done
+fi
+
+# (b) Secrets detection
+SECRETS_PATTERN='PRIVATE KEY|password\s*=|api_key\s*=|secret_key\s*=|AWS_SECRET|ANTHROPIC_API_KEY'
+if git diff --cached --diff-filter=ACM -U0 | grep -qEi "$SECRETS_PATTERN"; then
+    echo "ERROR: Potential secret detected in staged changes!"
+    echo "  Matches for: $SECRETS_PATTERN"
+    git diff --cached --diff-filter=ACM -U0 | grep -nEi "$SECRETS_PATTERN" || true
+    exit 1
+fi
+
+# (c) Trailing whitespace check
+if git diff --cached --check 2>/dev/null; then
+    true
+else
+    echo "WARNING: Trailing whitespace detected (non-blocking)"
+fi
+
+# (d) No large binary files (> 1MB)
+LARGE_FILES=$(git diff --cached --name-only --diff-filter=ACM | while read f; do
+    if [ -f "$f" ]; then
+        size=$(wc -c < "$f")
+        if [ "$size" -gt 1048576 ]; then
+            echo "$f ($size bytes)"
+        fi
+    fi
+done || true)
+if [ -n "$LARGE_FILES" ]; then
+    echo "ERROR: Large binary files (>1MB) staged:"
+    echo "$LARGE_FILES"
+    exit 1
+fi
+
+echo "Pre-commit checks passed."

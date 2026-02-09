@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# EXWM-VR commit-msg hook: enforce conventional commit format
+set -euo pipefail
+
+MSG_FILE="$1"
+MSG=$(head -1 "$MSG_FILE")
+
+# Conventional commit regex
+PATTERN='^(feat|fix|refactor|test|docs|ci|chore|perf|style|build|revert)(\(.+\))?!?:\s.+'
+
+if ! echo "$MSG" | grep -qE "$PATTERN"; then
+    echo "ERROR: Commit message does not follow conventional commit format."
+    echo ""
+    echo "  Expected: <type>(<scope>): <description>"
+    echo "  Types: feat, fix, refactor, test, docs, ci, chore, perf, style, build, revert"
+    echo ""
+    echo "  Examples:"
+    echo "    feat(compositor): add Smithay event loop"
+    echo "    fix(input): correct key grab race condition"
+    echo "    docs: update architecture diagram"
+    echo ""
+    echo "  Got: $MSG"
+    exit 1
+fi
