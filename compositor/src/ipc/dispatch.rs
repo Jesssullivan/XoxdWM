@@ -61,6 +61,14 @@ pub fn handle_message(state: &mut EwwmState, client_id: u64, raw: &str) -> Optio
         Some("vr-display-set-refresh-rate") => handle_vr_display_set_refresh_rate(state, msg_id, &value),
         Some("vr-display-auto-detect") => handle_vr_display_auto_detect(state, msg_id),
         Some("vr-display-list-connectors") => handle_vr_display_list_connectors(state, msg_id),
+        Some("vr-pointer-state") => handle_vr_pointer_state(state, msg_id),
+        Some("vr-click") => handle_vr_click(state, msg_id, &value),
+        Some("vr-grab") => handle_vr_grab(state, msg_id),
+        Some("vr-grab-release") => handle_vr_grab_release(state, msg_id),
+        Some("vr-adjust-depth") => handle_vr_adjust_depth(state, msg_id, &value),
+        Some("vr-set-follow") => handle_vr_set_follow(state, msg_id, &value),
+        Some("vr-set-gaze-offset") => handle_vr_set_gaze_offset(state, msg_id, &value),
+        Some("vr-calibrate-confirm") => handle_vr_calibrate_confirm(state, msg_id),
         Some(other) => Some(error_response(
             msg_id,
             &format!("unknown message type: {other}"),
@@ -611,6 +619,151 @@ fn handle_vr_display_list_connectors(state: &mut EwwmState, msg_id: i64) -> Opti
         "(:type :response :id {} :status :ok :connectors {})",
         msg_id, list
     ))
+}
+
+// ── VR Interaction handlers ────────────────────────────────
+
+fn handle_vr_pointer_state(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let sexp = state.vr_state.interaction.pointer_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :pointer {})",
+        msg_id, sexp
+    ))
+}
+
+fn handle_vr_click(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
+    use crate::vr::vr_interaction::ClickType;
+
+    let button_str = get_keyword(value, "button").unwrap_or_else(|| "left".to_string());
+    let click = match ClickType::from_str(&button_str) {
+        Some(c) => c,
+        None => return Some(error_response(msg_id, "invalid :button (use left, right, middle, double)")),
+    };
+
+    let target = state.vr_state.interaction.current_hit.map(|h| h.surface_id);
+    let ptr = &state.vr_state.interaction.active_pointer;
+    let (px, py) = ptr.as_ref().map(|p| (p.pixel_x, p.pixel_y)).unwrap_or((0, 0));
+
+    Some(format!(
+        "(:type :response :id {} :status :ok :button :{} :surface-id {} :x {} :y {})",
+        msg_id,
+        click.as_str(),
+        target.map(|id| id.to_string()).unwrap_or_else(|| "nil".to_string()),
+        px, py
+    ))
+}
+
+fn handle_vr_grab(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    match state.vr_state.interaction.start_grab(&state.vr_state.scene) {
+        Some(sid) => Some(format!(
+            "(:type :response :id {} :status :ok :surface-id {})",
+            msg_id, sid
+        )),
+        None => Some(error_response(msg_id, "no surface under ray to grab")),
+    }
+}
+
+fn handle_vr_grab_release(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    match state.vr_state.interaction.end_grab() {
+        Some((sid, pos)) => Some(format!(
+            "(:type :response :id {} :status :ok :surface-id {} :position (:x {:.3} :y {:.3} :z {:.3}))",
+            msg_id, sid, pos.x, pos.y, pos.z
+        )),
+        None => Some(error_response(msg_id, "no active grab")),
+    }
+}
+
+fn handle_vr_adjust_depth(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    use crate::vr::vr_interaction::{adjust_depth, DEPTH_MIN, DEPTH_MAX};
+
+    let surface_id = match get_int(value, "surface-id") {
+        Some(id) => id as u64,
+        None => return Some(error_response(msg_id, "missing :surface-id")),
+    };
+
+    let delta = get_int(value, "delta").unwrap_or(-20) as f32 / 100.0; // cm to meters
+
+    if let Some(node) = state.vr_state.scene.nodes.get_mut(&surface_id) {
+        let new_z = adjust_depth(node.transform.position.z, delta, DEPTH_MIN, DEPTH_MAX);
+        node.transform.position.z = new_z;
+        Some(format!(
+            "(:type :response :id {} :status :ok :surface-id {} :distance {:.2})",
+            msg_id, surface_id, -new_z
+        ))
+    } else {
+        Some(error_response(msg_id, &format!("unknown surface: {}", surface_id)))
+    }
+}
+
+fn handle_vr_set_follow(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    use crate::vr::vr_interaction::FollowMode;
+
+    let surface_id = match get_int(value, "surface-id") {
+        Some(id) => id as u64,
+        None => return Some(error_response(msg_id, "missing :surface-id")),
+    };
+
+    let mode_str = get_keyword(value, "mode");
+    let mode = match mode_str.as_deref().and_then(FollowMode::from_str) {
+        Some(m) => m,
+        None => return Some(error_response(msg_id, "invalid :mode (use none, lazy, sticky, locked)")),
+    };
+
+    state.vr_state.interaction.set_follow_mode(surface_id, mode);
+    Some(ok_response(msg_id))
+}
+
+fn handle_vr_set_gaze_offset(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    use crate::vr::scene::Vec3;
+
+    let x = get_int(value, "x").unwrap_or(15) as f32 / 100.0;
+    let y = get_int(value, "y").unwrap_or(-10) as f32 / 100.0;
+    let z = get_int(value, "z").unwrap_or(-5) as f32 / 100.0;
+
+    state.vr_state.interaction.gaze_config.offset = Vec3::new(x, y, z);
+    Some(ok_response(msg_id))
+}
+
+fn handle_vr_calibrate_confirm(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let head_pose = state.vr_state.interaction.head_pose;
+    let done = state.vr_state.interaction.calibration.record_point(
+        crate::vr::vr_interaction::HeadPose {
+            position: head_pose.position,
+            rotation: head_pose.rotation,
+        },
+    );
+
+    if done {
+        // Compute new offset
+        if let Some(offset) = state.vr_state.interaction.calibration.compute_offset() {
+            let rms = state.vr_state.interaction.calibration.rms_error_deg(&offset);
+            state.vr_state.interaction.gaze_config.offset = offset;
+            Some(format!(
+                "(:type :response :id {} :status :ok :calibration :complete :rms-error {:.1} :offset (:x {:.3} :y {:.3} :z {:.3}))",
+                msg_id, rms, offset.x, offset.y, offset.z
+            ))
+        } else {
+            Some(error_response(msg_id, "calibration failed: insufficient data"))
+        }
+    } else {
+        let next = state.vr_state.interaction.calibration.current_target;
+        Some(format!(
+            "(:type :response :id {} :status :ok :calibration :point-recorded :next {})",
+            msg_id, next
+        ))
+    }
 }
 
 // ── Helpers ────────────────────────────────────────────────

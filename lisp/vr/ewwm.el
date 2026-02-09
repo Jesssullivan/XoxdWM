@@ -21,6 +21,7 @@
 (require 'ewwm-vr)
 (require 'ewwm-vr-scene)
 (require 'ewwm-vr-display)
+(require 'ewwm-vr-input)
 
 ;; ── Customization ────────────────────────────────────────────
 
@@ -144,6 +145,7 @@ When SKIP-COMPOSITOR is non-nil, skip starting the compositor
   (ewwm-vr-init)
   (ewwm-vr-scene-init)
   (ewwm-vr-display-init)
+  (ewwm-vr-input-init)
   ;; Step 4: Wire event handlers
   (ewwm--wire-event-handlers)
   ;; Step 5: Connect IPC
@@ -197,6 +199,7 @@ When SKIP-COMPOSITOR is non-nil, skip starting the compositor
   (interactive)
   (ewwm--teardown-focus-sync)
   ;; Clean up VR
+  (ewwm-vr-input-teardown)
   (ewwm-vr-display-teardown)
   (ewwm-vr-scene-teardown)
   (ewwm-vr-teardown)

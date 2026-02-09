@@ -18,6 +18,7 @@ use tracing::{debug, error, info, warn};
 use super::drm_lease::HmdManager;
 use super::frame_timing::FrameTiming;
 use super::scene::VrScene;
+use super::vr_interaction::VrInteraction;
 
 /// Reference space type selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -96,6 +97,7 @@ pub struct VrState {
     pub frame_timing: FrameTiming,
     pub scene: VrScene,
     pub hmd_manager: HmdManager,
+    pub interaction: VrInteraction,
 
     // OpenXR objects (Option because they're created incrementally)
     entry: Option<xr::Entry>,
@@ -125,6 +127,7 @@ impl VrState {
             frame_timing: FrameTiming::default(),
             scene: VrScene::new(),
             hmd_manager: HmdManager::new(),
+            interaction: VrInteraction::new(),
             entry: None,
             instance: None,
             system_id: None,

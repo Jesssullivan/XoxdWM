@@ -7,6 +7,7 @@ use tracing::info;
 
 use super::drm_lease::HmdManager;
 use super::scene::VrScene;
+use super::vr_interaction::VrInteraction;
 
 /// Reference space type selection (stub).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,6 +22,7 @@ pub struct VrState {
     pub enabled: bool,
     pub scene: VrScene,
     pub hmd_manager: HmdManager,
+    pub interaction: VrInteraction,
 }
 
 impl Default for VrState {
@@ -29,6 +31,7 @@ impl Default for VrState {
             enabled: false,
             scene: VrScene::new(),
             hmd_manager: HmdManager::new(),
+            interaction: VrInteraction::new(),
         }
     }
 }
