@@ -12,6 +12,10 @@
 (require 'cl-lib)
 (require 'ewwm-core)
 
+(declare-function ewwm-ipc-send "ewwm-ipc")
+(declare-function ewwm-ipc-connected-p "ewwm-ipc")
+(declare-function ewwm-layout--apply-current "ewwm-layout")
+
 ;; ── Customization ────────────────────────────────────────────
 
 (defcustom ewwm-manage-rules nil
@@ -84,8 +88,9 @@ Creates buffer, applies manage rules, assigns workspace, triggers layout."
     ;; Run hooks
     (with-current-buffer buf
       (run-hooks 'ewwm-manage-finish-hook))
-    ;; Trigger layout if surface is on current workspace
-    (when (and (boundp 'ewwm-workspace-current-index)
+    ;; Trigger layout if surface is on current workspace (skip in batch mode)
+    (when (and (not noninteractive)
+               (boundp 'ewwm-workspace-current-index)
                (= (buffer-local-value 'ewwm-workspace buf)
                   ewwm-workspace-current-index)
                (fboundp 'ewwm-layout--apply-current))
@@ -106,8 +111,9 @@ Creates buffer, applies manage rules, assigns workspace, triggers layout."
           (run-hooks 'ewwm-manage-close-hook)))
       ;; Clean up
       (ewwm--destroy-surface-buffer surface-id)
-      ;; Re-layout
-      (when (and (boundp 'ewwm-workspace-current-index)
+      ;; Re-layout (skip in batch mode)
+      (when (and (not noninteractive)
+                 (boundp 'ewwm-workspace-current-index)
                  (fboundp 'ewwm-layout--apply-current))
         (funcall 'ewwm-layout--apply-current
                  (ewwm--buffers-on-workspace

@@ -13,6 +13,14 @@
 (require 'cl-lib)
 (require 'ewwm-core)
 
+(declare-function ewwm-ipc-send "ewwm-ipc")
+(declare-function ewwm-ipc-connected-p "ewwm-ipc")
+(declare-function ewwm-workspace-switch "ewwm-workspace")
+(declare-function ewwm-workspace-move-surface "ewwm-workspace")
+(declare-function ewwm-layout-cycle "ewwm-layout")
+(declare-function ewwm-launch-interactively "ewwm-launch")
+(declare-function ewwm-reset "ewwm")
+
 ;; ── Customization ────────────────────────────────────────────
 
 (defgroup ewwm-input nil

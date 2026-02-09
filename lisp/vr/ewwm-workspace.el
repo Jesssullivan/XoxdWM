@@ -12,6 +12,10 @@
 (require 'cl-lib)
 (require 'ewwm-core)
 
+(declare-function ewwm-ipc-send "ewwm-ipc")
+(declare-function ewwm-ipc-connected-p "ewwm-ipc")
+(declare-function ewwm-layout--apply-current "ewwm-layout")
+
 ;; ── Customization ────────────────────────────────────────────
 
 (defgroup ewwm-workspace nil
@@ -67,13 +71,14 @@ and sends workspace-switch IPC to compositor."
         (aset ewwm-workspace--configs from (current-window-configuration)))
       ;; Switch
       (setq ewwm-workspace-current-index index)
-      ;; Restore target config or build fresh
-      (let ((config (aref ewwm-workspace--configs index)))
-        (if config
-            (condition-case nil
-                (set-window-configuration config)
-              (error (ewwm-workspace--build-fresh index)))
-          (ewwm-workspace--build-fresh index)))
+      ;; Restore target config or build fresh (skip in batch mode)
+      (unless noninteractive
+        (let ((config (aref ewwm-workspace--configs index)))
+          (if config
+              (condition-case nil
+                  (set-window-configuration config)
+                (error (ewwm-workspace--build-fresh index)))
+            (ewwm-workspace--build-fresh index))))
       ;; Send IPC to compositor
       (when (and (fboundp 'ewwm-ipc-send)
                  (fboundp 'ewwm-ipc-connected-p)
@@ -85,17 +90,19 @@ and sends workspace-switch IPC to compositor."
       (message "ewwm: workspace %d" index))))
 
 (defun ewwm-workspace--build-fresh (index)
-  "Build a fresh window layout for workspace INDEX."
-  (delete-other-windows)
-  (let ((bufs (ewwm--buffers-on-workspace index)))
-    (if bufs
-        (progn
-          (switch-to-buffer (car bufs))
-          ;; Apply layout for remaining buffers
-          (when (fboundp 'ewwm-layout--apply-current)
-            (funcall 'ewwm-layout--apply-current bufs)))
-      ;; No surfaces on this workspace, show scratch
-      (switch-to-buffer "*scratch*"))))
+  "Build a fresh window layout for workspace INDEX.
+Does nothing in batch mode (no display)."
+  (unless noninteractive
+    (delete-other-windows)
+    (let ((bufs (ewwm--buffers-on-workspace index)))
+      (if bufs
+          (progn
+            (switch-to-buffer (car bufs))
+            ;; Apply layout for remaining buffers
+            (when (fboundp 'ewwm-layout--apply-current)
+              (funcall 'ewwm-layout--apply-current bufs)))
+        ;; No surfaces on this workspace, show scratch
+        (switch-to-buffer "*scratch*")))))
 
 (defun ewwm-workspace-switch-next ()
   "Switch to the next workspace."

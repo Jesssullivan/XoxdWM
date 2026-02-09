@@ -12,6 +12,10 @@
 (require 'cl-lib)
 (require 'ewwm-core)
 
+(declare-function ewwm-ipc-send "ewwm-ipc")
+(declare-function ewwm-ipc-connected-p "ewwm-ipc")
+(declare-function ewwm-layout--apply-current "ewwm-layout")
+
 ;; ── Customization ────────────────────────────────────────────
 
 (defgroup ewwm-floating nil
@@ -72,12 +76,14 @@ Sends IPC to compositor and updates buffer state."
 
 (defun ewwm-floating--display (buffer)
   "Display floating BUFFER appropriately.
-Uses child frame if available and enabled, otherwise side window."
-  (if (and ewwm-floating-use-child-frame
-           (fboundp 'make-frame)
-           (display-graphic-p))
-      (ewwm-floating--display-child-frame buffer)
-    (ewwm-floating--display-side-window buffer)))
+Uses child frame if available and enabled, otherwise side window.
+Does nothing in batch mode (no display)."
+  (unless noninteractive
+    (if (and ewwm-floating-use-child-frame
+             (fboundp 'make-frame)
+             (display-graphic-p))
+        (ewwm-floating--display-child-frame buffer)
+      (ewwm-floating--display-side-window buffer))))
 
 (defun ewwm-floating--display-child-frame (buffer)
   "Display floating BUFFER in a child frame."

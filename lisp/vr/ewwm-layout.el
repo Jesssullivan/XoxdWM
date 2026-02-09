@@ -13,6 +13,9 @@
 (require 'cl-lib)
 (require 'ewwm-core)
 
+(declare-function ewwm-ipc-send "ewwm-ipc")
+(declare-function ewwm-ipc-connected-p "ewwm-ipc")
+
 ;; ── Customization ────────────────────────────────────────────
 
 (defgroup ewwm-layout nil
