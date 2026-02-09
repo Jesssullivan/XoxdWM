@@ -1,6 +1,7 @@
 //! Winit backend — development mode, compositor runs inside a window.
 
-use crate::{render, state::EwwmState};
+use crate::{ipc, render, state::EwwmState};
+use super::IpcConfig;
 use smithay::{
     backend::winit::{self as winit_backend, WinitEvent},
     output::{Mode as OutputMode, Output, PhysicalProperties, Subpixel},
@@ -14,11 +15,19 @@ use smithay::{
 use std::time::Duration;
 use tracing::{error, info, warn};
 
-pub fn run(socket_name: Option<String>) -> anyhow::Result<()> {
+pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result<()> {
     let mut event_loop = EventLoop::<EwwmState>::try_new()?;
     let mut display = Display::<EwwmState>::new()?;
 
     let mut state = EwwmState::new(&mut display, event_loop.handle());
+
+    // Configure IPC
+    state.ipc_server.ipc_trace = ipc_config.trace;
+    let ipc_path = ipc_config
+        .socket_path
+        .unwrap_or_else(|| ipc::IpcServer::default_socket_path());
+    state.ipc_server.socket_path = ipc_path.clone();
+    ipc::IpcServer::bind(&ipc_path, &event_loop.handle())?;
 
     // Initialize Winit backend
     let (mut backend, mut winit_evt) = winit_backend::init::<
@@ -60,7 +69,6 @@ pub fn run(socket_name: Option<String>) -> anyhow::Result<()> {
             smithay::reexports::calloop::Mode::Level,
         ),
         |_, _, state: &mut EwwmState| {
-            // This will be connected to display dispatch
             Ok(smithay::reexports::calloop::PostAction::Continue)
         },
     )?;
@@ -97,12 +105,18 @@ pub fn run(socket_name: Option<String>) -> anyhow::Result<()> {
             _ => {}
         })?;
 
+        // Poll IPC clients
+        ipc::IpcServer::poll_clients(&mut state);
+
         // Dispatch calloop events
         event_loop.dispatch(Some(Duration::from_millis(1)), &mut state)?;
 
         // Flush client events
         display.flush_clients()?;
     }
+
+    // Clean up IPC socket
+    let _ = std::fs::remove_file(&state.ipc_server.socket_path);
 
     info!("Winit backend shutting down");
     Ok(())

@@ -5,6 +5,7 @@
 mod backend;
 mod handlers;
 mod input;
+pub mod ipc;
 mod render;
 mod state;
 
@@ -25,6 +26,14 @@ struct Cli {
     /// Exit after N seconds (headless mode testing)
     #[arg(long)]
     headless_exit_after: Option<u64>,
+
+    /// IPC socket path (default: $XDG_RUNTIME_DIR/ewwm-ipc.sock)
+    #[arg(long)]
+    ipc_socket: Option<String>,
+
+    /// Log all IPC messages to stderr
+    #[arg(long)]
+    ipc_trace: bool,
 
     /// Show version and exit
     #[arg(long)]
@@ -69,5 +78,13 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    backend::run(backend_type, cli.wayland_socket, cli.headless_exit_after)
+    let ipc_socket = cli.ipc_socket.map(std::path::PathBuf::from);
+
+    backend::run(
+        backend_type,
+        cli.wayland_socket,
+        cli.headless_exit_after,
+        ipc_socket,
+        cli.ipc_trace,
+    )
 }

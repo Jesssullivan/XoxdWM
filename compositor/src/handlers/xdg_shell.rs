@@ -1,5 +1,6 @@
 //! xdg_shell handler — application window lifecycle.
 
+use crate::ipc::{server::IpcServer, dispatch::format_event};
 use crate::state::{next_surface_id, EwwmState, SurfaceData};
 use smithay::{
     delegate_xdg_shell,
@@ -32,6 +33,14 @@ impl XdgShellHandler for EwwmState {
                 title: None,
             },
         );
+
+        // Emit IPC event
+        let event = format_event("surface-created", &[
+            ("id", &surface_id.to_string()),
+            ("app-id", "\"\""),
+            ("title", "\"\""),
+        ]);
+        IpcServer::broadcast_event(self, &event);
 
         // Send initial configure
         surface.send_configure();

@@ -25,10 +25,12 @@ use smithay::{
     },
 };
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::atomic::{AtomicU64, Ordering},
 };
 use tracing::info;
+
+use crate::ipc::IpcServer;
 
 /// Monotonically increasing surface ID generator.
 static NEXT_SURFACE_ID: AtomicU64 = AtomicU64::new(1);
@@ -66,6 +68,11 @@ pub struct EwwmState {
     // Window management
     pub space: Space<Window>,
     pub surfaces: HashMap<u64, SurfaceData>,
+    pub active_workspace: usize,
+
+    // IPC
+    pub ipc_server: IpcServer,
+    pub grabbed_keys: HashSet<String>,
 
     // Shutdown flag
     pub running: bool,
@@ -89,6 +96,8 @@ impl EwwmState {
 
         info!("EwwmState initialized");
 
+        let ipc_socket_path = IpcServer::default_socket_path();
+
         Self {
             display_handle,
             loop_handle,
@@ -101,6 +110,9 @@ impl EwwmState {
             seat,
             space: Space::default(),
             surfaces: HashMap::new(),
+            active_workspace: 0,
+            ipc_server: IpcServer::new(ipc_socket_path),
+            grabbed_keys: HashSet::new(),
             running: true,
         }
     }

@@ -1,28 +1,66 @@
 //! Input event handling — keyboard, pointer, focus management.
 
+use crate::ipc::{dispatch::format_event, server::IpcServer};
 use crate::state::EwwmState;
 use smithay::{
     backend::input::{
         AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, InputBackend, InputEvent,
-        KeyState, KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent, PointerMotionAbsoluteEvent,
+        KeyState, KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent,
+        PointerMotionAbsoluteEvent,
     },
     input::{
-        keyboard::{FilterResult, KeyboardHandle},
+        keyboard::{FilterResult, KeyboardHandle, ModifiersState},
         pointer::{AxisFrame, ButtonEvent, MotionEvent},
     },
     utils::SERIAL_COUNTER,
 };
-use tracing::trace;
+use tracing::{debug, trace};
 
 /// Handle an input event from any backend.
 pub fn handle_input<B: InputBackend>(state: &mut EwwmState, event: InputEvent<B>) {
     match event {
         InputEvent::Keyboard { event } => handle_keyboard(state, event),
-        InputEvent::PointerMotionAbsolute { event } => handle_pointer_motion_absolute(state, event),
+        InputEvent::PointerMotionAbsolute { event } => {
+            handle_pointer_motion_absolute(state, event)
+        }
         InputEvent::PointerButton { event } => handle_pointer_button(state, event),
         InputEvent::PointerAxis { event } => handle_pointer_axis(state, event),
         _ => {}
     }
+}
+
+/// Convert xkbcommon modifiers + keysym to an Emacs-style key description.
+fn format_key_description(keysym: u32, mods: &ModifiersState) -> Option<String> {
+    let sym_name = xkbcommon::xkb::keysym_get_name(keysym.into());
+
+    // Map common keysym names to Emacs names
+    let key_name = match sym_name.as_str() {
+        "Return" => "RET".to_string(),
+        "Escape" => "ESC".to_string(),
+        "BackSpace" => "DEL".to_string(),
+        "Tab" => "TAB".to_string(),
+        "space" => "SPC".to_string(),
+        "Delete" => "delete".to_string(),
+        name if name.len() == 1 => name.to_lowercase(),
+        name => name.to_string(),
+    };
+
+    let mut desc = String::new();
+    if mods.ctrl {
+        desc.push_str("C-");
+    }
+    if mods.alt {
+        desc.push_str("M-");
+    }
+    if mods.logo {
+        desc.push_str("s-");
+    }
+    if mods.shift && key_name.len() > 1 {
+        desc.push_str("S-");
+    }
+    desc.push_str(&key_name);
+
+    Some(desc)
 }
 
 fn handle_keyboard<B: InputBackend>(state: &mut EwwmState, event: B::KeyboardKeyEvent) {
@@ -32,9 +70,40 @@ fn handle_keyboard<B: InputBackend>(state: &mut EwwmState, event: B::KeyboardKey
     let key_state = event.state();
 
     let keyboard = state.seat.get_keyboard().unwrap();
-    keyboard.input::<(), _>(state, keycode, key_state, serial, time, |_, _, _| {
-        FilterResult::Forward
-    });
+
+    // Check for grabbed keys
+    let grab_result =
+        keyboard.input::<bool, _>(state, keycode, key_state, serial, time, |state, mods, handle| {
+            if key_state == KeyState::Pressed {
+                let keysym = handle.modified_sym();
+                if let Some(key_desc) = format_key_description(keysym.into(), mods) {
+                    if state.grabbed_keys.contains(&key_desc) {
+                        debug!(key = %key_desc, "grabbed key intercepted");
+                        // Emit key-pressed event to IPC clients
+                        let event = format_event(
+                            "key-pressed",
+                            &[
+                                ("key", &format!("\"{}\"", key_desc)),
+                                (
+                                    "modifiers",
+                                    &format!(
+                                        "(:super {} :ctrl {} :alt {} :shift {})",
+                                        if mods.logo { "t" } else { "nil" },
+                                        if mods.ctrl { "t" } else { "nil" },
+                                        if mods.alt { "t" } else { "nil" },
+                                        if mods.shift { "t" } else { "nil" },
+                                    ),
+                                ),
+                                ("timestamp", &time.to_string()),
+                            ],
+                        );
+                        IpcServer::broadcast_event(state, &event);
+                        return FilterResult::Intercept(true);
+                    }
+                }
+            }
+            FilterResult::Forward
+        });
 }
 
 fn handle_pointer_motion_absolute<B: InputBackend>(
@@ -50,13 +119,14 @@ fn handle_pointer_motion_absolute<B: InputBackend>(
         let pointer = state.seat.get_pointer().unwrap();
 
         // Find surface under pointer for focus
-        let surface_under = state
-            .space
-            .element_under(pos)
-            .map(|(w, loc)| {
-                let surface = w.toplevel().expect("window has toplevel").wl_surface().clone();
-                (surface, loc)
-            });
+        let surface_under = state.space.element_under(pos).map(|(w, loc)| {
+            let surface = w
+                .toplevel()
+                .expect("window has toplevel")
+                .wl_surface()
+                .clone();
+            (surface, loc)
+        });
 
         pointer.motion(
             state,

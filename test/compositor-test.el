@@ -71,4 +71,51 @@
      (expand-file-name "compositor/Cargo.toml" compositor-test--root))
     (should (string-match-p "renderer_gl" (buffer-string)))))
 
+(ert-deftest compositor-test/cargo-deps-lexpr ()
+  "Cargo.toml depends on lexpr for s-expression parsing."
+  (with-temp-buffer
+    (insert-file-contents
+     (expand-file-name "compositor/Cargo.toml" compositor-test--root))
+    (should (string-match-p "lexpr" (buffer-string)))))
+
+;; ── IPC module source files ──────────────────────────────
+
+(ert-deftest compositor-test/ipc-mod-rs-exists ()
+  (should (file-exists-p
+           (expand-file-name "compositor/src/ipc/mod.rs" compositor-test--root))))
+
+(ert-deftest compositor-test/ipc-server-rs-exists ()
+  (should (file-exists-p
+           (expand-file-name "compositor/src/ipc/server.rs" compositor-test--root))))
+
+(ert-deftest compositor-test/ipc-dispatch-rs-exists ()
+  (should (file-exists-p
+           (expand-file-name "compositor/src/ipc/dispatch.rs" compositor-test--root))))
+
+;; ── IPC protocol spec ──────────────────────────────────────
+
+(ert-deftest compositor-test/ipc-protocol-doc-exists ()
+  "IPC protocol specification exists."
+  (should (file-exists-p
+           (expand-file-name "docs/ipc-protocol.md" compositor-test--root))))
+
+(ert-deftest compositor-test/ipc-protocol-has-message-types ()
+  "IPC protocol docs contain >= 20 message types."
+  (with-temp-buffer
+    (insert-file-contents
+     (expand-file-name "docs/ipc-protocol.md" compositor-test--root))
+    ;; Count `:type` occurrences in message type headers
+    (let ((count 0))
+      (goto-char (point-min))
+      (while (re-search-forward "^####.*`:.*`" nil t)
+        (setq count (1+ count)))
+      (should (>= count 20)))))
+
+;; ── Debug tools ────────────────────────────────────────────
+
+(ert-deftest compositor-test/python-ipc-client-exists ()
+  "Python debug client exists."
+  (should (file-exists-p
+           (expand-file-name "tools/ewwm-ipc-client.py" compositor-test--root))))
+
 ;;; compositor-test.el ends here

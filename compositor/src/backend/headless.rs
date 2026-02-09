@@ -1,6 +1,7 @@
 //! Headless backend — CI testing without GPU or display.
 
-use crate::state::EwwmState;
+use crate::{ipc, state::EwwmState};
+use super::IpcConfig;
 use smithay::{
     output::{Mode as OutputMode, Output, PhysicalProperties, Subpixel},
     reexports::{
@@ -18,11 +19,20 @@ use tracing::info;
 pub fn run(
     socket_name: Option<String>,
     exit_after: Option<u64>,
+    ipc_config: IpcConfig,
 ) -> anyhow::Result<()> {
     let mut event_loop = EventLoop::<EwwmState>::try_new()?;
     let mut display = Display::<EwwmState>::new()?;
 
     let mut state = EwwmState::new(&mut display, event_loop.handle());
+
+    // Configure IPC
+    state.ipc_server.ipc_trace = ipc_config.trace;
+    let ipc_path = ipc_config
+        .socket_path
+        .unwrap_or_else(|| ipc::IpcServer::default_socket_path());
+    state.ipc_server.socket_path = ipc_path.clone();
+    ipc::IpcServer::bind(&ipc_path, &event_loop.handle())?;
 
     // Create virtual output
     let mode = OutputMode {
@@ -67,9 +77,15 @@ pub fn run(
     info!("Headless backend initialized, entering event loop");
 
     while state.running {
+        // Poll IPC clients
+        ipc::IpcServer::poll_clients(&mut state);
+
         event_loop.dispatch(Some(Duration::from_millis(100)), &mut state)?;
         display.flush_clients()?;
     }
+
+    // Clean up IPC socket
+    let _ = std::fs::remove_file(&state.ipc_server.socket_path);
 
     info!("Headless backend shutting down");
     Ok(())

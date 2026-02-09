@@ -29,6 +29,8 @@ bitflags = "2"
 xkbcommon = "0.8"
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
+lexpr = "0.2"
+libc = "0.2"
 
 [dev-dependencies]
 wayland-client = "0.31"

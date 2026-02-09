@@ -1,0 +1,257 @@
+//! IPC server: Unix socket listener + per-client state + message framing.
+
+use std::collections::HashMap;
+use std::io::{self, Read, Write};
+use std::os::unix::net::{UnixListener, UnixStream};
+use std::path::{Path, PathBuf};
+
+use calloop::generic::Generic;
+use calloop::{Interest, LoopHandle, Mode, PostAction};
+use tracing::{debug, error, info, warn};
+
+use super::dispatch;
+
+/// Maximum message payload size (1 MiB).
+const MAX_MESSAGE_SIZE: u32 = 1_048_576;
+
+/// Maximum write buffer before dropping old events (64 KiB).
+const MAX_WRITE_BUFFER: usize = 65_536;
+
+/// Per-client IPC connection state.
+pub struct IpcClient {
+    pub stream: UnixStream,
+    pub read_buf: Vec<u8>,
+    pub write_buf: Vec<u8>,
+    pub authenticated: bool,
+    pub id: u64,
+}
+
+impl IpcClient {
+    fn new(stream: UnixStream, id: u64) -> Self {
+        stream.set_nonblocking(true).ok();
+        Self {
+            stream,
+            read_buf: Vec::with_capacity(4096),
+            write_buf: Vec::new(),
+            authenticated: false,
+            id,
+        }
+    }
+
+    /// Attempt to flush pending writes.
+    pub fn flush_writes(&mut self) -> io::Result<()> {
+        while !self.write_buf.is_empty() {
+            match self.stream.write(&self.write_buf) {
+                Ok(0) => return Err(io::Error::new(io::ErrorKind::WriteZero, "write zero")),
+                Ok(n) => {
+                    self.write_buf.drain(..n);
+                }
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
+    }
+
+    /// Enqueue a framed message (length prefix + payload) for sending.
+    pub fn enqueue_message(&mut self, payload: &str) {
+        let bytes = payload.as_bytes();
+        let len = bytes.len() as u32;
+        self.write_buf.extend_from_slice(&len.to_be_bytes());
+        self.write_buf.extend_from_slice(bytes);
+    }
+
+    /// Enqueue an event, applying backpressure if buffer is too large.
+    pub fn enqueue_event(&mut self, payload: &str) {
+        if self.write_buf.len() > MAX_WRITE_BUFFER {
+            warn!(client_id = self.id, "write buffer overflow, dropping event");
+            return;
+        }
+        self.enqueue_message(payload);
+    }
+
+    /// Try to extract complete framed messages from the read buffer.
+    /// Returns a Vec of complete message payloads (as Strings).
+    pub fn extract_messages(&mut self) -> Vec<String> {
+        let mut messages = Vec::new();
+        loop {
+            if self.read_buf.len() < 4 {
+                break;
+            }
+            let len = u32::from_be_bytes([
+                self.read_buf[0],
+                self.read_buf[1],
+                self.read_buf[2],
+                self.read_buf[3],
+            ]);
+            if len > MAX_MESSAGE_SIZE {
+                // Protocol violation — drop this client
+                error!(client_id = self.id, len, "message exceeds maximum size");
+                self.read_buf.clear();
+                break;
+            }
+            let total = 4 + len as usize;
+            if self.read_buf.len() < total {
+                break; // Incomplete message, wait for more data
+            }
+            let payload = String::from_utf8_lossy(&self.read_buf[4..total]).to_string();
+            self.read_buf.drain(..total);
+            messages.push(payload);
+        }
+        messages
+    }
+}
+
+/// IPC server managing the listener socket and all client connections.
+pub struct IpcServer {
+    pub socket_path: PathBuf,
+    pub clients: HashMap<u64, IpcClient>,
+    next_client_id: u64,
+    pub ipc_trace: bool,
+}
+
+impl IpcServer {
+    /// Create IPC server (does not bind yet — call `bind` after).
+    pub fn new(socket_path: PathBuf) -> Self {
+        Self {
+            socket_path,
+            clients: HashMap::new(),
+            next_client_id: 1,
+            ipc_trace: false,
+        }
+    }
+
+    /// Compute the default socket path.
+    pub fn default_socket_path() -> PathBuf {
+        let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
+            .unwrap_or_else(|_| format!("/tmp/ewwm-{}", unsafe { libc::getuid() }));
+        PathBuf::from(runtime_dir).join("ewwm-ipc.sock")
+    }
+
+    /// Bind the listener socket and register with calloop.
+    pub fn bind(
+        socket_path: &Path,
+        loop_handle: &LoopHandle<'static, crate::state::EwwmState>,
+    ) -> anyhow::Result<()> {
+        // Remove stale socket
+        if socket_path.exists() {
+            std::fs::remove_file(socket_path)?;
+        }
+
+        let listener = UnixListener::bind(socket_path)?;
+        listener.set_nonblocking(true)?;
+
+        // Set socket permissions to 0700
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(socket_path, std::fs::Permissions::from_mode(0o700))?;
+        }
+
+        info!(?socket_path, "IPC server listening");
+
+        // Register listener with calloop
+        let source = Generic::new(listener, Interest::READ, Mode::Level);
+        loop_handle.insert_source(source, |_event, listener, state| {
+            // Accept new connections
+            loop {
+                match listener.accept() {
+                    Ok((stream, _addr)) => {
+                        let client_id = state.ipc_server.next_client_id;
+                        state.ipc_server.next_client_id += 1;
+
+                        info!(client_id, "IPC client connected");
+
+                        let client = IpcClient::new(stream, client_id);
+                        state.ipc_server.clients.insert(client_id, client);
+                    }
+                    Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
+                    Err(e) => {
+                        error!("accept error: {}", e);
+                        break;
+                    }
+                }
+            }
+            Ok(PostAction::Continue)
+        })?;
+
+        Ok(())
+    }
+
+    /// Poll all clients for readable data, dispatch messages, flush writes.
+    /// Called once per event loop iteration.
+    pub fn poll_clients(state: &mut crate::state::EwwmState) {
+        let client_ids: Vec<u64> = state.ipc_server.clients.keys().copied().collect();
+        let mut disconnected = Vec::new();
+
+        for client_id in client_ids {
+            // Read available data
+            let mut buf = [0u8; 4096];
+            let read_result = {
+                let client = state.ipc_server.clients.get_mut(&client_id).unwrap();
+                match client.stream.read(&mut buf) {
+                    Ok(0) => Err(io::Error::new(io::ErrorKind::ConnectionReset, "eof")),
+                    Ok(n) => {
+                        client.read_buf.extend_from_slice(&buf[..n]);
+                        Ok(())
+                    }
+                    Err(e) if e.kind() == io::ErrorKind::WouldBlock => Ok(()),
+                    Err(e) => Err(e),
+                }
+            };
+
+            if let Err(e) = read_result {
+                debug!(client_id, "client disconnected: {}", e);
+                disconnected.push(client_id);
+                continue;
+            }
+
+            // Extract and dispatch complete messages
+            let messages = {
+                let client = state.ipc_server.clients.get_mut(&client_id).unwrap();
+                client.extract_messages()
+            };
+
+            for msg_str in messages {
+                if state.ipc_server.ipc_trace {
+                    info!(client_id, "<< {}", msg_str);
+                }
+                let response = dispatch::handle_message(state, client_id, &msg_str);
+                if let Some(resp) = response {
+                    if state.ipc_server.ipc_trace {
+                        info!(client_id, ">> {}", resp);
+                    }
+                    if let Some(client) = state.ipc_server.clients.get_mut(&client_id) {
+                        client.enqueue_message(&resp);
+                    }
+                }
+            }
+
+            // Flush writes
+            if let Some(client) = state.ipc_server.clients.get_mut(&client_id) {
+                if let Err(e) = client.flush_writes() {
+                    debug!(client_id, "write error: {}", e);
+                    disconnected.push(client_id);
+                }
+            }
+        }
+
+        // Clean up disconnected clients
+        for id in disconnected {
+            info!(client_id = id, "removing disconnected IPC client");
+            state.ipc_server.clients.remove(&id);
+        }
+    }
+
+    /// Broadcast an event to all authenticated clients.
+    pub fn broadcast_event(state: &mut crate::state::EwwmState, event: &str) {
+        if state.ipc_server.ipc_trace {
+            info!("broadcast >> {}", event);
+        }
+        for client in state.ipc_server.clients.values_mut() {
+            if client.authenticated {
+                client.enqueue_event(event);
+            }
+        }
+    }
+}
