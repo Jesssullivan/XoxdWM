@@ -48,6 +48,13 @@ pub fn handle_message(state: &mut EwwmState, client_id: u64, raw: &str) -> Optio
         Some("vr-set-reference-space") => handle_vr_set_reference_space(state, msg_id, &value),
         Some("vr-restart") => handle_vr_restart(state, msg_id),
         Some("vr-get-frame-timing") => handle_vr_get_frame_timing(state, msg_id),
+        Some("vr-scene-status") => handle_vr_scene_status(state, msg_id),
+        Some("vr-scene-set-layout") => handle_vr_scene_set_layout(state, msg_id, &value),
+        Some("vr-scene-set-ppu") => handle_vr_scene_set_ppu(state, msg_id, &value),
+        Some("vr-scene-set-background") => handle_vr_scene_set_background(state, msg_id, &value),
+        Some("vr-scene-set-projection") => handle_vr_scene_set_projection(state, msg_id, &value),
+        Some("vr-scene-focus") => handle_vr_scene_focus(state, msg_id, &value),
+        Some("vr-scene-move") => handle_vr_scene_move(state, msg_id, &value),
         Some(other) => Some(error_response(
             msg_id,
             &format!("unknown message type: {other}"),
@@ -383,6 +390,138 @@ fn handle_vr_get_frame_timing(state: &mut EwwmState, msg_id: i64) -> Option<Stri
         "(:type :response :id {} :status :ok :timing {})",
         msg_id, timing
     ))
+}
+
+fn handle_vr_scene_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let sexp = state.vr_state.scene.scene_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :scene {})",
+        msg_id, sexp
+    ))
+}
+
+fn handle_vr_scene_set_layout(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    use crate::vr::scene::VrLayoutMode;
+
+    let layout = get_keyword(value, "layout");
+    let mode = match layout.as_deref() {
+        Some("arc") => VrLayoutMode::Arc,
+        Some("stack") => VrLayoutMode::Stack,
+        Some("freeform") => VrLayoutMode::Freeform,
+        Some(g) if g.starts_with("grid-") => {
+            let cols = g[5..].parse::<u32>().unwrap_or(2);
+            VrLayoutMode::Grid { columns: cols }
+        }
+        Some("grid") => VrLayoutMode::Grid {
+            columns: get_int(value, "columns").unwrap_or(2) as u32,
+        },
+        _ => return Some(error_response(msg_id, "invalid :layout (use arc, grid, stack, freeform)")),
+    };
+
+    state.vr_state.scene.set_layout(mode);
+    Some(ok_response(msg_id))
+}
+
+fn handle_vr_scene_set_ppu(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let ppu = match get_int(value, "ppu") {
+        Some(p) if p > 0 => p as f32,
+        _ => return Some(error_response(msg_id, "invalid :ppu (must be positive integer)")),
+    };
+
+    let surface_id = get_int(value, "surface-id");
+    match surface_id {
+        Some(id) => state.vr_state.scene.set_surface_ppu(id as u64, ppu),
+        None => state.vr_state.scene.set_global_ppu(ppu),
+    }
+
+    Some(ok_response(msg_id))
+}
+
+fn handle_vr_scene_set_background(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    use crate::vr::scene::VrBackground;
+
+    let bg = get_keyword(value, "background");
+    let background = match bg.as_deref() {
+        Some("dark") => VrBackground::Dark,
+        Some("gradient") => VrBackground::Gradient,
+        Some("grid") => VrBackground::Grid,
+        Some("passthrough") => VrBackground::Passthrough,
+        _ => return Some(error_response(msg_id, "invalid :background (use dark, gradient, grid, passthrough)")),
+    };
+
+    state.vr_state.scene.background = background;
+    Some(ok_response(msg_id))
+}
+
+fn handle_vr_scene_set_projection(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    use crate::vr::scene::ProjectionType;
+
+    let surface_id = match get_int(value, "surface-id") {
+        Some(id) => id as u64,
+        None => return Some(error_response(msg_id, "missing :surface-id")),
+    };
+
+    let proj = get_keyword(value, "projection");
+    let projection = match proj.as_deref() {
+        Some("flat") => ProjectionType::Flat,
+        Some("cylinder") => ProjectionType::Cylinder,
+        _ => return Some(error_response(msg_id, "invalid :projection (use flat, cylinder)")),
+    };
+
+    state.vr_state.scene.set_projection(surface_id, projection);
+    Some(ok_response(msg_id))
+}
+
+fn handle_vr_scene_focus(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let surface_id = get_int(value, "surface-id").map(|id| id as u64);
+    state.vr_state.scene.set_focus(surface_id);
+    Some(ok_response(msg_id))
+}
+
+fn handle_vr_scene_move(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    use crate::vr::scene::{Transform3D, Vec3, Quat};
+
+    let surface_id = match get_int(value, "surface-id") {
+        Some(id) => id as u64,
+        None => return Some(error_response(msg_id, "missing :surface-id")),
+    };
+
+    let x = get_int(value, "x").unwrap_or(0) as f32 / 100.0; // cm to meters
+    let y = get_int(value, "y").unwrap_or(0) as f32 / 100.0;
+    let z = get_int(value, "z").unwrap_or(-200) as f32 / 100.0;
+
+    let transform = Transform3D {
+        position: Vec3::new(x, y, z),
+        rotation: Quat::IDENTITY,
+        scale: Vec3::ONE,
+    };
+
+    state.vr_state.scene.set_transform(surface_id, transform);
+    Some(ok_response(msg_id))
 }
 
 // ── Helpers ────────────────────────────────────────────────

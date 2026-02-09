@@ -5,6 +5,8 @@
 
 use tracing::info;
 
+use super::scene::VrScene;
+
 /// Reference space type selection (stub).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReferenceSpaceType {
@@ -16,11 +18,15 @@ pub enum ReferenceSpaceType {
 /// Stub VR state when OpenXR is not compiled in.
 pub struct VrState {
     pub enabled: bool,
+    pub scene: VrScene,
 }
 
 impl Default for VrState {
     fn default() -> Self {
-        Self { enabled: false }
+        Self {
+            enabled: false,
+            scene: VrScene::new(),
+        }
     }
 }
 

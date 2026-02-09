@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
 
 use super::frame_timing::FrameTiming;
+use super::scene::VrScene;
 
 /// Reference space type selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -92,6 +93,7 @@ pub struct VrState {
     pub enabled_extensions: HashSet<String>,
     pub active_reference_space: ReferenceSpaceType,
     pub frame_timing: FrameTiming,
+    pub scene: VrScene,
 
     // OpenXR objects (Option because they're created incrementally)
     entry: Option<xr::Entry>,
@@ -119,6 +121,7 @@ impl VrState {
             enabled_extensions: HashSet::new(),
             active_reference_space: ReferenceSpaceType::Local,
             frame_timing: FrameTiming::default(),
+            scene: VrScene::new(),
             entry: None,
             instance: None,
             system_id: None,
