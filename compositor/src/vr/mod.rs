@@ -27,7 +27,8 @@ pub mod stub;
 #[cfg(not(feature = "vr"))]
 pub use stub::{ReferenceSpaceType, VrState};
 
-// Scene graph, DRM lease, and interaction are always available (no openxrs dependency).
+// Scene graph, DRM lease, interaction, and eye tracking are always available (no openxrs dependency).
 pub mod scene;
 pub mod drm_lease;
 pub mod vr_interaction;
+pub mod eye_tracking;

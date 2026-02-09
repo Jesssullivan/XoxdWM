@@ -69,6 +69,15 @@ pub fn handle_message(state: &mut EwwmState, client_id: u64, raw: &str) -> Optio
         Some("vr-set-follow") => handle_vr_set_follow(state, msg_id, &value),
         Some("vr-set-gaze-offset") => handle_vr_set_gaze_offset(state, msg_id, &value),
         Some("vr-calibrate-confirm") => handle_vr_calibrate_confirm(state, msg_id),
+        // Eye tracking (Week 11)
+        Some("gaze-status") => handle_gaze_status(state, msg_id),
+        Some("gaze-set-source") => handle_gaze_set_source(state, msg_id, &value),
+        Some("gaze-calibrate-start") => handle_gaze_calibrate_start(state, msg_id, &value),
+        Some("gaze-calibrate-point") => handle_gaze_calibrate_point(state, msg_id, &value),
+        Some("gaze-set-visualization") => handle_gaze_set_visualization(state, msg_id, &value),
+        Some("gaze-set-smoothing") => handle_gaze_set_smoothing(state, msg_id, &value),
+        Some("gaze-simulate") => handle_gaze_simulate(state, msg_id, &value),
+        Some("gaze-health") => handle_gaze_health(state, msg_id),
         Some(other) => Some(error_response(
             msg_id,
             &format!("unknown message type: {other}"),
@@ -764,6 +773,163 @@ fn handle_vr_calibrate_confirm(state: &mut EwwmState, msg_id: i64) -> Option<Str
             msg_id, next
         ))
     }
+}
+
+// ── Eye tracking handlers (Week 11) ───────────────────────
+
+fn handle_gaze_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let status = state.vr_state.eye_tracking.status_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :gaze {})",
+        msg_id, status
+    ))
+}
+
+fn handle_gaze_set_source(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let source_str = get_keyword(value, "source").unwrap_or_default();
+    use crate::vr::eye_tracking::GazeSource;
+    let source = if source_str == "auto" {
+        None
+    } else {
+        match GazeSource::from_str(&source_str) {
+            Some(s) => Some(s),
+            None => return Some(error_response(msg_id, &format!("unknown gaze source: {source_str}"))),
+        }
+    };
+    state.vr_state.eye_tracking.set_source(source);
+    Some(ok_response(msg_id))
+}
+
+fn handle_gaze_calibrate_start(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let points = get_int(value, "points").unwrap_or(5) as usize;
+    state.vr_state.eye_tracking.start_calibration(points);
+    Some(format!(
+        "(:type :response :id {} :status :ok :calibration :started :points {})",
+        msg_id, points
+    ))
+}
+
+fn handle_gaze_calibrate_point(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    use crate::vr::scene::Vec3;
+    let tx = get_int(value, "target-x").unwrap_or(0) as f32 / 100.0;
+    let ty = get_int(value, "target-y").unwrap_or(0) as f32 / 100.0;
+    let tz = get_int(value, "target-z").unwrap_or(-200) as f32 / 100.0;
+    let target = Vec3::new(tx, ty, tz);
+
+    let gaze_dir = state
+        .vr_state
+        .eye_tracking
+        .current_gaze
+        .map(|g| g.ray.direction)
+        .unwrap_or(Vec3::new(0.0, 0.0, -1.0));
+
+    let timestamp = state
+        .vr_state
+        .eye_tracking
+        .current_gaze
+        .map(|g| g.timestamp_s)
+        .unwrap_or(0.0);
+
+    let complete = state
+        .vr_state
+        .eye_tracking
+        .record_calibration_point(target, gaze_dir, timestamp);
+
+    if complete {
+        let rms = state
+            .vr_state
+            .eye_tracking
+            .calibration
+            .rms_error()
+            .unwrap_or(0.0);
+        Some(format!(
+            "(:type :response :id {} :status :ok :calibration :complete :rms-error {:.1})",
+            msg_id, rms
+        ))
+    } else {
+        let next = state
+            .vr_state
+            .eye_tracking
+            .calibration
+            .current_point_index()
+            .unwrap_or(0);
+        Some(format!(
+            "(:type :response :id {} :status :ok :calibration :point-recorded :next {})",
+            msg_id, next
+        ))
+    }
+}
+
+fn handle_gaze_set_visualization(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let vis_str = get_keyword(value, "mode").unwrap_or_default();
+    use crate::vr::eye_tracking::GazeVisualization;
+    match GazeVisualization::from_str(&vis_str) {
+        Some(vis) => {
+            state.vr_state.eye_tracking.set_visualization(vis);
+            Some(ok_response(msg_id))
+        }
+        None => Some(error_response(msg_id, &format!("unknown visualization: {vis_str}"))),
+    }
+}
+
+fn handle_gaze_set_smoothing(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let alpha = get_int(value, "alpha").unwrap_or(30) as f32 / 100.0;
+    state.vr_state.eye_tracking.set_smoothing(alpha);
+    Some(ok_response(msg_id))
+}
+
+fn handle_gaze_simulate(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let mode_str = get_keyword(value, "mode").unwrap_or_default();
+    use crate::vr::eye_tracking::SimulatedGazeMode;
+    if mode_str == "off" || mode_str == "nil" {
+        state.vr_state.eye_tracking.set_simulate(None);
+        return Some(ok_response(msg_id));
+    }
+    match SimulatedGazeMode::from_str(&mode_str) {
+        Some(mode) => {
+            state.vr_state.eye_tracking.set_simulate(Some(mode));
+            Some(ok_response(msg_id))
+        }
+        None => Some(error_response(msg_id, &format!("unknown simulate mode: {mode_str}"))),
+    }
+}
+
+fn handle_gaze_health(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let h = &state.vr_state.eye_tracking.health;
+    Some(format!(
+        "(:type :response :id {} :status :ok :health (:rate {:.0} :expected-rate {:.0} :confidence {:.2} :tracking-lost {} :calibration-error {} :consecutive-lost {}))",
+        msg_id,
+        h.actual_rate_hz,
+        h.expected_rate_hz,
+        h.avg_confidence,
+        if h.tracking_lost { "t" } else { "nil" },
+        h.calibration_error_deg.map(|e| format!("{:.1}", e)).unwrap_or_else(|| "nil".to_string()),
+        h.consecutive_lost_frames,
+    ))
 }
 
 // ── Helpers ────────────────────────────────────────────────

@@ -6,6 +6,7 @@
 use tracing::info;
 
 use super::drm_lease::HmdManager;
+use super::eye_tracking::EyeTracking;
 use super::scene::VrScene;
 use super::vr_interaction::VrInteraction;
 
@@ -23,6 +24,7 @@ pub struct VrState {
     pub scene: VrScene,
     pub hmd_manager: HmdManager,
     pub interaction: VrInteraction,
+    pub eye_tracking: EyeTracking,
 }
 
 impl Default for VrState {
@@ -32,6 +34,7 @@ impl Default for VrState {
             scene: VrScene::new(),
             hmd_manager: HmdManager::new(),
             interaction: VrInteraction::new(),
+            eye_tracking: EyeTracking::new(),
         }
     }
 }
