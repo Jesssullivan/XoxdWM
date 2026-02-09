@@ -52,6 +52,10 @@ Creates buffer, applies manage rules, assigns workspace, triggers layout."
         (setq ewwm-x11-p t
               ewwm-x11-class (or (plist-get msg :x11-class) app-id)
               ewwm-x11-instance (or (plist-get msg :x11-instance) ""))))
+    ;; Auto-float X11 transient windows (dialogs)
+    (when (and x11-p (plist-get msg :transient))
+      (with-current-buffer buf
+        (setq ewwm-surface-state 'floating)))
     ;; Apply manage rules
     (let ((actions (ewwm-manage--match-rules msg)))
       (when actions
@@ -152,6 +156,42 @@ Returns the actions plist from the first matching rule, or nil."
                  (funcall 'ewwm-ipc-connected-p))
         (funcall 'ewwm-ipc-send
                  `(:type :surface-fullscreen :surface-id ,sid))))))
+
+;; ── XWayland surface queries ────────────────────────────────
+
+(defun ewwm-surface-x11-p (&optional buffer)
+  "Return non-nil if BUFFER (default: current) is an XWayland surface."
+  (let ((buf (or buffer (current-buffer))))
+    (and (buffer-live-p buf)
+         (buffer-local-value 'ewwm-x11-p buf))))
+
+(defun ewwm-x11-surfaces ()
+  "Return list of all XWayland surface buffers."
+  (cl-remove-if-not #'ewwm-surface-x11-p (ewwm--all-buffers)))
+
+;; ── Manage rule helpers ────────────────────────────────────
+
+(defun ewwm-manage-rule-x11-class (class-regexp)
+  "Return a predicate matching X11 surfaces by WM_CLASS.
+CLASS-REGEXP is a regexp matched against the x11-class field."
+  (lambda (surface-data)
+    (and (plist-get surface-data :x11)
+         (let ((cls (or (plist-get surface-data :x11-class) "")))
+           (string-match-p class-regexp cls)))))
+
+(defun ewwm-manage-rule-app-id (app-id-regexp)
+  "Return a predicate matching surfaces by app-id.
+APP-ID-REGEXP is a regexp matched against the app-id field."
+  (lambda (surface-data)
+    (let ((aid (or (plist-get surface-data :app-id) "")))
+      (string-match-p app-id-regexp aid))))
+
+(defun ewwm-manage-rule-title (title-regexp)
+  "Return a predicate matching surfaces by title.
+TITLE-REGEXP is a regexp matched against the title field."
+  (lambda (surface-data)
+    (let ((title (or (plist-get surface-data :title) "")))
+      (string-match-p title-regexp title))))
 
 (provide 'ewwm-manage)
 ;;; ewwm-manage.el ends here

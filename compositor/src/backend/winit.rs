@@ -11,7 +11,10 @@ use smithay::{
     },
     reexports::wayland_server::Display,
     utils::{Rectangle, Size, Transform},
+    xwayland::{XWayland, XWaylandEvent},
+    xwayland::xwm::X11Wm,
 };
+use std::process::Stdio;
 use std::time::Duration;
 use tracing::{error, info, warn};
 
@@ -60,6 +63,50 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
     };
     info!("Wayland socket: {}", socket.to_string_lossy());
     std::env::set_var("WAYLAND_DISPLAY", &socket);
+
+    // Spawn XWayland
+    match XWayland::spawn(
+        &display.handle(),
+        None,
+        std::iter::empty::<(String, String)>(),
+        true,
+        Stdio::null(),
+        Stdio::null(),
+        |_| (),
+    ) {
+        Ok((xwayland, client)) => {
+            let dh = display.handle();
+            event_loop.handle().insert_source(xwayland, move |event, _, state: &mut EwwmState| {
+                match event {
+                    XWaylandEvent::Ready { x11_socket, display_number } => {
+                        info!(display_number, "XWayland ready");
+                        match X11Wm::start_wm(
+                            state.loop_handle.clone(),
+                            &dh,
+                            x11_socket,
+                            client.clone(),
+                        ) {
+                            Ok(wm) => {
+                                state.xwm = Some(wm);
+                                state.xdisplay = Some(display_number);
+                                std::env::set_var("DISPLAY", format!(":{}", display_number));
+                            }
+                            Err(e) => {
+                                error!("Failed to start X11 WM: {}", e);
+                            }
+                        }
+                    }
+                    XWaylandEvent::Error => {
+                        warn!("XWayland crashed on startup (continuing without X11 support)");
+                    }
+                }
+            }).ok();
+            info!("XWayland spawning");
+        }
+        Err(e) => {
+            warn!("XWayland not available: {} (continuing without X11 support)", e);
+        }
+    }
 
     // Insert Wayland display source into event loop
     event_loop.handle().insert_source(

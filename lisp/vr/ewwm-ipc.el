@@ -44,7 +44,8 @@
     (:surface-focused    . ewwm-ipc--on-surface-focused)
     (:surface-geometry-changed . ewwm-ipc--on-surface-geometry-changed)
     (:workspace-changed  . ewwm-ipc--on-workspace-changed)
-    (:key-pressed        . ewwm-ipc--on-key-pressed))
+    (:key-pressed        . ewwm-ipc--on-key-pressed)
+    (:output-usable-area-changed . ewwm-ipc--on-output-usable-area-changed))
   "Alist mapping event types to handler functions.")
 
 (defvar ewwm-ipc--reconnect-timer nil
@@ -323,6 +324,11 @@ TIMEOUT defaults to `ewwm-ipc-sync-timeout' seconds."
   "Handle :key-pressed event MSG."
   (let ((key (plist-get msg :key)))
     (message "ewwm: key pressed: %s" key)))
+
+(defun ewwm-ipc--on-output-usable-area-changed (msg)
+  "Handle :output-usable-area-changed event MSG.
+Updates layout usable area when layer-shell exclusive zones change."
+  (message "ewwm: usable area changed: %S" msg))
 
 ;; ── Reconnection ───────────────────────────────────────────
 

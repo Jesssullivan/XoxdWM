@@ -63,7 +63,9 @@
   (fset 'ewwm-ipc--on-surface-geometry-changed #'ewwm-manage--on-geometry-changed)
   (fset 'ewwm-ipc--on-key-pressed #'ewwm-input--handle-key-event)
   (fset 'ewwm-ipc--on-surface-focused #'ewwm--on-compositor-focus)
-  (fset 'ewwm-ipc--on-workspace-changed #'ewwm--on-compositor-workspace-changed))
+  (fset 'ewwm-ipc--on-workspace-changed #'ewwm--on-compositor-workspace-changed)
+  ;; Layer-shell usable area changes
+  (fset 'ewwm-ipc--on-output-usable-area-changed #'ewwm-layout--on-usable-area-changed))
 
 ;; ── Focus management (Stage 5.8) ────────────────────────────
 

@@ -191,8 +191,27 @@ BUFFERS list determines which buffer is visible."
 
 (defun ewwm-layout--set-usable-area (geometry)
   "Set the usable output area to GEOMETRY plist.
-Called when layer-shell exclusive zones change."
-  (setq ewwm-layout--usable-area geometry))
+Called when layer-shell exclusive zones change.
+GEOMETRY is (:x N :y N :w N :h N) from compositor IPC."
+  (setq ewwm-layout--usable-area geometry)
+  ;; Re-layout current workspace to respect new usable area
+  (when (and (boundp 'ewwm-workspace-current-index)
+             (not noninteractive))
+    (ewwm-layout--apply-current
+     (ewwm--buffers-on-workspace ewwm-workspace-current-index))))
+
+(defun ewwm-layout--on-usable-area-changed (msg)
+  "Handle output-usable-area-changed IPC event MSG.
+Updates usable area and re-layouts."
+  (let ((geometry `(:x ,(plist-get msg :x)
+                   :y ,(plist-get msg :y)
+                   :w ,(plist-get msg :w)
+                   :h ,(plist-get msg :h))))
+    (ewwm-layout--set-usable-area geometry)))
+
+(defun ewwm-layout-usable-area ()
+  "Return the current usable area plist, or nil if not set."
+  ewwm-layout--usable-area)
 
 (provide 'ewwm-layout)
 ;;; ewwm-layout.el ends here

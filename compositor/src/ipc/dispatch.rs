@@ -101,26 +101,31 @@ fn handle_surface_list(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     for (id, data) in &state.surfaces {
         let app_id = data.app_id.as_deref().unwrap_or("");
         let title = data.title.as_deref().unwrap_or("");
+        let x11_flag = if data.is_x11 { "t" } else { "nil" };
+        let x11_class = data.x11_class.as_deref().unwrap_or("");
+        let x11_instance = data.x11_instance.as_deref().unwrap_or("");
         // Get geometry from Space
         let geo = state
             .space
             .elements()
             .find_map(|w| {
-                // Match by surface_id stored in SurfaceData
                 state.space.element_geometry(w).map(|g| {
-                    // We need to correlate window to surface_id
-                    // For now return the geometry of the Nth element
                     (g.loc.x, g.loc.y, g.size.w, g.size.h)
                 })
             })
             .unwrap_or((0, 0, 0, 0));
 
         surfaces_sexp.push_str(&format!(
-            "(:id {} :app-id \"{}\" :title \"{}\" :geometry (:x {} :y {} :w {} :h {}) :workspace 0 :focused nil)",
+            "(:id {} :app-id \"{}\" :title \"{}\" :x11 {} :x11-class \"{}\" :x11-instance \"{}\" :geometry (:x {} :y {} :w {} :h {}) :workspace {} :floating {} :focused nil)",
             id,
             escape_string(app_id),
             escape_string(title),
+            x11_flag,
+            escape_string(x11_class),
+            escape_string(x11_instance),
             geo.0, geo.1, geo.2, geo.3,
+            data.workspace,
+            if data.floating { "t" } else { "nil" },
         ));
     }
     surfaces_sexp.push(')');

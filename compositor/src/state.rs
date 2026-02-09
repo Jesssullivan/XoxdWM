@@ -6,23 +6,30 @@
 use smithay::{
     delegate_compositor, delegate_data_device, delegate_output, delegate_seat, delegate_shm,
     delegate_xdg_shell,
-    desktop::{Space, Window},
+    desktop::{PopupManager, Space, Window},
     input::{Seat, SeatState},
     reexports::{
         calloop::{generic::Generic, Interest, LoopHandle, Mode, PostAction},
         wayland_server::{
             backend::{ClientData, ClientId, DisconnectReason},
             protocol::wl_surface::WlSurface,
-            Display, DisplayHandle,
+            Client, Display, DisplayHandle,
         },
     },
+    utils::Rectangle,
     wayland::{
         compositor::{CompositorClientState, CompositorState},
+        foreign_toplevel_list::ForeignToplevelListState,
         output::OutputManagerState,
         selection::data_device::DataDeviceState,
-        shell::xdg::XdgShellState,
+        shell::{
+            wlr_layer::WlrLayerShellState,
+            xdg::XdgShellState,
+        },
         shm::ShmState,
     },
+    xwayland::xwm::X11Wm,
+    xwayland::XWaylandShellState,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -46,6 +53,57 @@ pub struct SurfaceData {
     pub surface_id: u64,
     pub app_id: Option<String>,
     pub title: Option<String>,
+    /// True if this surface comes from XWayland (X11 application).
+    pub is_x11: bool,
+    /// X11 WM_CLASS class name (only for XWayland surfaces).
+    pub x11_class: Option<String>,
+    /// X11 WM_CLASS instance name (only for XWayland surfaces).
+    pub x11_instance: Option<String>,
+    /// Workspace assignment (default 0).
+    pub workspace: usize,
+    /// Whether this surface is floating (vs tiled).
+    pub floating: bool,
+}
+
+impl SurfaceData {
+    pub fn new(surface_id: u64) -> Self {
+        Self {
+            surface_id,
+            app_id: None,
+            title: None,
+            is_x11: false,
+            x11_class: None,
+            x11_instance: None,
+            workspace: 0,
+            floating: false,
+        }
+    }
+
+    pub fn new_x11(surface_id: u64) -> Self {
+        let mut data = Self::new(surface_id);
+        data.is_x11 = true;
+        data
+    }
+}
+
+/// Usable output area after accounting for layer-shell exclusive zones.
+#[derive(Debug, Clone, Copy)]
+pub struct UsableArea {
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
+}
+
+impl Default for UsableArea {
+    fn default() -> Self {
+        Self {
+            x: 0,
+            y: 0,
+            w: 1920,
+            h: 1080,
+        }
+    }
 }
 
 /// Central compositor state.
@@ -62,6 +120,20 @@ pub struct EwwmState {
     pub seat_state: SeatState<Self>,
     pub data_device_state: DataDeviceState,
 
+    // Layer shell
+    pub layer_shell_state: WlrLayerShellState,
+
+    // Foreign toplevel management
+    pub foreign_toplevel_state: ForeignToplevelListState,
+
+    // XWayland
+    pub xwm: Option<X11Wm>,
+    pub xwayland_shell_state: XWaylandShellState,
+    pub xdisplay: Option<u32>,
+
+    // Popups
+    pub popups: PopupManager,
+
     // Input
     pub seat: Seat<Self>,
 
@@ -69,6 +141,9 @@ pub struct EwwmState {
     pub space: Space<Window>,
     pub surfaces: HashMap<u64, SurfaceData>,
     pub active_workspace: usize,
+
+    // Output usable area (after layer-shell exclusive zones)
+    pub usable_area: UsableArea,
 
     // IPC
     pub ipc_server: IpcServer,
@@ -92,9 +167,18 @@ impl EwwmState {
         let mut seat_state = SeatState::new();
         let data_device_state = DataDeviceState::new::<Self>(&display_handle);
 
+        // Layer shell protocol
+        let layer_shell_state = WlrLayerShellState::new::<Self>(&display_handle);
+
+        // Foreign toplevel list protocol
+        let foreign_toplevel_state = ForeignToplevelListState::new::<Self>(&display_handle);
+
+        // XWayland shell protocol (for surface serial matching)
+        let xwayland_shell_state = XWaylandShellState::new::<Self>(&display_handle);
+
         let seat = seat_state.new_wl_seat(&display_handle, "ewwm-seat");
 
-        info!("EwwmState initialized");
+        info!("EwwmState initialized (with layer-shell, foreign-toplevel, xwayland-shell)");
 
         let ipc_socket_path = IpcServer::default_socket_path();
 
@@ -107,10 +191,17 @@ impl EwwmState {
             output_state,
             seat_state,
             data_device_state,
+            layer_shell_state,
+            foreign_toplevel_state,
+            xwm: None,
+            xwayland_shell_state,
+            xdisplay: None,
+            popups: PopupManager::default(),
             seat,
             space: Space::default(),
             surfaces: HashMap::new(),
             active_workspace: 0,
+            usable_area: UsableArea::default(),
             ipc_server: IpcServer::new(ipc_socket_path),
             grabbed_keys: HashSet::new(),
             running: true,
