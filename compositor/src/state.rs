@@ -37,7 +37,9 @@ use std::{
 };
 use tracing::info;
 
+use crate::autotype::AutoTypeManager;
 use crate::ipc::IpcServer;
+use crate::secure_input::SecureInputState;
 use crate::vr::VrState;
 
 /// Monotonically increasing surface ID generator.
@@ -153,6 +155,12 @@ pub struct EwwmState {
     // VR subsystem
     pub vr_state: VrState,
 
+    // Auto-type (credential injection)
+    pub autotype: AutoTypeManager,
+
+    // Secure input mode
+    pub secure_input: SecureInputState,
+
     // Shutdown flag
     pub running: bool,
 }
@@ -209,6 +217,8 @@ impl EwwmState {
             ipc_server: IpcServer::new(ipc_socket_path),
             grabbed_keys: HashSet::new(),
             vr_state: VrState::new(),
+            autotype: AutoTypeManager::new(),
+            secure_input: SecureInputState::new(),
             running: true,
         }
     }

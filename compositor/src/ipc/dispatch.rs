@@ -100,6 +100,15 @@ pub fn handle_message(state: &mut EwwmState, client_id: u64, raw: &str) -> Optio
         Some("fatigue-config") => handle_fatigue_config(state, msg_id),
         Some("fatigue-metrics") => handle_fatigue_metrics(state, msg_id),
         Some("fatigue-reset") => handle_fatigue_reset(state, msg_id),
+        // Auto-type & secure input (Week 14)
+        Some("autotype") => handle_autotype(state, msg_id, &value),
+        Some("autotype-status") => handle_autotype_status(state, msg_id),
+        Some("autotype-abort") => handle_autotype_abort(state, msg_id),
+        Some("autotype-pause") => handle_autotype_pause(state, msg_id, &value),
+        Some("autotype-resume") => handle_autotype_resume(state, msg_id),
+        Some("secure-input-mode") => handle_secure_input_mode(state, msg_id, &value),
+        Some("secure-input-status") => handle_secure_input_status(state, msg_id),
+        Some("gaze-away-monitor") => handle_gaze_away_monitor(state, msg_id, &value),
         Some(other) => Some(error_response(
             msg_id,
             &format!("unknown message type: {other}"),
@@ -1154,6 +1163,133 @@ fn handle_fatigue_metrics(state: &mut EwwmState, msg_id: i64) -> Option<String> 
 
 fn handle_fatigue_reset(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     state.vr_state.fatigue_monitor.teardown();
+    Some(ok_response(msg_id))
+}
+
+// ── Auto-type handlers (Week 14) ───────────────────────────
+
+fn handle_autotype(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let text = match get_string(value, "text") {
+        Some(t) => t,
+        None => return Some(error_response(msg_id, "missing :text")),
+    };
+    let surface_id = get_int(value, "surface-id").unwrap_or(0) as u64;
+    let delay_ms = get_int(value, "delay-ms");
+    let verify = get_keyword(value, "verify-surface");
+
+    if let Some(d) = delay_ms {
+        state.autotype.config.delay_ms = d as u64;
+    }
+    if let Some(v) = verify {
+        state.autotype.config.verify_surface = v != "nil";
+    }
+
+    match state.autotype.start_typing(&text, surface_id) {
+        Ok(()) => Some(format!(
+            "(:type :response :id {} :status :ok :chars {} :surface-id {})",
+            msg_id,
+            text.len(),
+            surface_id
+        )),
+        Err(msg) => Some(error_response(msg_id, &msg)),
+    }
+}
+
+fn handle_autotype_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let status = state.autotype.status_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :autotype {})",
+        msg_id, status
+    ))
+}
+
+fn handle_autotype_abort(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    state.autotype.abort();
+    Some(ok_response(msg_id))
+}
+
+fn handle_autotype_pause(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    use crate::autotype::PauseReason;
+
+    let reason_str = get_keyword(value, "reason").unwrap_or_else(|| "user-requested".to_string());
+    let reason = match reason_str.as_str() {
+        "gaze-away" => PauseReason::GazeAway,
+        _ => PauseReason::UserRequested,
+    };
+    state.autotype.pause(reason);
+    Some(ok_response(msg_id))
+}
+
+fn handle_autotype_resume(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    state.autotype.resume();
+    Some(ok_response(msg_id))
+}
+
+// ── Secure input handlers (Week 14) ────────────────────────
+
+fn handle_secure_input_mode(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let enable = get_keyword(value, "enable")
+        .map(|v| v != "nil")
+        .unwrap_or(true);
+
+    if enable {
+        let reason = get_string(value, "reason").unwrap_or_else(|| "ipc".to_string());
+        let surface_id = get_int(value, "surface-id").unwrap_or(0) as u64;
+        let timeout = get_int(value, "timeout");
+        if let Some(t) = timeout {
+            state.secure_input.config.auto_exit_timeout_secs = t as u64;
+        }
+        state.secure_input.enter(&reason, surface_id);
+        Some(ok_response(msg_id))
+    } else {
+        state.secure_input.exit();
+        Some(ok_response(msg_id))
+    }
+}
+
+fn handle_secure_input_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let status = state.secure_input.status_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :secure-input {})",
+        msg_id, status
+    ))
+}
+
+fn handle_gaze_away_monitor(
+    _state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let enable = get_keyword(value, "enable")
+        .map(|v| v != "nil")
+        .unwrap_or(true);
+    let surface_id = get_int(value, "surface-id").unwrap_or(0);
+    let _pause_ms = get_int(value, "pause-ms").unwrap_or(500);
+    let _resume_ms = get_int(value, "resume-ms").unwrap_or(300);
+    let _abort_ms = get_int(value, "abort-ms").unwrap_or(5000);
+
+    debug!(
+        enable,
+        surface_id,
+        "gaze-away monitor {}",
+        if enable { "started" } else { "stopped" }
+    );
+
+    // Gaze-away monitoring state is tracked on the Emacs side;
+    // the compositor acknowledges the request and will emit
+    // gaze-target-changed events as needed.
     Some(ok_response(msg_id))
 }
 
