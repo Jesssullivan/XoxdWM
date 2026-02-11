@@ -140,6 +140,39 @@ pub fn handle_message(state: &mut EwwmState, client_id: u64, raw: &str) -> Optio
         Some("keyboard-toggle") => handle_keyboard_toggle(state, msg_id),
         Some("keyboard-layout") => handle_keyboard_layout(state, msg_id, &value),
         Some("keyboard-status") => handle_keyboard_status(state, msg_id),
+        // BCI (Week 19)
+        Some("bci-status") => handle_bci_status(state, msg_id),
+        Some("bci-start") => handle_bci_start(state, msg_id),
+        Some("bci-stop") => handle_bci_stop(state, msg_id),
+        Some("bci-restart") => handle_bci_restart(state, msg_id),
+        Some("bci-signal-quality") => handle_bci_signal_quality(state, msg_id),
+        Some("bci-config") => handle_bci_config(state, msg_id, &value),
+        Some("bci-inject-synthetic") => handle_bci_inject_synthetic(state, msg_id, &value),
+        Some("bci-data-list") => handle_bci_data_list(state, msg_id),
+        Some("bci-data-delete") => handle_bci_data_delete(state, msg_id, &value),
+        // BCI attention (Week 19)
+        Some("bci-attention-status") => handle_bci_attention_status(state, msg_id),
+        Some("bci-attention-config") => handle_bci_attention_config(state, msg_id, &value),
+        Some("bci-attention-calibrate-start") => handle_bci_attention_calibrate_start(state, msg_id),
+        Some("bci-attention-calibrate-finish") => handle_bci_attention_calibrate_finish(state, msg_id),
+        // BCI SSVEP (Week 19)
+        Some("bci-ssvep-status") => handle_bci_ssvep_status(state, msg_id),
+        Some("bci-ssvep-config") => handle_bci_ssvep_config(state, msg_id, &value),
+        Some("bci-ssvep-start") => handle_bci_ssvep_start(state, msg_id),
+        Some("bci-ssvep-stop") => handle_bci_ssvep_stop(state, msg_id),
+        // BCI P300 (Week 19)
+        Some("bci-p300-status") => handle_bci_p300_status(state, msg_id),
+        Some("bci-p300-config") => handle_bci_p300_config(state, msg_id, &value),
+        Some("bci-p300-start") => handle_bci_p300_start(state, msg_id, &value),
+        Some("bci-p300-stop") => handle_bci_p300_stop(state, msg_id),
+        // BCI motor imagery (Week 19)
+        Some("bci-mi-status") => handle_bci_mi_status(state, msg_id),
+        Some("bci-mi-config") => handle_bci_mi_config(state, msg_id, &value),
+        Some("bci-mi-calibrate-start") => handle_bci_mi_calibrate_start(state, msg_id),
+        Some("bci-mi-calibrate-finish") => handle_bci_mi_calibrate_finish(state, msg_id),
+        // BCI fatigue EEG (Week 19)
+        Some("bci-fatigue-eeg-status") => handle_bci_fatigue_eeg_status(state, msg_id),
+        Some("bci-fatigue-eeg-config") => handle_bci_fatigue_eeg_config(state, msg_id, &value),
         Some(other) => Some(error_response(
             msg_id,
             &format!("unknown message type: {other}"),
@@ -1830,6 +1863,350 @@ fn handle_keyboard_status(state: &mut EwwmState, msg_id: i64) -> Option<String> 
     Some(format!(
         "(:type :response :id {} :status :ok :keyboard {})",
         msg_id, status
+    ))
+}
+
+// ── BCI handlers (Week 19) ──────────────────────────────────
+
+fn handle_bci_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let status = state.vr_state.bci.status_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :bci {})",
+        msg_id, status
+    ))
+}
+
+fn handle_bci_start(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    match state.vr_state.bci.start() {
+        Ok(()) => Some(ok_response(msg_id)),
+        Err(e) => Some(error_response(msg_id, &e)),
+    }
+}
+
+fn handle_bci_stop(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    match state.vr_state.bci.stop() {
+        Ok(()) => Some(ok_response(msg_id)),
+        Err(e) => Some(error_response(msg_id, &e)),
+    }
+}
+
+fn handle_bci_restart(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    match state.vr_state.bci.restart() {
+        Ok(()) => Some(ok_response(msg_id)),
+        Err(e) => Some(error_response(msg_id, &e)),
+    }
+}
+
+fn handle_bci_signal_quality(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let quality = state.vr_state.bci.signal_quality_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :quality {})",
+        msg_id, quality
+    ))
+}
+
+fn handle_bci_config(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    if let Some(board) = get_string(value, "board") {
+        if let Err(e) = state.vr_state.bci.set_board_by_name(&board) {
+            return Some(error_response(msg_id, &e));
+        }
+    }
+    if let Some(port) = get_string(value, "serial-port") {
+        state.vr_state.bci.set_serial_port(&port);
+    }
+    if let Some(freq) = get_float(value, "notch-frequency") {
+        if let Err(e) = state.vr_state.bci.set_notch(freq) {
+            return Some(error_response(msg_id, &e));
+        }
+    }
+    if let Some(enabled) = get_bool(value, "artifact-rejection") {
+        state.vr_state.bci.config.artifact_rejection = enabled;
+    }
+    if let Some(days) = get_int(value, "data-retention-days") {
+        state.vr_state.bci.config.data_retention_days = days as u32;
+    }
+    Some(ok_response(msg_id))
+}
+
+fn handle_bci_inject_synthetic(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let event_type = match get_string(value, "event") {
+        Some(t) => t,
+        None => return Some(error_response(msg_id, "missing :event")),
+    };
+    // Collect optional params
+    let mut params = Vec::new();
+    if let Some(v) = get_string(value, "amplitude") {
+        params.push(("amplitude".to_string(), v));
+    }
+    if let Some(v) = get_string(value, "latency") {
+        params.push(("latency".to_string(), v));
+    }
+    if let Some(v) = get_string(value, "frequency") {
+        params.push(("frequency".to_string(), v));
+    }
+    if let Some(v) = get_string(value, "class") {
+        params.push(("class".to_string(), v));
+    }
+    match state.vr_state.bci.inject_synthetic_event(&event_type, &params) {
+        Ok(()) => Some(ok_response(msg_id)),
+        Err(e) => Some(error_response(msg_id, &e)),
+    }
+}
+
+fn handle_bci_data_list(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let data = state.vr_state.bci.data_list();
+    Some(format!(
+        "(:type :response :id {} :status :ok :sessions {})",
+        msg_id, data
+    ))
+}
+
+fn handle_bci_data_delete(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let session_id = match get_string(value, "session-id") {
+        Some(s) => s,
+        None => return Some(error_response(msg_id, "missing :session-id")),
+    };
+    match state.vr_state.bci.data_delete(&session_id) {
+        Ok(()) => Some(ok_response(msg_id)),
+        Err(e) => Some(error_response(msg_id, &e)),
+    }
+}
+
+// ── BCI attention handlers ──────────────────────────────────
+
+fn handle_bci_attention_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let status = state.vr_state.bci.attention.status_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :attention {})",
+        msg_id, status
+    ))
+}
+
+fn handle_bci_attention_config(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    if let Some(enabled) = get_bool(value, "enabled") {
+        state.vr_state.bci.attention.config.enabled = enabled;
+    }
+    if let Some(name) = get_string(value, "threshold-name") {
+        if let Some(val) = get_float(value, "threshold-value") {
+            if let Err(e) = state.vr_state.bci.attention.set_threshold(&name, val) {
+                return Some(error_response(msg_id, &e));
+            }
+        }
+    }
+    let config = state.vr_state.bci.attention.config_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :config {})",
+        msg_id, config
+    ))
+}
+
+fn handle_bci_attention_calibrate_start(
+    state: &mut EwwmState,
+    msg_id: i64,
+) -> Option<String> {
+    state.vr_state.bci.attention.start_calibration();
+    Some(ok_response(msg_id))
+}
+
+fn handle_bci_attention_calibrate_finish(
+    state: &mut EwwmState,
+    msg_id: i64,
+) -> Option<String> {
+    match state.vr_state.bci.attention.finish_calibration() {
+        Ok(()) => Some(ok_response(msg_id)),
+        Err(e) => Some(error_response(msg_id, &e)),
+    }
+}
+
+// ── BCI SSVEP handlers ─────────────────────────────────────
+
+fn handle_bci_ssvep_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let status = state.vr_state.bci.ssvep.status_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :ssvep {})",
+        msg_id, status
+    ))
+}
+
+fn handle_bci_ssvep_config(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    if let Some(enabled) = get_bool(value, "enabled") {
+        state.vr_state.bci.ssvep.config.enabled = enabled;
+    }
+    if let Some(window) = get_float(value, "window-seconds") {
+        state.vr_state.bci.ssvep.config.window_seconds = window;
+    }
+    if let Some(snr) = get_float(value, "min-snr-db") {
+        state.vr_state.bci.ssvep.config.min_snr_db = snr;
+    }
+    if let Some(conf) = get_float(value, "min-confidence") {
+        state.vr_state.bci.ssvep.config.min_confidence = conf;
+    }
+    let config = state.vr_state.bci.ssvep.config_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :config {})",
+        msg_id, config
+    ))
+}
+
+fn handle_bci_ssvep_start(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    state.vr_state.bci.ssvep.start();
+    Some(ok_response(msg_id))
+}
+
+fn handle_bci_ssvep_stop(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    state.vr_state.bci.ssvep.stop();
+    Some(ok_response(msg_id))
+}
+
+// ── BCI P300 handlers ───────────────────────────────────────
+
+fn handle_bci_p300_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let status = state.vr_state.bci.p300.status_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :p300 {})",
+        msg_id, status
+    ))
+}
+
+fn handle_bci_p300_config(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    if let Some(enabled) = get_bool(value, "enabled") {
+        state.vr_state.bci.p300.config.enabled = enabled;
+    }
+    if let Some(reps) = get_int(value, "repetitions") {
+        state.vr_state.bci.p300.config.repetitions = reps as u32;
+    }
+    if let Some(soa) = get_float(value, "soa-ms") {
+        state.vr_state.bci.p300.config.soa_ms = soa;
+    }
+    if let Some(conf) = get_float(value, "min-confidence") {
+        state.vr_state.bci.p300.config.min_confidence = conf;
+    }
+    let config = state.vr_state.bci.p300.config_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :config {})",
+        msg_id, config
+    ))
+}
+
+fn handle_bci_p300_start(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let num_targets = get_int(value, "num-targets").unwrap_or(6) as usize;
+    state.vr_state.bci.p300.start(num_targets);
+    Some(ok_response(msg_id))
+}
+
+fn handle_bci_p300_stop(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    state.vr_state.bci.p300.stop();
+    Some(ok_response(msg_id))
+}
+
+// ── BCI motor imagery handlers ──────────────────────────────
+
+fn handle_bci_mi_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let status = state.vr_state.bci.motor_imagery.status_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :motor-imagery {})",
+        msg_id, status
+    ))
+}
+
+fn handle_bci_mi_config(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    if let Some(enabled) = get_bool(value, "enabled") {
+        state.vr_state.bci.motor_imagery.config.enabled = enabled;
+    }
+    if let Some(conf) = get_float(value, "min-confidence") {
+        state.vr_state.bci.motor_imagery.config.min_confidence = conf;
+    }
+    let config = state.vr_state.bci.motor_imagery.config_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :config {})",
+        msg_id, config
+    ))
+}
+
+fn handle_bci_mi_calibrate_start(
+    state: &mut EwwmState,
+    msg_id: i64,
+) -> Option<String> {
+    state.vr_state.bci.motor_imagery.start_calibration();
+    Some(ok_response(msg_id))
+}
+
+fn handle_bci_mi_calibrate_finish(
+    state: &mut EwwmState,
+    msg_id: i64,
+) -> Option<String> {
+    match state.vr_state.bci.motor_imagery.finish_calibration() {
+        Ok(()) => Some(ok_response(msg_id)),
+        Err(e) => Some(error_response(msg_id, &e)),
+    }
+}
+
+// ── BCI fatigue EEG handlers ────────────────────────────────
+
+fn handle_bci_fatigue_eeg_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let status = state.vr_state.bci.fatigue_eeg.status_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :fatigue-eeg {})",
+        msg_id, status
+    ))
+}
+
+fn handle_bci_fatigue_eeg_config(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    if let Some(enabled) = get_bool(value, "enabled") {
+        state.vr_state.bci.fatigue_eeg.config.enabled = enabled;
+    }
+    if let Some(mild) = get_float(value, "mild-threshold") {
+        state.vr_state.bci.fatigue_eeg.config.mild_threshold = mild;
+    }
+    if let Some(moderate) = get_float(value, "moderate-threshold") {
+        state.vr_state.bci.fatigue_eeg.config.moderate_threshold = moderate;
+    }
+    if let Some(severe) = get_float(value, "severe-threshold") {
+        state.vr_state.bci.fatigue_eeg.config.severe_threshold = severe;
+    }
+    if let Some(auto_save) = get_bool(value, "auto-save-on-severe") {
+        state.vr_state.bci.fatigue_eeg.config.auto_save_on_severe = auto_save;
+    }
+    let config = state.vr_state.bci.fatigue_eeg.config_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :config {})",
+        msg_id, config
     ))
 }
 
