@@ -1,0 +1,15 @@
+[Unit]
+Description=EXWM-VR Emacs Window Manager
+Documentation=https://github.com/Jesssullivan/XoxdWM
+After=exwm-vr-compositor.service
+BindsTo=exwm-vr-compositor.service
+Requires=exwm-vr-compositor.service
+PartOf=exwm-vr.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/emacs --fg-daemon=exwm-vr -l ewwm
+Environment=WAYLAND_DISPLAY=wayland-1
+
+[Install]
+WantedBy=exwm-vr.target

@@ -1,0 +1,299 @@
+## <summary>Interface definitions for the EXWM-VR SELinux policy module.</summary>
+
+########################################
+## <summary>
+##   Execute the EXWM-VR compositor in the exwm_vr_compositor_t domain.
+## </summary>
+## <param name="domain">
+##   <summary>
+##     Domain allowed to transition.
+##   </summary>
+## </param>
+#
+interface(`exwm_vr_compositor_domtrans',`
+    gen_require(`
+        type exwm_vr_compositor_t, exwm_vr_compositor_exec_t;
+    ')
+
+    corecmd_search_bin($1)
+    domtrans_pattern($1, exwm_vr_compositor_exec_t, exwm_vr_compositor_t)
+')
+
+########################################
+## <summary>
+##   Execute the EXWM-VR compositor without a domain transition.
+## </summary>
+## <param name="domain">
+##   <summary>
+##     Domain allowed to exec.
+##   </summary>
+## </param>
+#
+interface(`exwm_vr_compositor_exec',`
+    gen_require(`
+        type exwm_vr_compositor_exec_t;
+    ')
+
+    corecmd_search_bin($1)
+    can_exec($1, exwm_vr_compositor_exec_t)
+')
+
+########################################
+## <summary>
+##   Connect to the EXWM-VR compositor via Unix stream socket.
+## </summary>
+## <param name="domain">
+##   <summary>
+##     Domain allowed to connect.
+##   </summary>
+## </param>
+#
+interface(`exwm_vr_compositor_stream_connect',`
+    gen_require(`
+        type exwm_vr_compositor_t, exwm_vr_runtime_t;
+    ')
+
+    files_search_pids($1)
+    stream_connect_pattern($1, exwm_vr_runtime_t, exwm_vr_runtime_t, exwm_vr_compositor_t)
+')
+
+########################################
+## <summary>
+##   Send signals to the EXWM-VR compositor.
+## </summary>
+## <param name="domain">
+##   <summary>
+##     Domain allowed to send signals.
+##   </summary>
+## </param>
+#
+interface(`exwm_vr_compositor_signal',`
+    gen_require(`
+        type exwm_vr_compositor_t;
+    ')
+
+    allow $1 exwm_vr_compositor_t:process signal;
+')
+
+########################################
+## <summary>
+##   Read EXWM-VR runtime state files.
+## </summary>
+## <param name="domain">
+##   <summary>
+##     Domain allowed to read.
+##   </summary>
+## </param>
+#
+interface(`exwm_vr_read_runtime',`
+    gen_require(`
+        type exwm_vr_runtime_t;
+    ')
+
+    files_search_pids($1)
+    allow $1 exwm_vr_runtime_t:dir list_dir_perms;
+    allow $1 exwm_vr_runtime_t:file read_file_perms;
+    allow $1 exwm_vr_runtime_t:sock_file read_sock_file_perms;
+')
+
+########################################
+## <summary>
+##   Read and write EXWM-VR persistent data files.
+## </summary>
+## <param name="domain">
+##   <summary>
+##     Domain allowed to manage data.
+##   </summary>
+## </param>
+#
+interface(`exwm_vr_manage_data',`
+    gen_require(`
+        type exwm_vr_data_t;
+    ')
+
+    files_search_var_lib($1)
+    allow $1 exwm_vr_data_t:dir manage_dir_perms;
+    allow $1 exwm_vr_data_t:file manage_file_perms;
+')
+
+########################################
+## <summary>
+##   Read EXWM-VR persistent data files (read-only).
+## </summary>
+## <param name="domain">
+##   <summary>
+##     Domain allowed to read data.
+##   </summary>
+## </param>
+#
+interface(`exwm_vr_read_data',`
+    gen_require(`
+        type exwm_vr_data_t;
+    ')
+
+    files_search_var_lib($1)
+    allow $1 exwm_vr_data_t:dir list_dir_perms;
+    allow $1 exwm_vr_data_t:file read_file_perms;
+')
+
+########################################
+## <summary>
+##   Execute the Monado OpenXR runtime in the exwm_vr_monado_t domain.
+## </summary>
+## <param name="domain">
+##   <summary>
+##     Domain allowed to transition.
+##   </summary>
+## </param>
+#
+interface(`exwm_vr_monado_domtrans',`
+    gen_require(`
+        type exwm_vr_monado_t, exwm_vr_monado_exec_t;
+    ')
+
+    corecmd_search_bin($1)
+    domtrans_pattern($1, exwm_vr_monado_exec_t, exwm_vr_monado_t)
+')
+
+########################################
+## <summary>
+##   Connect to the Monado runtime via Unix stream socket.
+## </summary>
+## <param name="domain">
+##   <summary>
+##     Domain allowed to connect.
+##   </summary>
+## </param>
+#
+interface(`exwm_vr_monado_stream_connect',`
+    gen_require(`
+        type exwm_vr_monado_t;
+    ')
+
+    allow $1 exwm_vr_monado_t:unix_stream_socket connectto;
+')
+
+########################################
+## <summary>
+##   Execute the BrainFlow BCI process in the exwm_vr_brainflow_t domain.
+## </summary>
+## <param name="domain">
+##   <summary>
+##     Domain allowed to transition.
+##   </summary>
+## </param>
+#
+interface(`exwm_vr_brainflow_domtrans',`
+    gen_require(`
+        type exwm_vr_brainflow_t, exwm_vr_brainflow_exec_t;
+    ')
+
+    corecmd_search_bin($1)
+    domtrans_pattern($1, exwm_vr_brainflow_exec_t, exwm_vr_brainflow_t)
+')
+
+########################################
+## <summary>
+##   Connect to the BrainFlow BCI process via Unix stream socket.
+## </summary>
+## <param name="domain">
+##   <summary>
+##     Domain allowed to connect.
+##   </summary>
+## </param>
+#
+interface(`exwm_vr_brainflow_stream_connect',`
+    gen_require(`
+        type exwm_vr_brainflow_t;
+    ')
+
+    allow $1 exwm_vr_brainflow_t:unix_stream_socket connectto;
+')
+
+########################################
+## <summary>
+##   Read BCI venv data files.
+## </summary>
+## <param name="domain">
+##   <summary>
+##     Domain allowed to read BCI data.
+##   </summary>
+## </param>
+#
+interface(`exwm_vr_read_bci_data',`
+    gen_require(`
+        type exwm_vr_bci_data_t;
+    ')
+
+    allow $1 exwm_vr_bci_data_t:dir list_dir_perms;
+    allow $1 exwm_vr_bci_data_t:file read_file_perms;
+')
+
+########################################
+## <summary>
+##   Append to EXWM-VR log files.
+## </summary>
+## <param name="domain">
+##   <summary>
+##     Domain allowed to append logs.
+##   </summary>
+## </param>
+#
+interface(`exwm_vr_append_log',`
+    gen_require(`
+        type exwm_vr_log_t;
+    ')
+
+    logging_search_logs($1)
+    allow $1 exwm_vr_log_t:dir list_dir_perms;
+    allow $1 exwm_vr_log_t:file { append open getattr };
+')
+
+########################################
+## <summary>
+##   All of the rules required to administrate the EXWM-VR environment.
+## </summary>
+## <param name="domain">
+##   <summary>
+##     Domain allowed to administer.
+##   </summary>
+## </param>
+## <param name="role">
+##   <summary>
+##     Role allowed access.
+##   </summary>
+## </param>
+#
+interface(`exwm_vr_admin',`
+    gen_require(`
+        type exwm_vr_compositor_t, exwm_vr_monado_t, exwm_vr_brainflow_t;
+        type exwm_vr_data_t, exwm_vr_runtime_t, exwm_vr_log_t;
+        type exwm_vr_bci_data_t;
+    ')
+
+    # Manage all processes
+    allow $1 exwm_vr_compositor_t:process { ptrace signal_perms };
+    allow $1 exwm_vr_monado_t:process { ptrace signal_perms };
+    allow $1 exwm_vr_brainflow_t:process { ptrace signal_perms };
+
+    # Manage all data
+    files_search_var_lib($1)
+    admin_pattern($1, exwm_vr_data_t)
+    admin_pattern($1, exwm_vr_bci_data_t)
+
+    # Manage runtime
+    files_search_pids($1)
+    admin_pattern($1, exwm_vr_runtime_t)
+
+    # Manage logs
+    logging_search_logs($1)
+    admin_pattern($1, exwm_vr_log_t)
+
+    # Role association
+    exwm_vr_compositor_domtrans($1)
+    exwm_vr_monado_domtrans($1)
+    exwm_vr_brainflow_domtrans($1)
+    role $2 types exwm_vr_compositor_t;
+    role $2 types exwm_vr_monado_t;
+    role $2 types exwm_vr_brainflow_t;
+')

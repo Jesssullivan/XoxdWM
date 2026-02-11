@@ -1,0 +1,15 @@
+[Unit]
+Description=EXWM-VR Monado OpenXR Runtime
+Documentation=https://github.com/Jesssullivan/XoxdWM
+After=graphical-session.target
+ConditionPathExists=/etc/xdg/openxr/1/active_runtime.json
+PartOf=exwm-vr.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/monado-service
+Environment=XR_RUNTIME_JSON=/etc/xdg/openxr/1/active_runtime.json
+Restart=on-failure
+
+[Install]
+WantedBy=exwm-vr.target

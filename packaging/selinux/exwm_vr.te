@@ -1,0 +1,243 @@
+policy_module(exwm_vr, 0.1.0)
+
+########################################
+#
+# Declarations
+#
+
+# --- Compositor ---
+type exwm_vr_compositor_t;
+type exwm_vr_compositor_exec_t;
+init_daemon_domain(exwm_vr_compositor_t, exwm_vr_compositor_exec_t)
+
+# Compositor state/data directory: /var/lib/exwm-vr/
+type exwm_vr_data_t;
+files_type(exwm_vr_data_t)
+
+# Compositor runtime directory: /run/exwm-vr/
+type exwm_vr_runtime_t;
+files_type(exwm_vr_runtime_t)
+
+# Compositor log type
+type exwm_vr_log_t;
+logging_log_file(exwm_vr_log_t)
+
+# --- Monado OpenXR runtime ---
+type exwm_vr_monado_t;
+type exwm_vr_monado_exec_t;
+init_daemon_domain(exwm_vr_monado_t, exwm_vr_monado_exec_t)
+
+# --- BrainFlow BCI ---
+type exwm_vr_brainflow_t;
+type exwm_vr_brainflow_exec_t;
+init_daemon_domain(exwm_vr_brainflow_t, exwm_vr_brainflow_exec_t)
+
+# BCI venv directory: /opt/exwm-vr/bci-venv/
+type exwm_vr_bci_data_t;
+files_type(exwm_vr_bci_data_t)
+
+########################################
+#
+# Compositor policy  (exwm_vr_compositor_t)
+#
+
+# --- Process permissions ---
+allow exwm_vr_compositor_t self:process { signal sigchld setrlimit setsched getsched };
+allow exwm_vr_compositor_t self:fifo_file rw_fifo_file_perms;
+
+# --- DRM/GPU access (rendering, DRM leases for HMD) ---
+dev_read_sysfs(exwm_vr_compositor_t)
+allow exwm_vr_compositor_t drm_device_t:chr_file { open read write ioctl map getattr };
+allow exwm_vr_compositor_t gpu_device_t:chr_file { open read write ioctl map getattr };
+
+# DRM lease: create and manage leases for HMD displays
+allow exwm_vr_compositor_t drm_device_t:chr_file { lock };
+
+# --- Input devices (libinput) ---
+allow exwm_vr_compositor_t input_device_t:chr_file { open read write ioctl getattr };
+dev_read_input(exwm_vr_compositor_t)
+
+# --- Wayland socket in user tmp (XDG_RUNTIME_DIR) ---
+allow exwm_vr_compositor_t user_tmp_t:dir { search add_name remove_name write read getattr };
+allow exwm_vr_compositor_t user_tmp_t:sock_file { create bind unlink setattr getattr };
+allow exwm_vr_compositor_t user_tmp_t:file { create read write unlink getattr setattr open };
+
+# Unix domain socket operations for IPC
+allow exwm_vr_compositor_t self:unix_stream_socket { create bind listen accept connect read write getattr setattr shutdown };
+allow exwm_vr_compositor_t self:unix_dgram_socket { create read write connect getattr setattr };
+
+# --- Runtime state (/run/exwm-vr/) ---
+allow exwm_vr_compositor_t exwm_vr_runtime_t:dir manage_dir_perms;
+allow exwm_vr_compositor_t exwm_vr_runtime_t:file manage_file_perms;
+allow exwm_vr_compositor_t exwm_vr_runtime_t:sock_file manage_file_perms;
+files_pid_filetrans(exwm_vr_compositor_t, exwm_vr_runtime_t, { dir file sock_file })
+
+# --- Persistent data (/var/lib/exwm-vr/) ---
+allow exwm_vr_compositor_t exwm_vr_data_t:dir manage_dir_perms;
+allow exwm_vr_compositor_t exwm_vr_data_t:file manage_file_perms;
+
+# --- Logging ---
+allow exwm_vr_compositor_t exwm_vr_log_t:dir manage_dir_perms;
+allow exwm_vr_compositor_t exwm_vr_log_t:file manage_file_perms;
+logging_log_filetrans(exwm_vr_compositor_t, exwm_vr_log_t, { dir file })
+
+# --- Configuration files ---
+read_files_pattern(exwm_vr_compositor_t, etc_t, etc_t)
+
+# --- Shared memory (Wayland SHM buffers, DMA-BUF) ---
+allow exwm_vr_compositor_t tmpfs_t:file { read write map getattr };
+fs_rw_tmpfs_files(exwm_vr_compositor_t)
+
+# --- /dev/shm for shared memory ---
+fs_read_tmpfs_symlinks(exwm_vr_compositor_t)
+
+# --- libseat session management ---
+dbus_system_bus_client(exwm_vr_compositor_t)
+allow exwm_vr_compositor_t self:capability { sys_admin sys_tty_config };
+allow exwm_vr_compositor_t self:capability2 { wake_alarm };
+
+# --- XWayland support ---
+corenet_tcp_bind_xserver_port(exwm_vr_compositor_t)
+allow exwm_vr_compositor_t self:tcp_socket { create bind listen accept read write getattr setattr };
+
+# --- EGL/Mesa driver loading ---
+allow exwm_vr_compositor_t lib_t:file { execute read getattr map open };
+allow exwm_vr_compositor_t mesa_shader_cache_t:dir manage_dir_perms;
+allow exwm_vr_compositor_t mesa_shader_cache_t:file manage_file_perms;
+
+# --- Communicate with Monado (pass DRM lease FDs) ---
+allow exwm_vr_compositor_t exwm_vr_monado_t:unix_stream_socket { connectto read write };
+allow exwm_vr_compositor_t exwm_vr_monado_t:fd use;
+
+# --- Communicate with BrainFlow ---
+allow exwm_vr_compositor_t exwm_vr_brainflow_t:unix_stream_socket { connectto read write };
+
+# --- Exec transition to Monado ---
+domtrans_pattern(exwm_vr_compositor_t, exwm_vr_monado_exec_t, exwm_vr_monado_t)
+
+# --- DENY: network access for compositor ---
+# The compositor must not make outbound network connections.
+# XWayland localhost binding is the sole exception (handled above).
+neverallow exwm_vr_compositor_t any_socket_class_set:socket_class_set { name_connect };
+
+# Note: The neverallow above prevents outbound connect(). The XWayland
+# tcp bind is allowed explicitly.  For builds where neverallow is not
+# compiled in, use dontaudit to suppress AVC denials silently:
+dontaudit exwm_vr_compositor_t port_t:tcp_socket name_connect;
+dontaudit exwm_vr_compositor_t node_t:udp_socket { send_msg recv_msg };
+
+# --- DENY: file write outside designated directories ---
+# Compositor may only write to: exwm_vr_data_t, exwm_vr_runtime_t,
+# exwm_vr_log_t, user_tmp_t, tmpfs_t.  Everything else is denied.
+dontaudit exwm_vr_compositor_t file_type:file { write append create };
+
+########################################
+#
+# Monado policy  (exwm_vr_monado_t)
+#
+
+# --- Process ---
+allow exwm_vr_monado_t self:process { signal sigchld setrlimit getsched setsched };
+allow exwm_vr_monado_t self:fifo_file rw_fifo_file_perms;
+
+# --- DRM/GPU access (HMD rendering after lease) ---
+allow exwm_vr_monado_t drm_device_t:chr_file { open read write ioctl map getattr };
+allow exwm_vr_monado_t gpu_device_t:chr_file { open read write ioctl map getattr };
+dev_read_sysfs(exwm_vr_monado_t)
+
+# --- USB HMD device access ---
+allow exwm_vr_monado_t usb_device_t:chr_file { open read write ioctl getattr };
+allow exwm_vr_monado_t usb_device_t:dir { search read getattr };
+dev_read_usbfs(exwm_vr_monado_t)
+
+# --- HID devices (HMD sensors, controllers) ---
+allow exwm_vr_monado_t input_device_t:chr_file { open read write ioctl getattr };
+dev_read_input(exwm_vr_monado_t)
+
+# --- Shared memory (OpenXR compositor shared textures) ---
+allow exwm_vr_monado_t tmpfs_t:file { read write map getattr };
+fs_rw_tmpfs_files(exwm_vr_monado_t)
+
+# --- Unix socket IPC with compositor ---
+allow exwm_vr_monado_t self:unix_stream_socket { create bind listen accept read write getattr setattr shutdown };
+allow exwm_vr_monado_t self:unix_dgram_socket { create read write getattr setattr };
+allow exwm_vr_monado_t user_tmp_t:dir { search add_name remove_name write read getattr };
+allow exwm_vr_monado_t user_tmp_t:sock_file { create bind unlink setattr getattr };
+
+# --- Accept FDs from compositor (DRM lease) ---
+allow exwm_vr_monado_t exwm_vr_compositor_t:fd use;
+allow exwm_vr_monado_t exwm_vr_compositor_t:unix_stream_socket { read write getattr };
+
+# --- Configuration files ---
+read_files_pattern(exwm_vr_monado_t, etc_t, etc_t)
+
+# --- Runtime data ---
+allow exwm_vr_monado_t exwm_vr_runtime_t:dir { search read getattr };
+allow exwm_vr_monado_t exwm_vr_runtime_t:file { read getattr open };
+allow exwm_vr_monado_t exwm_vr_runtime_t:sock_file { getattr read write };
+
+# --- EGL/Mesa driver loading ---
+allow exwm_vr_monado_t lib_t:file { execute read getattr map open };
+allow exwm_vr_monado_t mesa_shader_cache_t:dir manage_dir_perms;
+allow exwm_vr_monado_t mesa_shader_cache_t:file manage_file_perms;
+
+# --- Logging ---
+allow exwm_vr_monado_t exwm_vr_log_t:file { append open getattr };
+
+# --- D-Bus (session tracking) ---
+dbus_system_bus_client(exwm_vr_monado_t)
+
+########################################
+#
+# BrainFlow policy  (exwm_vr_brainflow_t)
+#
+
+# --- Process ---
+allow exwm_vr_brainflow_t self:process { signal sigchld getsched };
+allow exwm_vr_brainflow_t self:fifo_file rw_fifo_file_perms;
+
+# --- Serial port access (EEG boards: /dev/ttyUSB*, /dev/ttyACM*) ---
+allow exwm_vr_brainflow_t tty_device_t:chr_file { open read write ioctl getattr setattr };
+
+# --- BCI venv directory ---
+allow exwm_vr_brainflow_t exwm_vr_bci_data_t:dir { search read getattr };
+allow exwm_vr_brainflow_t exwm_vr_bci_data_t:file { read getattr open execute execute_no_trans map };
+
+# --- Unix domain socket IPC with compositor ---
+allow exwm_vr_brainflow_t self:unix_stream_socket { create bind listen accept read write getattr setattr shutdown };
+allow exwm_vr_brainflow_t self:unix_dgram_socket { create read write getattr setattr };
+allow exwm_vr_brainflow_t user_tmp_t:dir { search add_name remove_name write read getattr };
+allow exwm_vr_brainflow_t user_tmp_t:sock_file { create bind unlink setattr getattr };
+allow exwm_vr_brainflow_t user_tmp_t:file { read write getattr open };
+
+# --- Accept connections from compositor ---
+allow exwm_vr_brainflow_t exwm_vr_compositor_t:unix_stream_socket { accept read write getattr };
+allow exwm_vr_brainflow_t exwm_vr_compositor_t:fd use;
+
+# --- Runtime data (read only) ---
+allow exwm_vr_brainflow_t exwm_vr_runtime_t:dir { search read getattr };
+allow exwm_vr_brainflow_t exwm_vr_runtime_t:file { read getattr open };
+
+# --- Python runtime needs ---
+allow exwm_vr_brainflow_t lib_t:file { execute read getattr map open };
+allow exwm_vr_brainflow_t tmp_t:dir { search read write add_name remove_name getattr };
+allow exwm_vr_brainflow_t tmp_t:file { create read write unlink getattr open map };
+allow exwm_vr_brainflow_t proc_t:file { read getattr open };
+
+# --- Shared memory (numpy, scipy) ---
+allow exwm_vr_brainflow_t tmpfs_t:file { read write map getattr };
+fs_rw_tmpfs_files(exwm_vr_brainflow_t)
+
+# --- Logging ---
+allow exwm_vr_brainflow_t exwm_vr_log_t:file { append open getattr };
+
+# --- Configuration ---
+read_files_pattern(exwm_vr_brainflow_t, etc_t, etc_t)
+
+# --- DENY: network access for BrainFlow ---
+# BCI data must stay local; communicate only via Unix sockets.
+dontaudit exwm_vr_brainflow_t port_t:tcp_socket name_connect;
+dontaudit exwm_vr_brainflow_t node_t:udp_socket { send_msg recv_msg };
+
+# --- DENY: BrainFlow writing outside designated dirs ---
+dontaudit exwm_vr_brainflow_t file_type:file { write append create };

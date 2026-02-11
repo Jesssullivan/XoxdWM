@@ -1,0 +1,45 @@
+# EXWM-VR SELinux file contexts
+
+# ---------------------------------------------------------------------------
+# Compositor binary
+# ---------------------------------------------------------------------------
+/usr/bin/ewwm-compositor                    --  gen_context(system_u:object_r:exwm_vr_compositor_exec_t, s0)
+
+# ---------------------------------------------------------------------------
+# Monado OpenXR runtime (common binary locations)
+# ---------------------------------------------------------------------------
+/usr/bin/monado-service                     --  gen_context(system_u:object_r:exwm_vr_monado_exec_t, s0)
+/usr/libexec/monado-service                 --  gen_context(system_u:object_r:exwm_vr_monado_exec_t, s0)
+
+# ---------------------------------------------------------------------------
+# BrainFlow BCI venv
+# ---------------------------------------------------------------------------
+/opt/exwm-vr/bci-venv/bin/python3          --  gen_context(system_u:object_r:exwm_vr_brainflow_exec_t, s0)
+/opt/exwm-vr/bci-venv/bin/python3\.[0-9]+  --  gen_context(system_u:object_r:exwm_vr_brainflow_exec_t, s0)
+/opt/exwm-vr/bci-venv(/.*)?                    gen_context(system_u:object_r:exwm_vr_bci_data_t, s0)
+
+# ---------------------------------------------------------------------------
+# Runtime state (/run/exwm-vr/)
+# ---------------------------------------------------------------------------
+/run/exwm-vr(/.*)?                              gen_context(system_u:object_r:exwm_vr_runtime_t, s0)
+
+# ---------------------------------------------------------------------------
+# Persistent data (/var/lib/exwm-vr/)
+# ---------------------------------------------------------------------------
+/var/lib/exwm-vr(/.*)?                          gen_context(system_u:object_r:exwm_vr_data_t, s0)
+
+# ---------------------------------------------------------------------------
+# Log files (/var/log/exwm-vr/)
+# ---------------------------------------------------------------------------
+/var/log/exwm-vr(/.*)?                          gen_context(system_u:object_r:exwm_vr_log_t, s0)
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+/etc/exwm-vr(/.*)?                              gen_context(system_u:object_r:etc_t, s0)
+
+# ---------------------------------------------------------------------------
+# Systemd user units (informational; packaged units inherit unit_file_t)
+# ---------------------------------------------------------------------------
+/usr/lib/systemd/user/ewwm-compositor\.service  gen_context(system_u:object_r:systemd_unit_file_t, s0)
+/usr/lib/systemd/user/ewwm-monado\.service      gen_context(system_u:object_r:systemd_unit_file_t, s0)

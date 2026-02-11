@@ -1,0 +1,13 @@
+[Unit]
+Description=EXWM-VR BrainFlow BCI Daemon
+Documentation=https://github.com/Jesssullivan/XoxdWM
+After=exwm-vr-compositor.service
+ConditionPathExists=/dev/openbci
+PartOf=exwm-vr.target
+
+[Service]
+Type=simple
+ExecStart=/opt/exwm-vr/bci-venv/bin/python -m ewwm_brainflow_daemon
+
+[Install]
+WantedBy=exwm-vr.target

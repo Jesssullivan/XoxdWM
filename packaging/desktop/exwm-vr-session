@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# EXWM-VR session wrapper for display managers (greetd, SDDM, GDM).
+# Starts the compositor + Emacs via systemd user services when available,
+# falling back to direct process launch otherwise.
+
+set -euo pipefail
+
+# ── Environment ──────────────────────────────────────────────────────
+export XDG_CURRENT_DESKTOP=EXWM-VR
+export XDG_SESSION_TYPE=wayland
+export WAYLAND_DISPLAY=wayland-1
+
+# Optional: point the OpenXR loader at Monado if the manifest exists.
+if [ -f /etc/xdg/openxr/1/active_runtime.json ]; then
+    export XR_RUNTIME_JSON=/etc/xdg/openxr/1/active_runtime.json
+fi
+
+# ── Systemd path ─────────────────────────────────────────────────────
+if command -v systemctl >/dev/null 2>&1 && systemctl --user list-unit-files exwm-vr.target >/dev/null 2>&1; then
+    echo "Starting EXWM-VR via systemd user target..."
+    systemctl --user start exwm-vr.target
+
+    # Wait for the compositor to exit; when it stops the session is over.
+    # BindsTo in the emacs unit will bring everything else down.
+    exec systemctl --user --wait start exwm-vr-compositor.service
+fi
+
+# ── Fallback: direct launch ──────────────────────────────────────────
+echo "systemd user units not found; launching directly..."
+
+cleanup() {
+    # Terminate emacs daemon if still running.
+    if [ -n "${EMACS_PID:-}" ] && kill -0 "$EMACS_PID" 2>/dev/null; then
+        kill "$EMACS_PID"
+    fi
+}
+trap cleanup EXIT
+
+export WLR_RENDERER=gles2
+
+# Start the compositor in the background.
+/usr/bin/ewwm-compositor --wayland-socket "${XDG_RUNTIME_DIR}/wayland-1" &
+COMPOSITOR_PID=$!
+
+# Give the compositor a moment to create the Wayland socket.
+sleep 1
+
+# Start Emacs as a foreground daemon.
+/usr/bin/emacs --fg-daemon=exwm-vr -l ewwm &
+EMACS_PID=$!
+
+# The session lives as long as the compositor does.
+wait "$COMPOSITOR_PID"

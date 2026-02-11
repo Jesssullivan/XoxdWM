@@ -1,0 +1,8 @@
+[Unit]
+Description=EXWM-VR Session Target
+Documentation=https://github.com/Jesssullivan/XoxdWM
+Wants=exwm-vr-compositor.service exwm-vr-emacs.service
+After=graphical-session.target
+
+[Install]
+WantedBy=graphical-session.target
