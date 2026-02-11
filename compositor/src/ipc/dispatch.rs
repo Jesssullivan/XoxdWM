@@ -114,6 +114,14 @@ pub fn handle_message(state: &mut EwwmState, client_id: u64, raw: &str) -> Optio
         Some("secure-input-mode") => handle_secure_input_mode(state, msg_id, &value),
         Some("secure-input-status") => handle_secure_input_status(state, msg_id),
         Some("gaze-away-monitor") => handle_gaze_away_monitor(state, msg_id, &value),
+        // Gaze scroll & link hints (Week 17)
+        Some("gaze-scroll-status") => handle_gaze_scroll_status(state, msg_id),
+        Some("gaze-scroll-config") => handle_gaze_scroll_config(state, msg_id, &value),
+        Some("gaze-scroll-set-speed") => handle_gaze_scroll_set_speed(state, msg_id, &value),
+        Some("link-hints-load") => handle_link_hints_load(state, msg_id, &value),
+        Some("link-hints-confirm") => handle_link_hints_confirm(state, msg_id),
+        Some("link-hints-clear") => handle_link_hints_clear(state, msg_id),
+        Some("link-hints-status") => handle_link_hints_status(state, msg_id),
         Some(other) => Some(error_response(
             msg_id,
             &format!("unknown message type: {other}"),
@@ -1410,6 +1418,110 @@ fn handle_headless_remove_output(state: &mut EwwmState, msg_id: i64) -> Option<S
     Some(format!(
         "(:type :response :id {} :status :ok :removed-index {} :outputs {})",
         msg_id, removed_index, state.headless_output_count
+    ))
+}
+
+// ── Gaze scroll handlers (Week 17) ─────────────────────────
+
+fn handle_gaze_scroll_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let status = state.vr_state.gaze_scroll.status_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :gaze-scroll {})",
+        msg_id, status
+    ))
+}
+
+fn handle_gaze_scroll_config(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    if let Some(enabled_str) = get_keyword(value, "enable") {
+        state.vr_state.gaze_scroll.config.enabled = enabled_str != "nil";
+    }
+    if let Some(edge) = get_int(value, "edge-pct") {
+        let pct = (edge as f32 / 100.0).clamp(0.01, 0.50);
+        state.vr_state.gaze_scroll.config.edge_pct = pct;
+    }
+    if let Some(speed) = get_int(value, "speed") {
+        let s = (speed as f32).clamp(0.1, 50.0);
+        state.vr_state.gaze_scroll.config.speed = s;
+    }
+    if let Some(delay) = get_int(value, "activation-delay-ms") {
+        state.vr_state.gaze_scroll.config.activation_delay_ms = (delay as f64).max(0.0);
+    }
+    if let Some(horiz_str) = get_keyword(value, "horizontal") {
+        state.vr_state.gaze_scroll.config.horizontal = horiz_str != "nil";
+    }
+
+    let status = state.vr_state.gaze_scroll.status_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :gaze-scroll {})",
+        msg_id, status
+    ))
+}
+
+fn handle_gaze_scroll_set_speed(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let speed = match get_int(value, "speed") {
+        Some(s) if s > 0 => s as f32,
+        _ => return Some(error_response(msg_id, "invalid :speed (must be positive)")),
+    };
+
+    state.vr_state.gaze_scroll.config.speed = speed.clamp(0.1, 50.0);
+    Some(format!(
+        "(:type :response :id {} :status :ok :speed {:.1})",
+        msg_id, state.vr_state.gaze_scroll.config.speed
+    ))
+}
+
+// ── Link hint handlers (Week 17) ───────────────────────────
+
+fn handle_link_hints_load(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let json = match get_string(value, "hints") {
+        Some(j) => j,
+        None => return Some(error_response(msg_id, "missing :hints (JSON array)")),
+    };
+    let surface_id = get_int(value, "surface-id").unwrap_or(0) as u64;
+
+    match state.vr_state.link_hints.load_hints(&json, surface_id) {
+        Ok(count) => Some(format!(
+            "(:type :response :id {} :status :ok :hint-count {} :surface-id {})",
+            msg_id, count, surface_id
+        )),
+        Err(e) => Some(error_response(msg_id, &format!("hint load failed: {}", e))),
+    }
+}
+
+fn handle_link_hints_confirm(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    match state.vr_state.link_hints.confirm() {
+        Some(crate::vr::link_hints::LinkHintEvent::Confirmed { hint_id, url }) => {
+            Some(format!(
+                "(:type :response :id {} :status :ok :hint-id {} :url \"{}\")",
+                msg_id, hint_id, escape_string(&url)
+            ))
+        }
+        _ => Some(error_response(msg_id, "no hint currently highlighted")),
+    }
+}
+
+fn handle_link_hints_clear(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    state.vr_state.link_hints.clear();
+    Some(ok_response(msg_id))
+}
+
+fn handle_link_hints_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let status = state.vr_state.link_hints.status_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :link-hints {})",
+        msg_id, status
     ))
 }
 

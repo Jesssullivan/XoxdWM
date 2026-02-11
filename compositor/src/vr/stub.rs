@@ -10,7 +10,9 @@ use super::drm_lease::HmdManager;
 use super::eye_tracking::EyeTracking;
 use super::fatigue::FatigueMonitor;
 use super::gaze_focus::GazeFocusManager;
+use super::gaze_scroll::GazeScrollState;
 use super::gaze_zone::ZoneDetector;
+use super::link_hints::LinkHintState;
 use super::scene::VrScene;
 use super::vr_interaction::VrInteraction;
 
@@ -33,6 +35,8 @@ pub struct VrState {
     pub blink_wink: BlinkWinkManager,
     pub zone_detector: ZoneDetector,
     pub fatigue_monitor: FatigueMonitor,
+    pub gaze_scroll: GazeScrollState,
+    pub link_hints: LinkHintState,
 }
 
 impl Default for VrState {
@@ -47,6 +51,8 @@ impl Default for VrState {
             blink_wink: BlinkWinkManager::new(),
             zone_detector: ZoneDetector::new(),
             fatigue_monitor: FatigueMonitor::new(),
+            gaze_scroll: GazeScrollState::new(),
+            link_hints: LinkHintState::new(),
         }
     }
 }

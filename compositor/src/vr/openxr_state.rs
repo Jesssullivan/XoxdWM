@@ -21,7 +21,9 @@ use super::frame_timing::FrameTiming;
 use super::blink_wink::BlinkWinkManager;
 use super::fatigue::FatigueMonitor;
 use super::gaze_focus::GazeFocusManager;
+use super::gaze_scroll::GazeScrollState;
 use super::gaze_zone::ZoneDetector;
+use super::link_hints::LinkHintState;
 use super::scene::VrScene;
 use super::vr_interaction::VrInteraction;
 
@@ -108,6 +110,8 @@ pub struct VrState {
     pub blink_wink: BlinkWinkManager,
     pub zone_detector: ZoneDetector,
     pub fatigue_monitor: FatigueMonitor,
+    pub gaze_scroll: GazeScrollState,
+    pub link_hints: LinkHintState,
 
     // OpenXR objects (Option because they're created incrementally)
     entry: Option<xr::Entry>,
@@ -143,6 +147,8 @@ impl VrState {
             blink_wink: BlinkWinkManager::new(),
             zone_detector: ZoneDetector::new(),
             fatigue_monitor: FatigueMonitor::new(),
+            gaze_scroll: GazeScrollState::new(),
+            link_hints: LinkHintState::new(),
             entry: None,
             instance: None,
             system_id: None,

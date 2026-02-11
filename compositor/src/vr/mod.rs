@@ -36,3 +36,5 @@ pub mod gaze_focus;
 pub mod gaze_zone;
 pub mod fatigue;
 pub mod blink_wink;
+pub mod gaze_scroll;
+pub mod link_hints;
