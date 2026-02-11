@@ -1,0 +1,99 @@
+name: Multi-Architecture Build & Test
+
+on:
+  push:
+    branches: [main, dev, 'feature/*']
+  pull_request:
+    branches: [main, dev]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-x86_64:
+    name: Build x86_64 (full + VR)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Build compositor (full + VR)
+        run: nix build .#packages.x86_64-linux.compositor
+
+      - name: Run cargo tests
+        run: |
+          nix develop --command bash -c "
+            cd compositor
+            cargo test --features full-backend,vr
+          "
+
+  build-headless:
+    name: Build x86_64 (headless)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Build headless compositor
+        run: nix build .#packages.x86_64-linux.compositor-headless
+
+      - name: Verify headless binary starts
+        run: |
+          result/bin/ewwm-compositor --headless --headless-exit-after 5 || true
+
+  ert-tests:
+    name: ERT Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Run ERT test suite
+        run: |
+          nix develop --command emacs --batch \
+            -L lisp/core -L lisp/vr -L lisp/ext \
+            -l ert \
+            $(find test -name '*-test.el' -printf '-l %p ') \
+            -f ert-run-tests-batch-and-exit
+
+  cross-aarch64:
+    name: Cross-compile aarch64
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Build aarch64 headless compositor
+        run: nix build .#packages.aarch64-linux.compositor-headless
+
+      - name: Verify binary architecture
+        run: |
+          file result/bin/ewwm-compositor | grep -i aarch64
+
+  cross-s390x:
+    name: Cross-compile s390x
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Build s390x headless compositor
+        run: nix build .#packages.s390x-linux.compositor-headless

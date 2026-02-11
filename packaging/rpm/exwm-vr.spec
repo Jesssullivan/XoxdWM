@@ -13,6 +13,9 @@
 # Use vendored Cargo dependencies for offline builds
 %global cargo_vendored  1
 
+# Build conditional: headless compositor variant (for s390x and servers)
+%bcond headless 1
+
 Name:           %{project_name}
 Version:        0.1.0
 Release:        1%{?dist}
@@ -32,6 +35,7 @@ Source12:       %{selinux_mod}.fc
 # Systemd user service units
 Source20:       ewwm-compositor.service
 Source21:       ewwm-monado.service
+Source22:       ewwm-compositor-headless.service
 
 # udev rules
 Source30:       70-exwm-vr-hmd.rules
@@ -47,7 +51,8 @@ BuildRequires:  gcc
 BuildRequires:  make
 BuildRequires:  pkgconfig
 
-# Compositor native dependencies
+# Compositor native dependencies (not needed on s390x headless-only builds)
+%ifnarch s390x
 BuildRequires:  pkgconfig(wayland-server)
 BuildRequires:  pkgconfig(wayland-client)
 BuildRequires:  pkgconfig(wayland-protocols)
@@ -56,26 +61,33 @@ BuildRequires:  mesa-libEGL-devel
 BuildRequires:  mesa-libgbm-devel
 BuildRequires:  libinput-devel
 BuildRequires:  libxkbcommon-devel
-BuildRequires:  systemd-devel
 BuildRequires:  openxr-devel
 BuildRequires:  libdrm-devel
 BuildRequires:  libseat-devel
 BuildRequires:  libxcb-devel
 BuildRequires:  xcb-util-wm-devel
+%endif
+BuildRequires:  systemd-devel
 
 # Elisp build + test
+%ifnarch s390x
 BuildRequires:  emacs-pgtk >= 29.1
 BuildRequires:  emacs-pgtk-el
+%else
+BuildRequires:  emacs-nox >= 29.1
+%endif
 
 # SELinux policy build
 BuildRequires:  selinux-policy-devel
 BuildRequires:  checkpolicy
 BuildRequires:  policycoreutils
 
-# BCI venv
+# BCI venv (skip on s390x -- no USB peripherals for OpenBCI)
+%ifnarch s390x
 BuildRequires:  python3-devel >= 3.9
 BuildRequires:  python3-pip
 BuildRequires:  python3-virtualenv
+%endif
 
 %if 0%{?el9}
 BuildRequires:  epel-release
@@ -179,6 +191,25 @@ Denies network access for the compositor and restricts file writes to
 designated directories only.
 
 # ===========================================================================
+# Subpackage: headless
+# ===========================================================================
+%if %{with headless}
+%package headless
+Summary:        EXWM-VR headless compositor for servers and mainframes
+Requires:       emacs-nox >= 29.1
+Requires:       systemd-libs
+Requires(post): systemd
+Requires(preun): systemd
+Requires(postun): systemd
+
+%description headless
+Headless compositor variant for EXWM-VR, intended for servers, mainframes
+(IBM Z / s390x), and environments without GPU hardware.  Provides IPC-based
+workspace management with terminal Emacs (emacs -nw).  No VR, eye tracking,
+or BCI support.  Suitable for remote administration via SSH or VNC.
+%endif
+
+# ===========================================================================
 # Prep
 # ===========================================================================
 %prep
@@ -209,9 +240,22 @@ cp %{SOURCE10} %{SOURCE11} %{SOURCE12} selinux-build/
 # --- Compositor (Rust) ---
 pushd compositor
 export CARGO_HOME="$PWD/.cargo-home"
+%ifarch s390x
+# s390x: headless only -- skip VR, eye tracking, BCI features
+cargo build --release --no-default-features --features headless \
+    --jobs %{_smp_build_ncpus} \
+    %{?_cargo_extra_args}
+%else
 cargo build --release --features vr \
     --jobs %{_smp_build_ncpus} \
     %{?_cargo_extra_args}
+%if %{with headless}
+# Also build headless variant on non-s390x architectures
+cargo build --release --no-default-features --features headless \
+    --jobs %{_smp_build_ncpus} \
+    %{?_cargo_extra_args}
+%endif
+%endif
 popd
 
 # --- Elisp byte-compilation ---
@@ -226,10 +270,12 @@ pushd selinux-build
 make -f %{_datadir}/selinux/devel/Makefile %{selinux_mod}.pp
 popd
 
-# --- BCI venv ---
+# --- BCI venv (skip on s390x) ---
+%ifnarch s390x
 python3 -m venv --system-site-packages %{_builddir}/bci-venv
 %{_builddir}/bci-venv/bin/pip install --no-build-isolation \
     brainflow numpy scipy
+%endif
 
 # ===========================================================================
 # Install
@@ -237,8 +283,20 @@ python3 -m venv --system-site-packages %{_builddir}/bci-venv
 %install
 
 # --- Compositor binary ---
+%ifnarch s390x
 install -Dpm 0755 compositor/target/release/%{compositor_name} \
     %{buildroot}%{_bindir}/%{compositor_name}
+%endif
+
+# --- Headless compositor binary ---
+%if %{with headless}
+install -Dpm 0755 compositor/target/release/%{compositor_name} \
+    %{buildroot}%{_bindir}/%{compositor_name}-headless
+%ifarch s390x
+# On s390x the headless build IS the only compositor build
+# (already built with --features headless above)
+%endif
+%endif
 
 # --- Elisp files ---
 install -d %{buildroot}%{emacs_sitelisp}/core
@@ -264,12 +322,21 @@ cat > %{buildroot}%{_datadir}/emacs/site-lisp/site-start.d/%{project_name}-init.
 ELISP_EOF
 
 # --- Systemd user services ---
+%ifnarch s390x
 install -Dpm 0644 %{SOURCE20} \
     %{buildroot}%{_userunitdir}/ewwm-compositor.service
 install -Dpm 0644 %{SOURCE21} \
     %{buildroot}%{_userunitdir}/ewwm-monado.service
+%endif
 
-# --- udev rules ---
+# --- Headless systemd service ---
+%if %{with headless}
+install -Dpm 0644 %{SOURCE22} \
+    %{buildroot}%{_userunitdir}/exwm-vr-compositor-headless.service
+%endif
+
+# --- udev rules (skip on s390x -- no HMD hardware) ---
+%ifnarch s390x
 install -Dpm 0644 %{SOURCE30} \
     %{buildroot}%{_udevrulesdir}/70-exwm-vr-hmd.rules
 
@@ -306,6 +373,16 @@ cp -a %{_builddir}/bci-venv/* %{buildroot}%{bci_venv_dir}/
 # Fix shebang paths in venv
 find %{buildroot}%{bci_venv_dir}/bin -type f -executable \
     -exec sed -i '1s|^#!.*python.*|#!/opt/%{project_name}/bci-venv/bin/python3|' {} \;
+%endif
+
+# --- Headless documentation ---
+%if %{with headless}
+install -d %{buildroot}%{_docdir}/%{project_name}-headless
+install -pm 0644 docs/architecture-notes.md \
+    %{buildroot}%{_docdir}/%{project_name}-headless/
+install -pm 0644 docs/gpu-compatibility.md \
+    %{buildroot}%{_docdir}/%{project_name}-headless/
+%endif
 
 # --- SELinux policy ---
 install -Dpm 0644 selinux-build/%{selinux_mod}.pp \
@@ -325,8 +402,14 @@ install -d %{buildroot}%{_rundir}/%{project_name}
 # --- Rust unit tests (compositor) ---
 pushd compositor
 export CARGO_HOME="$PWD/.cargo-home"
+%ifarch s390x
+cargo test --release --no-default-features --features headless \
+    %{?_cargo_extra_args} || \
+    echo "WARN: Rust tests (headless) -- skipped on mock build"
+%else
 cargo test --release --features vr %{?_cargo_extra_args} || \
     echo "WARN: Rust tests require Linux DRM/Wayland -- skipped on mock build"
+%endif
 popd
 
 # --- ERT tests (Elisp) ---
@@ -389,6 +472,18 @@ if [ $1 -eq 0 ]; then
     %selinux_modules_uninstall %{selinux_mod}
 fi
 
+# --- headless ---
+%if %{with headless}
+%post headless
+%systemd_user_post exwm-vr-compositor-headless.service
+
+%preun headless
+%systemd_user_preun exwm-vr-compositor-headless.service
+
+%postun headless
+%systemd_user_postun_with_restart exwm-vr-compositor-headless.service
+%endif
+
 # ===========================================================================
 # File lists
 # ===========================================================================
@@ -398,12 +493,14 @@ fi
 %license LICENSE
 %doc README.md PLAN.md
 
-# --- compositor ---
+# --- compositor (skip on s390x -- only headless available) ---
+%ifnarch s390x
 %files compositor
 %license LICENSE
 %{_bindir}/%{compositor_name}
 %{_userunitdir}/ewwm-compositor.service
 %dir %{_localstatedir}/lib/%{project_name}
+%endif
 
 # --- elisp ---
 %files elisp
@@ -414,7 +511,8 @@ fi
 %{emacs_sitelisp}/ext/
 %{_datadir}/emacs/site-lisp/site-start.d/%{project_name}-init.el
 
-# --- monado ---
+# --- monado (skip on s390x -- no VR hardware) ---
+%ifnarch s390x
 %files monado
 %license LICENSE
 %{_userunitdir}/ewwm-monado.service
@@ -424,12 +522,15 @@ fi
 %config(noreplace) %{_sysconfdir}/xdg/openxr/1/active_runtime.json
 %dir %{_sysconfdir}/%{project_name}
 %config(noreplace) %{_sysconfdir}/%{project_name}/monado.conf
+%endif
 
-# --- bci ---
+# --- bci (skip on s390x -- no USB peripherals) ---
+%ifnarch s390x
 %files bci
 %license LICENSE
 %dir /opt/%{project_name}
 %{bci_venv_dir}/
+%endif
 
 # --- selinux ---
 %files selinux
@@ -437,10 +538,27 @@ fi
 %{_datadir}/selinux/packages/%{selinux_mod}.pp
 %{_datadir}/selinux/devel/include/contrib/%{selinux_mod}.if
 
+# --- headless ---
+%if %{with headless}
+%files headless
+%license LICENSE
+%{_bindir}/%{compositor_name}-headless
+%{_userunitdir}/exwm-vr-compositor-headless.service
+%dir %{_docdir}/%{project_name}-headless
+%{_docdir}/%{project_name}-headless/architecture-notes.md
+%{_docdir}/%{project_name}-headless/gpu-compatibility.md
+%endif
+
 # ===========================================================================
 # Changelog
 # ===========================================================================
 %changelog
+* Wed Feb 11 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 0.1.0-2
+- Add headless subpackage for s390x and server deployments
+- Add %%ifarch s390x conditionals to skip VR/GPU/BCI on mainframes
+- Add %%bcond headless build conditional
+- Include architecture-notes.md and gpu-compatibility.md in headless docs
+
 * Tue Feb 11 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 0.1.0-1
 - Initial RPM packaging
 - Compositor: Smithay 0.7 with OpenXR VR, eye tracking, gaze focus

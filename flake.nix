@@ -15,9 +15,14 @@
     };
 
     flake-utils.url = "github:numtide/flake-utils";
+
+    nix2container = {
+      url = "github:nlewo/nix2container";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, emacs-overlay, rust-overlay, flake-utils }:
+  outputs = { self, nixpkgs, emacs-overlay, rust-overlay, flake-utils, nix2container }:
     let
       # NixOS modules (not per-system)
       nixosModuleOutputs = {
@@ -43,6 +48,8 @@
               rust-overlay.overlays.default
             ];
           };
+
+          n2c = nix2container.packages.${system}.nix2container;
 
           rustToolchain = pkgs.rust-bin.nightly.latest.default.override {
             extensions = [
@@ -96,11 +103,40 @@
             git-cliff
             nixpkgs-fmt
             direnv
+            cachix
 
             # Testing
             cage   # single-window Wayland compositor for testing
             weston # headless Wayland compositor
           ];
+
+          # Common function to build the compositor with given features
+          mkCompositor = { pname, features ? [ ], extraBuildInputs ? [ ] }:
+            pkgs.rustPlatform.buildRustPackage {
+              inherit pname;
+              version = "0.1.0";
+              src = ./compositor;
+              cargoLock.lockFile = ./compositor/Cargo.lock;
+
+              nativeBuildInputs = with pkgs; [
+                pkg-config
+                clang
+                llvmPackages.libclang
+              ];
+
+              buildInputs = waylandLibs ++ extraBuildInputs;
+
+              buildNoDefaultFeatures = (features == [ ]);
+              buildFeatures = features;
+
+              LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+
+              meta = with pkgs.lib; {
+                description = "EXWM-VR Wayland compositor built on Smithay";
+                license = licenses.gpl3Plus;
+                platforms = platforms.linux;
+              };
+            };
 
         in {
           devShells.default = pkgs.mkShell {
@@ -115,34 +151,49 @@
               echo "exwm-vr dev shell ready"
               echo "  rustc: $(rustc --version)"
               echo "  emacs: $(emacs --version | head -1)"
+              echo ""
+              echo "  cachix: use 'cachix use exwm-vr' to enable binary cache"
             '';
           };
 
-          # Compositor package (builds the Rust binary)
-          packages.compositor = pkgs.rustPlatform.buildRustPackage {
+          # Full compositor with VR support
+          packages.compositor = mkCompositor {
             pname = "ewwm-compositor";
-            version = "0.1.0";
-            src = ./compositor;
-            cargoLock.lockFile = ./compositor/Cargo.lock;
+            features = [ "full-backend" "vr" ];
+            extraBuildInputs = [ pkgs.openxr-loader ];
+          };
 
-            nativeBuildInputs = with pkgs; [
-              pkg-config
-              clang
-              llvmPackages.libclang
-            ];
+          # Headless compositor (no full-backend, no VR) for s390x / minimal
+          packages.compositor-headless = mkCompositor {
+            pname = "ewwm-compositor-headless";
+            features = [ ];
+          };
 
-            buildInputs = waylandLibs ++ (with pkgs; [
-              openxr-loader
-            ]);
+          # --- OCI container images via nix2container ---
 
-            buildFeatures = [ "vr" ];
+          packages.oci-headless = n2c.buildImage {
+            name = "ewwm-compositor-headless";
+            tag = "latest";
+            config = {
+              entrypoint = [ "${self.packages.${system}.compositor-headless}/bin/ewwm-compositor" ];
+              cmd = [ "--headless" ];
+            };
+          };
 
-            LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+          packages.oci-compositor = n2c.buildImage {
+            name = "ewwm-compositor";
+            tag = "latest";
+            config = {
+              entrypoint = [ "${self.packages.${system}.compositor}/bin/ewwm-compositor" ];
+            };
+          };
 
-            meta = with pkgs.lib; {
-              description = "EXWM-VR Wayland compositor built on Smithay";
-              license = licenses.gpl3Plus;
-              platforms = platforms.linux;
+          packages.oci-full = n2c.buildImage {
+            name = "ewwm-compositor-full";
+            tag = "latest";
+            copyToRoot = [ emacsPkg ];
+            config = {
+              entrypoint = [ "${self.packages.${system}.compositor}/bin/ewwm-compositor" ];
             };
           };
 
@@ -150,6 +201,134 @@
         }
       );
 
+      # Cross-compilation outputs (not produced by eachDefaultSystem)
+      crossOutputs = {
+        # Cross-compile for aarch64-linux from x86_64-linux
+        packages.aarch64-linux = let
+          pkgs = import nixpkgs {
+            system = "x86_64-linux";
+            crossSystem.config = "aarch64-unknown-linux-gnu";
+            overlays = [
+              rust-overlay.overlays.default
+            ];
+          };
+          waylandLibs = with pkgs; [
+            wayland
+            wayland-protocols
+            wayland-scanner
+            libdrm
+            mesa
+            libinput
+            libxkbcommon
+            seatd
+            libffi
+            pixman
+            udev
+          ];
+        in {
+          compositor = pkgs.rustPlatform.buildRustPackage {
+            pname = "ewwm-compositor";
+            version = "0.1.0";
+            src = ./compositor;
+            cargoLock.lockFile = ./compositor/Cargo.lock;
+
+            nativeBuildInputs = with pkgs.buildPackages; [
+              pkg-config
+              clang
+              llvmPackages.libclang
+            ];
+
+            buildInputs = waylandLibs ++ [ pkgs.openxr-loader ];
+
+            buildFeatures = [ "full-backend" "vr" ];
+
+            LIBCLANG_PATH = "${pkgs.buildPackages.llvmPackages.libclang.lib}/lib";
+
+            meta = with pkgs.lib; {
+              description = "EXWM-VR Wayland compositor built on Smithay (aarch64)";
+              license = licenses.gpl3Plus;
+              platforms = [ "aarch64-linux" ];
+            };
+          };
+
+          compositor-headless = pkgs.rustPlatform.buildRustPackage {
+            pname = "ewwm-compositor-headless";
+            version = "0.1.0";
+            src = ./compositor;
+            cargoLock.lockFile = ./compositor/Cargo.lock;
+
+            nativeBuildInputs = with pkgs.buildPackages; [
+              pkg-config
+              clang
+              llvmPackages.libclang
+            ];
+
+            buildInputs = waylandLibs;
+
+            buildNoDefaultFeatures = true;
+
+            LIBCLANG_PATH = "${pkgs.buildPackages.llvmPackages.libclang.lib}/lib";
+
+            meta = with pkgs.lib; {
+              description = "EXWM-VR Wayland compositor headless (aarch64)";
+              license = licenses.gpl3Plus;
+              platforms = [ "aarch64-linux" ];
+            };
+          };
+        };
+
+        # Cross-compile for s390x-linux from x86_64-linux
+        packages.s390x-linux = let
+          pkgs = import nixpkgs {
+            system = "x86_64-linux";
+            crossSystem.config = "s390x-unknown-linux-gnu";
+            overlays = [
+              rust-overlay.overlays.default
+            ];
+          };
+          waylandLibs = with pkgs; [
+            wayland
+            wayland-protocols
+            wayland-scanner
+            libdrm
+            mesa
+            libinput
+            libxkbcommon
+            seatd
+            libffi
+            pixman
+            udev
+          ];
+        in {
+          compositor-headless = pkgs.rustPlatform.buildRustPackage {
+            pname = "ewwm-compositor-headless";
+            version = "0.1.0";
+            src = ./compositor;
+            cargoLock.lockFile = ./compositor/Cargo.lock;
+
+            nativeBuildInputs = with pkgs.buildPackages; [
+              pkg-config
+              clang
+              llvmPackages.libclang
+            ];
+
+            buildInputs = waylandLibs;
+
+            buildNoDefaultFeatures = true;
+
+            LIBCLANG_PATH = "${pkgs.buildPackages.llvmPackages.libclang.lib}/lib";
+
+            meta = with pkgs.lib; {
+              description = "EXWM-VR Wayland compositor headless (s390x)";
+              license = licenses.gpl3Plus;
+              platforms = [ "s390x-linux" ];
+            };
+          };
+        };
+      };
+
     in
-    nixosModuleOutputs // perSystemOutputs;
+    nixpkgs.lib.recursiveUpdate
+      (nixosModuleOutputs // perSystemOutputs)
+      crossOutputs;
 }

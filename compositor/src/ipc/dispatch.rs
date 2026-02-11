@@ -100,6 +100,11 @@ pub fn handle_message(state: &mut EwwmState, client_id: u64, raw: &str) -> Optio
         Some("fatigue-config") => handle_fatigue_config(state, msg_id),
         Some("fatigue-metrics") => handle_fatigue_metrics(state, msg_id),
         Some("fatigue-reset") => handle_fatigue_reset(state, msg_id),
+        // Headless backend (Week 16)
+        Some("headless-status") => handle_headless_status(state, msg_id),
+        Some("headless-set-resolution") => handle_headless_set_resolution(state, msg_id, &value),
+        Some("headless-add-output") => handle_headless_add_output(state, msg_id),
+        Some("headless-remove-output") => handle_headless_remove_output(state, msg_id),
         // Auto-type & secure input (Week 14)
         Some("autotype") => handle_autotype(state, msg_id, &value),
         Some("autotype-status") => handle_autotype_status(state, msg_id),
@@ -1291,6 +1296,121 @@ fn handle_gaze_away_monitor(
     // the compositor acknowledges the request and will emit
     // gaze-target-changed events as needed.
     Some(ok_response(msg_id))
+}
+
+// ── Headless backend handlers (Week 16) ────────────────────
+
+fn handle_headless_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let active = if state.headless_active { "t" } else { "nil" };
+    let surface_count = state.surfaces.len();
+    let ipc_client_count = state.ipc_server.clients.len();
+    Some(format!(
+        "(:type :response :id {} :status :ok :headless {} :outputs {} :resolution \"{}x{}\" :surfaces {} :ipc-clients {})",
+        msg_id,
+        active,
+        state.headless_output_count,
+        state.headless_width,
+        state.headless_height,
+        surface_count,
+        ipc_client_count,
+    ))
+}
+
+fn handle_headless_set_resolution(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    if !state.headless_active {
+        return Some(error_response(msg_id, "not running in headless mode"));
+    }
+
+    let w = match get_int(value, "w") {
+        Some(v) if v > 0 && v <= 7680 => v as i32,
+        _ => return Some(error_response(msg_id, "invalid :w (must be 1-7680)")),
+    };
+    let h = match get_int(value, "h") {
+        Some(v) if v > 0 && v <= 4320 => v as i32,
+        _ => return Some(error_response(msg_id, "invalid :h (must be 1-4320)")),
+    };
+
+    state.headless_width = w;
+    state.headless_height = h;
+
+    debug!(w, h, "headless resolution updated");
+    Some(format!(
+        "(:type :response :id {} :status :ok :resolution \"{}x{}\")",
+        msg_id, w, h
+    ))
+}
+
+fn handle_headless_add_output(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    if !state.headless_active {
+        return Some(error_response(msg_id, "not running in headless mode"));
+    }
+
+    let new_index = state.headless_output_count;
+    state.headless_output_count += 1;
+
+    // Create the virtual output in the Smithay space
+    let mode = smithay::output::Mode {
+        size: (state.headless_width, state.headless_height).into(),
+        refresh: 60_000,
+    };
+    let output = smithay::output::Output::new(
+        format!("headless-{}", new_index),
+        smithay::output::PhysicalProperties {
+            size: (0, 0).into(),
+            subpixel: smithay::output::Subpixel::Unknown,
+            make: "EWWM".into(),
+            model: "Headless".into(),
+        },
+    );
+    let x_offset = (new_index as i32) * state.headless_width;
+    output.change_current_state(
+        Some(mode),
+        Some(smithay::utils::Transform::Normal),
+        None,
+        Some((x_offset, 0).into()),
+    );
+    output.set_preferred(mode);
+    state.space.map_output(&output, (x_offset, 0));
+
+    debug!(index = new_index, "added headless output");
+    Some(format!(
+        "(:type :response :id {} :status :ok :output-index {} :outputs {})",
+        msg_id, new_index, state.headless_output_count
+    ))
+}
+
+fn handle_headless_remove_output(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    if !state.headless_active {
+        return Some(error_response(msg_id, "not running in headless mode"));
+    }
+
+    if state.headless_output_count <= 1 {
+        return Some(error_response(msg_id, "cannot remove last output"));
+    }
+
+    state.headless_output_count -= 1;
+    let removed_index = state.headless_output_count;
+
+    // Find and unmap the output from the space
+    let target_name = format!("headless-{}", removed_index);
+    let output = state
+        .space
+        .outputs()
+        .find(|o| o.name() == target_name)
+        .cloned();
+    if let Some(o) = output {
+        state.space.unmap_output(&o);
+    }
+
+    debug!(index = removed_index, "removed headless output");
+    Some(format!(
+        "(:type :response :id {} :status :ok :removed-index {} :outputs {})",
+        msg_id, removed_index, state.headless_output_count
+    ))
 }
 
 // ── Helpers ────────────────────────────────────────────────

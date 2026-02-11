@@ -161,6 +161,12 @@ pub struct EwwmState {
     // Secure input mode
     pub secure_input: SecureInputState,
 
+    // Headless backend state (for IPC queries)
+    pub headless_active: bool,
+    pub headless_output_count: u32,
+    pub headless_width: i32,
+    pub headless_height: i32,
+
     // Shutdown flag
     pub running: bool,
 }
@@ -219,6 +225,10 @@ impl EwwmState {
             vr_state: VrState::new(),
             autotype: AutoTypeManager::new(),
             secure_input: SecureInputState::new(),
+            headless_active: false,
+            headless_output_count: 0,
+            headless_width: 1920,
+            headless_height: 1080,
             running: true,
         }
     }

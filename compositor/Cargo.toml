@@ -11,8 +11,9 @@ name = "ewwm-compositor"
 path = "src/main.rs"
 
 [features]
-default = []
-vr = ["openxrs"]
+default = ["full-backend"]
+full-backend = []   # enables DRM/winit backends (requires libseat, libinput, DRM)
+vr = ["openxrs"]    # enables OpenXR VR runtime integration
 
 [dependencies]
 smithay = { version = "0.7", default-features = false, features = [
