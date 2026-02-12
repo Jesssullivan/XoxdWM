@@ -420,7 +420,12 @@ fn test_vr_state_stub_subsystem_access() {
 
     let vr = VrState::new();
     assert_eq!(vr.session_state_str(), "disabled");
-    assert_eq!(vr.hmd_name(), "none");
+    // Stub returns "none", real openxr_state returns "unknown" (HmdInfo default)
+    assert!(
+        vr.hmd_name() == "none" || vr.hmd_name() == "unknown",
+        "hmd_name should be 'none' (stub) or 'unknown' (vr), got '{}'",
+        vr.hmd_name()
+    );
     assert!(!vr.is_headless());
 
     // All subsystems accessible through VrState
