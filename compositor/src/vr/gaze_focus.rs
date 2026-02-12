@@ -1273,6 +1273,7 @@ mod tests {
     fn test_jitter_exceeds_max() {
         let mut mgr = GazeFocusManager::new();
         mgr.config.max_jitter_px = 50.0;
+        mgr.reading.enabled = false; // Disable reading detector to isolate jitter test
         let dir = Vec3::new(0.0, 0.0, -1.0);
 
         // Start dwell at (100, 200)

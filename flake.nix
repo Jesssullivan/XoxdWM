@@ -131,6 +131,9 @@
 
               LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
 
+              # Ensure linker can find all native libraries (mesa/gbm, etc.)
+              LIBRARY_PATH = pkgs.lib.makeLibraryPath (waylandLibs ++ extraBuildInputs);
+
               meta = with pkgs.lib; {
                 description = "EXWM-VR Wayland compositor built on Smithay";
                 license = licenses.gpl3Plus;
@@ -243,6 +246,7 @@
             buildFeatures = [ "full-backend" "vr" ];
 
             LIBCLANG_PATH = "${pkgs.buildPackages.llvmPackages.libclang.lib}/lib";
+            LIBRARY_PATH = pkgs.lib.makeLibraryPath (waylandLibs ++ [ pkgs.openxr-loader ]);
 
             meta = with pkgs.lib; {
               description = "EXWM-VR Wayland compositor built on Smithay (aarch64)";
@@ -268,6 +272,7 @@
             buildNoDefaultFeatures = true;
 
             LIBCLANG_PATH = "${pkgs.buildPackages.llvmPackages.libclang.lib}/lib";
+            LIBRARY_PATH = pkgs.lib.makeLibraryPath waylandLibs;
 
             meta = with pkgs.lib; {
               description = "EXWM-VR Wayland compositor headless (aarch64)";
@@ -317,6 +322,7 @@
             buildNoDefaultFeatures = true;
 
             LIBCLANG_PATH = "${pkgs.buildPackages.llvmPackages.libclang.lib}/lib";
+            LIBRARY_PATH = pkgs.lib.makeLibraryPath waylandLibs;
 
             meta = with pkgs.lib; {
               description = "EXWM-VR Wayland compositor headless (s390x)";

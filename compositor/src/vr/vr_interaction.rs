@@ -8,7 +8,7 @@
 use std::collections::HashMap;
 use tracing::{debug, info};
 
-use super::scene::{Geometry, Mat4, Quat, SceneNode, Transform3D, Vec3, VrScene};
+use super::scene::{Geometry, Mat4, Quat, SceneNode, Transform3D, Vec3, VrLayoutMode, VrScene};
 
 // ── Vec2 ─────────────────────────────────────────────────────
 
@@ -1066,6 +1066,7 @@ mod tests {
     #[test]
     fn test_closest_intersection() {
         let mut scene = VrScene::new();
+        scene.layout_mode = VrLayoutMode::Freeform; // Prevent recompute_layout overriding transforms
         // Near surface at z=-1
         scene.add_surface(1, 1000, 1000);
         scene.nodes.get_mut(&1).unwrap().transform = Transform3D::at(0.0, 0.0, -1.0);

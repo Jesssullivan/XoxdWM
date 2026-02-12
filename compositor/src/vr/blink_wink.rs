@@ -1059,9 +1059,13 @@ mod tests {
             evt
         );
 
-        // Second left wink: close at t=1.5, open at t=1.9 (400ms)
-        // Gap from first wink end (1.4) to second wink end (1.9) = 500ms < 800ms
+        // Second left wink: close at t=1.5
+        // First call with close resets terminal state (LeftWinkConfirmed → Idle)
         classifier.update(false, true, 1.5);
+        // Pump: state transitions from Idle → LeftEyeClosing (eye still closed)
+        classifier.update(false, true, 1.6);
+        // Open at t=1.9 → should detect DoubleLeftWink
+        // Gap from first wink end (1.4) to second wink end (1.9) = 500ms < 800ms
         let evt = classifier.update(true, true, 1.9);
         assert!(
             matches!(evt, Some(WinkEvent::DoubleLeftWink { .. })),
