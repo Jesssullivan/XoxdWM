@@ -9,9 +9,10 @@ use smithay::{
     delegate_xwayland_shell,
     desktop::Window,
     utils::Rectangle,
+    wayland::xwayland_shell::{XWaylandShellHandler, XWaylandShellState},
     xwayland::{
         xwm::{Reorder, ResizeEdge, XwmHandler, XwmId},
-        X11Surface, X11Wm, XWaylandShellHandler, XWaylandShellState,
+        X11Surface, X11Wm,
     },
 };
 use tracing::{debug, info, warn};
@@ -44,21 +45,27 @@ impl XwmHandler for EwwmState {
 
         // Create a unified Window element
         let win = Window::new_x11_window(window.clone());
-        self.space.map_element(win, (0, 0), false);
+        self.space.map_element(win.clone(), (0, 0), false);
 
         // Extract X11 properties
+        // Smithay 0.7: class(), instance(), title() return String, not Option<String>
         let wm_class = window.class();
         let wm_instance = window.instance();
         let title = window.title();
         let is_transient = window.is_transient_for().is_some();
-        let is_override_redirect = window.is_override_redirect();
+        let _is_override_redirect = window.is_override_redirect();
+
+        // Helper: convert empty strings to None for Option<String> fields
+        let non_empty = |s: &str| -> Option<String> {
+            if s.is_empty() { None } else { Some(s.to_string()) }
+        };
 
         // Create surface data
         let mut data = SurfaceData::new_x11(surface_id);
-        data.app_id = wm_class.clone().or_else(|| wm_instance.clone());
-        data.title = title.clone();
-        data.x11_class = wm_class.clone();
-        data.x11_instance = wm_instance.clone();
+        data.app_id = non_empty(&wm_class).or_else(|| non_empty(&wm_instance));
+        data.title = non_empty(&title);
+        data.x11_class = non_empty(&wm_class);
+        data.x11_instance = non_empty(&wm_instance);
         data.workspace = self.active_workspace;
 
         // Auto-float transient windows (dialogs)
@@ -67,6 +74,7 @@ impl XwmHandler for EwwmState {
         }
 
         self.surfaces.insert(surface_id, data);
+        self.surface_to_window.insert(surface_id, win);
 
         // Configure the window
         if let Some(geo) = self.space.elements().last().and_then(|w| {
@@ -78,10 +86,11 @@ impl XwmHandler for EwwmState {
         }
 
         // Emit IPC event with :x11 flag
-        let app_id = wm_class.as_deref().unwrap_or("");
-        let title_str = title.as_deref().unwrap_or("");
-        let x11_class_str = wm_class.as_deref().unwrap_or("");
-        let x11_instance_str = wm_instance.as_deref().unwrap_or("");
+        // Smithay 0.7: these are String, use as_str() directly
+        let app_id = if wm_class.is_empty() { &wm_instance } else { &wm_class };
+        let title_str = title.as_str();
+        let x11_class_str = wm_class.as_str();
+        let x11_instance_str = wm_instance.as_str();
 
         let event = format_event(
             "surface-created",
@@ -107,29 +116,36 @@ impl XwmHandler for EwwmState {
         // X11 window unmapped — find and remove from space
         debug!("XWayland: window unmapped");
 
-        // Find the surface_id for this window and clean up
+        // Find the surface_id for this specific X11 window
+        let window_id = window.window_id();
         let surface_id = self
-            .surfaces
+            .surface_to_window
             .iter()
-            .find(|(_, data)| data.is_x11)
+            .find(|(_, w)| {
+                w.x11_surface()
+                    .map(|xs| xs.window_id() == window_id)
+                    .unwrap_or(false)
+            })
             .map(|(id, _)| *id);
 
         if let Some(sid) = surface_id {
             self.surfaces.remove(&sid);
+            self.surface_to_window.remove(&sid);
 
             // Emit IPC event
             let event = format_event("surface-destroyed", &[("id", &sid.to_string())]);
             IpcServer::broadcast_event(self, &event);
         }
 
-        // Remove from space
-        self.space.elements().find(|w| {
+        // Remove from space — collect first to avoid borrowing self.space twice
+        let to_unmap = self.space.elements().find(|w| {
             w.x11_surface()
                 .map(|xs| xs.window_id() == window.window_id())
                 .unwrap_or(false)
-        }).cloned().map(|w| {
+        }).cloned();
+        if let Some(w) = to_unmap {
             self.space.unmap_elem(&w);
-        });
+        }
     }
 
     fn destroyed_window(&mut self, _xwm: XwmId, _window: X11Surface) {
@@ -147,9 +163,9 @@ impl XwmHandler for EwwmState {
         _reorder: Option<Reorder>,
     ) {
         // X11 client requests geometry change
-        let geo = Rectangle::from_loc_and_size(
-            (x.unwrap_or(0), y.unwrap_or(0)),
-            (w.unwrap_or(800) as i32, h.unwrap_or(600) as i32),
+        let geo = Rectangle::new(
+            (x.unwrap_or(0), y.unwrap_or(0)).into(),
+            (w.unwrap_or(800) as i32, h.unwrap_or(600) as i32).into(),
         );
         if let Err(e) = window.configure(Some(geo)) {
             warn!("XWayland: configure request failed: {}", e);

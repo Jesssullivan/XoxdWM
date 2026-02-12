@@ -15,7 +15,8 @@ use smithay::{
     output::Output,
     reexports::wayland_server::protocol::wl_output::WlOutput,
     wayland::shell::wlr_layer::{
-        Layer, LayerSurfaceData, WlrLayerShellHandler, WlrLayerShellState,
+        ExclusiveZone, Layer, WlrLayerShellHandler, WlrLayerShellState,
+        LayerSurface as WlrLayerSurface,
     },
 };
 use tracing::{debug, info, warn};
@@ -27,12 +28,12 @@ impl WlrLayerShellHandler for EwwmState {
 
     fn new_layer_surface(
         &mut self,
-        surface: smithay::wayland::shell::wlr_layer::WlrLayerSurface,
+        surface: WlrLayerSurface,
         wl_output: Option<WlOutput>,
-        layer: Layer,
+        _layer: Layer,
         namespace: String,
     ) {
-        info!(?layer, %namespace, "layer-shell: new surface");
+        info!(%namespace, "layer-shell: new surface");
 
         // Find the target output (default to first output)
         let output = wl_output
@@ -45,8 +46,8 @@ impl WlrLayerShellHandler for EwwmState {
             return;
         };
 
-        // Create the LayerSurface wrapper and map it
-        let layer_surface = LayerSurface::new(surface, namespace.clone());
+        // Create the desktop LayerSurface wrapper and map it
+        let layer_surface = LayerSurface::new(surface, namespace);
         let mut map = layer_map_for_output(&output);
         if let Err(e) = map.map_layer(&layer_surface) {
             warn!("layer-shell: failed to map layer surface: {}", e);
@@ -57,32 +58,33 @@ impl WlrLayerShellHandler for EwwmState {
         drop(map);
         self.recalculate_usable_area(&output);
 
-        // Do NOT create an ewwm buffer for layer surfaces
-        // They are compositor-level overlays, not application windows
-        debug!(
-            %namespace,
-            "layer-shell: surface mapped on layer {:?}",
-            layer
-        );
+        debug!("layer-shell: surface mapped");
     }
 
-    fn layer_destroyed(&mut self, surface: smithay::wayland::shell::wlr_layer::WlrLayerSurface) {
+    fn layer_destroyed(&mut self, surface: WlrLayerSurface) {
         debug!("layer-shell: surface destroyed");
 
-        // Find and unmap from the correct output's layer map
-        let output_and_layer = self.space.outputs().find_map(|o| {
+        let outputs: Vec<Output> = self.space.outputs().cloned().collect();
+
+        let target_output = outputs.into_iter().find(|o| {
             let map = layer_map_for_output(o);
+            let found = map.layers().any(|l| l.layer_surface() == &surface);
+            found
+        });
+
+        if let Some(output) = target_output {
+            let map = layer_map_for_output(&output);
             let layer = map
                 .layers()
                 .find(|l| l.layer_surface() == &surface)
                 .cloned();
-            layer.map(|l| (o.clone(), l))
-        });
-
-        if let Some((output, layer)) = output_and_layer {
-            let mut map = layer_map_for_output(&output);
-            map.unmap_layer(&layer);
             drop(map);
+
+            if let Some(layer) = layer {
+                let mut map = layer_map_for_output(&output);
+                map.unmap_layer(&layer);
+                drop(map);
+            }
             self.recalculate_usable_area(&output);
         }
     }
@@ -107,10 +109,11 @@ impl EwwmState {
         let map = layer_map_for_output(output);
         for layer in map.layers() {
             let layer_data = layer.cached_state();
-            let exclusive = layer_data.exclusive_zone;
-            if exclusive <= 0 {
-                continue;
-            }
+
+            let exclusive: i32 = match layer_data.exclusive_zone {
+                ExclusiveZone::Exclusive(val) => val as i32,
+                _ => continue,
+            };
 
             let anchor = layer_data.anchor;
 

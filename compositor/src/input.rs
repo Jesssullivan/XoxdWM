@@ -19,19 +19,19 @@ use tracing::{debug, trace};
 /// Handle an input event from any backend.
 pub fn handle_input<B: InputBackend>(state: &mut EwwmState, event: InputEvent<B>) {
     match event {
-        InputEvent::Keyboard { event } => handle_keyboard(state, event),
+        InputEvent::Keyboard { event } => handle_keyboard::<B>(state, event),
         InputEvent::PointerMotionAbsolute { event } => {
-            handle_pointer_motion_absolute(state, event)
+            handle_pointer_motion_absolute::<B>(state, event)
         }
-        InputEvent::PointerButton { event } => handle_pointer_button(state, event),
-        InputEvent::PointerAxis { event } => handle_pointer_axis(state, event),
+        InputEvent::PointerButton { event } => handle_pointer_button::<B>(state, event),
+        InputEvent::PointerAxis { event } => handle_pointer_axis::<B>(state, event),
         _ => {}
     }
 }
 
 /// Convert xkbcommon modifiers + keysym to an Emacs-style key description.
-fn format_key_description(keysym: u32, mods: &ModifiersState) -> Option<String> {
-    let sym_name = xkbcommon::xkb::keysym_get_name(keysym.into());
+fn format_key_description(keysym: xkbcommon::xkb::Keysym, mods: &ModifiersState) -> Option<String> {
+    let sym_name = xkbcommon::xkb::keysym_get_name(keysym);
 
     // Map common keysym names to Emacs names
     let key_name = match sym_name.as_str() {
@@ -72,11 +72,11 @@ fn handle_keyboard<B: InputBackend>(state: &mut EwwmState, event: B::KeyboardKey
     let keyboard = state.seat.get_keyboard().unwrap();
 
     // Check for grabbed keys
-    let grab_result =
+    let _grab_result =
         keyboard.input::<bool, _>(state, keycode, key_state, serial, time, |state, mods, handle| {
             if key_state == KeyState::Pressed {
                 let keysym = handle.modified_sym();
-                if let Some(key_desc) = format_key_description(keysym.into(), mods) {
+                if let Some(key_desc) = format_key_description(keysym, mods) {
                     if state.grabbed_keys.contains(&key_desc) {
                         debug!(key = %key_desc, "grabbed key intercepted");
                         // Emit key-pressed event to IPC clients
@@ -125,7 +125,7 @@ fn handle_pointer_motion_absolute<B: InputBackend>(
                 .expect("window has toplevel")
                 .wl_surface()
                 .clone();
-            (surface, loc)
+            (surface, loc.to_f64())
         });
 
         pointer.motion(
@@ -157,8 +157,9 @@ fn handle_pointer_button<B: InputBackend>(state: &mut EwwmState, event: B::Point
     );
 
     // Focus follows click: set keyboard focus to surface under pointer
+    // Smithay 0.7: current_focus() returns Option<WlSurface>, not a tuple
     if button_state == ButtonState::Pressed {
-        if let Some((_surface, _loc)) = pointer.current_focus() {
+        if let Some(_surface) = pointer.current_focus() {
             // Keyboard focus will follow pointer focus
         }
     }

@@ -31,7 +31,8 @@ impl XdgShellHandler for EwwmState {
         info!(surface_id, "new toplevel surface");
 
         let window = Window::new_wayland_window(surface.clone());
-        self.space.map_element(window, (0, 0), false);
+        self.space.map_element(window.clone(), (0, 0), false);
+        self.surface_to_window.insert(surface_id, window);
 
         let mut data = SurfaceData::new(surface_id);
         data.workspace = self.active_workspace;
@@ -75,21 +76,21 @@ impl XdgShellHandler for EwwmState {
         };
 
         // Try to grab
-        if let Ok(mut grab) = self.popups.grab_popup(root, kind, &seat, serial) {
+        if let Ok(grab) = self.popups.grab_popup(root, kind, &seat, serial) {
             if let Some(keyboard) = seat.get_keyboard() {
                 if let Some(focus) = grab.current_grab() {
                     keyboard.set_focus(self, Some(focus), serial);
                 }
                 keyboard.set_grab(
                     self,
-                    smithay::input::keyboard::PopupKeyboardGrab::new(&grab),
+                    smithay::desktop::PopupKeyboardGrab::new(&grab),
                     serial,
                 );
             }
             if let Some(pointer) = seat.get_pointer() {
                 pointer.set_grab(
                     self,
-                    smithay::input::pointer::PopupPointerGrab::new(&grab),
+                    smithay::desktop::PopupPointerGrab::new(&grab),
                     serial,
                     Focus::Keep,
                 );
@@ -97,7 +98,7 @@ impl XdgShellHandler for EwwmState {
         }
     }
 
-    fn reposition(&mut self, surface: PopupSurface, positioner: PositionerState, token: u32) {
+    fn reposition_request(&mut self, surface: PopupSurface, positioner: PositionerState, token: u32) {
         surface.with_pending_state(|state| {
             state.geometry = positioner.get_geometry();
             state.positioner = positioner;
@@ -119,6 +120,7 @@ impl XdgShellHandler for EwwmState {
 
         if let Some(sid) = surface_id {
             self.surfaces.remove(&sid);
+            self.surface_to_window.remove(&sid);
 
             let event = format_event("surface-destroyed", &[("id", &sid.to_string())]);
             IpcServer::broadcast_event(self, &event);

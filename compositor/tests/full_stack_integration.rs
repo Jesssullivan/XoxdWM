@@ -420,14 +420,23 @@ fn test_vr_state_stub_subsystem_access() {
 
     let vr = VrState::new();
     assert_eq!(vr.session_state_str(), "disabled");
-    assert_eq!(vr.hmd_name(), "none");
+    // Stub returns "none", real openxr_state returns "unknown" (HmdInfo default)
+    assert!(
+        vr.hmd_name() == "none" || vr.hmd_name() == "unknown",
+        "hmd_name should be 'none' (stub) or 'unknown' (vr), got '{}'",
+        vr.hmd_name()
+    );
     assert!(!vr.is_headless());
 
     // All subsystems accessible through VrState
     assert!(vr.gaze_focus.focused_surface.is_none());
     assert!(vr.gesture.binding_count() == 0);
     assert!(matches!(vr.bci.connection, ewwm_compositor::vr::bci_state::BciConnectionState::Disconnected));
-    assert_eq!(vr.frame_stats_sexp(), "(:fps 0 :missed 0 :frame-time-ms 0.0)");
+    // Stub and real VrState have different frame_stats_sexp formats;
+    // just verify it starts with "(:" and contains "fps 0"
+    let stats = vr.frame_stats_sexp();
+    assert!(stats.starts_with("(:"), "frame_stats_sexp should start with '(:' got '{}'", stats);
+    assert!(stats.contains("fps 0"), "frame_stats_sexp should contain 'fps 0' got '{}'", stats);
 }
 
 // ── Deterministic dwell with TestClock driving timing ────────

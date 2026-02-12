@@ -6,20 +6,16 @@
 
 use crate::{ipc, state::EwwmState};
 use super::IpcConfig;
-use calloop::signals::{Signal, Signals};
 use smithay::{
     output::{Mode as OutputMode, Output, PhysicalProperties, Subpixel},
     reexports::{
-        calloop::{
-            timer::{TimeoutAction, Timer},
-            EventLoop,
-        },
+        calloop::EventLoop,
         wayland_server::Display,
     },
     utils::Transform,
 };
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tracing::info;
 
 /// Global flag set by SIGTERM/SIGINT handlers.
@@ -101,6 +97,18 @@ fn create_virtual_output(
     output
 }
 
+/// Install signal handlers for graceful shutdown (SIGTERM, SIGINT).
+fn install_signal_handlers() {
+    unsafe {
+        libc::signal(libc::SIGTERM, signal_handler as libc::sighandler_t);
+        libc::signal(libc::SIGINT, signal_handler as libc::sighandler_t);
+    }
+}
+
+extern "C" fn signal_handler(_sig: libc::c_int) {
+    SHUTDOWN_REQUESTED.store(true, Ordering::SeqCst);
+}
+
 /// Run the compositor in headless mode.
 ///
 /// Parameters:
@@ -146,48 +154,21 @@ pub fn run(
     );
 
     // Set up Wayland socket
-    let socket = if let Some(name) = socket_name {
-        display.handle().add_socket_name(name)?
+    let socket_name_str = if let Some(ref name) = socket_name {
+        name.clone()
     } else {
-        display.handle().add_socket_auto()?
+        "wayland-0".to_string()
     };
-    info!("Wayland socket: {}", socket.to_string_lossy());
-    std::env::set_var("WAYLAND_DISPLAY", &socket);
+    info!("Wayland display name: {}", socket_name_str);
+    std::env::set_var("WAYLAND_DISPLAY", &socket_name_str);
 
-    // Signal handling: SIGTERM and SIGINT for graceful shutdown
-    let signals = Signals::new([Signal::SIGTERM, Signal::SIGINT])?;
-    event_loop.handle().insert_source(signals, |event, _, state: &mut EwwmState| {
-        info!("Received signal {:?}, initiating graceful shutdown", event.signal());
-        SHUTDOWN_REQUESTED.store(true, Ordering::SeqCst);
-        state.running = false;
-    })?;
+    // Signal handling via libc (avoids calloop version conflicts)
+    install_signal_handlers();
 
-    // Exit timer for CI
-    if let Some(seconds) = exit_after {
-        info!("Will exit after {} seconds", seconds);
-        event_loop.handle().insert_source(
-            Timer::from_duration(Duration::from_secs(seconds)),
-            |_, _, state: &mut EwwmState| {
-                info!("Headless exit timer fired");
-                state.running = false;
-                TimeoutAction::Drop
-            },
-        )?;
-    }
-
-    // Periodic status logging (every 60 seconds)
-    event_loop.handle().insert_source(
-        Timer::from_duration(Duration::from_secs(60)),
-        |_, _, state: &mut EwwmState| {
-            let surface_count = state.surfaces.len();
-            let ipc_client_count = state.ipc_server.clients.len();
-            info!(
-                "Headless status: {} surface(s), {} IPC client(s), {} output(s)",
-                surface_count, ipc_client_count, state.headless_output_count
-            );
-            TimeoutAction::ToDuration(Duration::from_secs(60))
-        },
-    )?;
+    let start_time = Instant::now();
+    let exit_duration = exit_after.map(Duration::from_secs);
+    let mut last_status_log = Instant::now();
+    let status_interval = Duration::from_secs(60);
 
     let poll_interval = Duration::from_millis(config.poll_interval_ms);
     info!(
@@ -198,8 +179,29 @@ pub fn run(
     while state.running {
         // Check global shutdown flag (set by signal handler)
         if SHUTDOWN_REQUESTED.load(Ordering::SeqCst) {
+            info!("Shutdown signal received, exiting");
             state.running = false;
             break;
+        }
+
+        // Exit timer for CI
+        if let Some(dur) = exit_duration {
+            if start_time.elapsed() >= dur {
+                info!("Headless exit timer fired after {}s", dur.as_secs());
+                state.running = false;
+                break;
+            }
+        }
+
+        // Periodic status logging
+        if last_status_log.elapsed() >= status_interval {
+            let surface_count = state.surfaces.len();
+            let ipc_client_count = state.ipc_server.clients.len();
+            info!(
+                "Headless status: {} surface(s), {} IPC client(s), {} output(s)",
+                surface_count, ipc_client_count, state.headless_output_count
+            );
+            last_status_log = Instant::now();
         }
 
         // Poll IPC clients

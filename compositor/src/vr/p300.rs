@@ -135,6 +135,12 @@ impl P300Detector {
             return None;
         }
 
+        // Copy config values before borrowing repetition_buffers
+        let required_reps = self.config.repetitions;
+        let detection_window_ms = self.config.detection_window_ms;
+        let amplitude_threshold_uv = self.config.amplitude_threshold_uv;
+        let min_confidence = self.config.min_confidence;
+
         // Check that all targets have enough repetitions
         let min_reps = self
             .repetition_buffers
@@ -143,7 +149,7 @@ impl P300Detector {
             .min()
             .unwrap_or(0);
 
-        if min_reps < self.config.repetitions {
+        if min_reps < required_reps {
             return None;
         }
 
@@ -151,7 +157,6 @@ impl P300Detector {
         let mut best_target = 0;
         let mut best_amplitude = 0.0f64;
         let mut best_latency_idx = 0usize;
-        let mut best_erp_len = 0usize;
 
         for (tid, buffers) in self.repetition_buffers.iter().enumerate() {
             let avg = Self::average_erp(buffers);
@@ -163,8 +168,8 @@ impl P300Detector {
             let sample_rate = 250.0; // samples per second
             let ms_per_sample = 1000.0 / sample_rate;
             let win_start =
-                (self.config.detection_window_ms.0 / ms_per_sample) as usize;
-            let win_end = (self.config.detection_window_ms.1 / ms_per_sample)
+                (detection_window_ms.0 / ms_per_sample) as usize;
+            let win_end = (detection_window_ms.1 / ms_per_sample)
                 .min(avg.len() as f64) as usize;
 
             let (amplitude, latency_idx) =
@@ -174,7 +179,6 @@ impl P300Detector {
                 best_amplitude = amplitude;
                 best_latency_idx = latency_idx;
                 best_target = tid;
-                best_erp_len = avg.len();
             }
         }
 
@@ -183,16 +187,16 @@ impl P300Detector {
         let latency_ms = best_latency_idx as f64 * ms_per_sample;
 
         // Compute confidence based on amplitude relative to threshold
-        let confidence = if self.config.amplitude_threshold_uv > 0.0 {
-            (best_amplitude / (self.config.amplitude_threshold_uv * 2.0))
+        let confidence = if amplitude_threshold_uv > 0.0 {
+            (best_amplitude / (amplitude_threshold_uv * 2.0))
                 .clamp(0.0, 1.0)
         } else {
             0.0
         };
 
         // Check thresholds
-        if best_amplitude < self.config.amplitude_threshold_uv
-            || confidence < self.config.min_confidence
+        if best_amplitude < amplitude_threshold_uv
+            || confidence < min_confidence
         {
             return None;
         }

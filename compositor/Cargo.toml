@@ -12,15 +12,18 @@ path = "src/main.rs"
 
 [features]
 default = ["full-backend"]
-full-backend = []   # enables DRM/winit backends (requires libseat, libinput, DRM)
+full-backend = [    # enables DRM/winit backends (requires libseat, libinput, DRM, udev)
+    "smithay/backend_drm",
+    "smithay/backend_gbm",
+    "smithay/backend_libinput",
+    "smithay/backend_session_libseat",
+    "smithay/backend_udev",
+    "smithay/backend_winit",
+]
 vr = ["openxrs"]    # enables OpenXR VR runtime integration
 
 [dependencies]
 smithay = { version = "0.7", default-features = false, features = [
-    "backend_drm",
-    "backend_libinput",
-    "backend_session_libseat",
-    "backend_winit",
     "desktop",
     "renderer_gl",
     "wayland_frontend",
@@ -38,7 +41,7 @@ lexpr = "0.2"
 libc = "0.2"
 
 # VR: OpenXR runtime integration (behind "vr" feature flag)
-openxrs = { version = "0.19", optional = true }
+openxrs = { package = "openxr", version = "0.21", optional = true }
 
 [dev-dependencies]
 wayland-client = "0.31"
