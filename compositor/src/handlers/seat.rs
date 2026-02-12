@@ -1,14 +1,19 @@
 //! wl_seat handler — input device management.
 
-use crate::state::EwwmState;
+use crate::ipc::{dispatch::format_event, server::IpcServer};
+use crate::state::{CursorImageStatus, EwwmState};
 use smithay::{
     delegate_data_device, delegate_output, delegate_seat,
-    input::{SeatHandler, SeatState},
+    input::{
+        pointer::CursorImageStatus as SmithayCursorImageStatus,
+        Seat, SeatHandler, SeatState,
+    },
     reexports::wayland_server::protocol::wl_surface::WlSurface,
     wayland::selection::data_device::{
         ClientDndGrabHandler, DataDeviceHandler, DataDeviceState, ServerDndGrabHandler,
     },
 };
+use tracing::{debug, trace};
 
 impl SeatHandler for EwwmState {
     type KeyboardFocus = WlSurface;
@@ -21,18 +26,47 @@ impl SeatHandler for EwwmState {
 
     fn cursor_image(
         &mut self,
-        _seat: &smithay::input::Seat<Self>,
-        _image: smithay::input::pointer::CursorImageStatus,
+        _seat: &Seat<Self>,
+        image: SmithayCursorImageStatus,
     ) {
-        // Cursor image handling — stub
+        let new_status = match image {
+            SmithayCursorImageStatus::Hidden => CursorImageStatus::Hidden,
+            SmithayCursorImageStatus::Named(_) => CursorImageStatus::Default,
+            SmithayCursorImageStatus::Surface(_) => CursorImageStatus::Surface,
+        };
+        if self.cursor_status != new_status {
+            trace!(?new_status, "cursor image changed");
+            self.cursor_status = new_status;
+        }
     }
 
     fn focus_changed(
         &mut self,
-        _seat: &smithay::input::Seat<Self>,
-        _focused: Option<&WlSurface>,
+        _seat: &Seat<Self>,
+        focused: Option<&WlSurface>,
     ) {
-        // Focus change notification — will notify Emacs via IPC in Week 4
+        let new_focus = focused.and_then(|wl| self.surface_id_for_wl_surface(wl));
+
+        if new_focus != self.focused_surface {
+            let old = self.focused_surface;
+            self.focused_surface = new_focus;
+
+            debug!(old = ?old, new = ?new_focus, "focus changed");
+
+            // Broadcast focus-changed event to Emacs
+            let old_str = old
+                .map(|id| id.to_string())
+                .unwrap_or_else(|| "nil".to_string());
+            let new_str = new_focus
+                .map(|id| id.to_string())
+                .unwrap_or_else(|| "nil".to_string());
+
+            let event = format_event(
+                "focus-changed",
+                &[("old", &old_str), ("new", &new_str)],
+            );
+            IpcServer::broadcast_event(self, &event);
+        }
     }
 }
 

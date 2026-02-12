@@ -157,10 +157,12 @@ fn handle_pointer_button<B: InputBackend>(state: &mut EwwmState, event: B::Point
     );
 
     // Focus follows click: set keyboard focus to surface under pointer
-    // Smithay 0.7: current_focus() returns Option<WlSurface>, not a tuple
     if button_state == ButtonState::Pressed {
-        if let Some(_surface) = pointer.current_focus() {
-            // Keyboard focus will follow pointer focus
+        if let Some(surface) = pointer.current_focus() {
+            let serial = SERIAL_COUNTER.next_serial();
+            if let Some(keyboard) = state.seat.get_keyboard() {
+                keyboard.set_focus(state, Some(surface), serial);
+            }
         }
     }
 }

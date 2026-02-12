@@ -31,6 +31,8 @@ pub fn handle_message(state: &mut EwwmState, client_id: u64, raw: &str) -> Optio
         _ if !is_authenticated => Some(error_response(msg_id, "hello handshake required")),
         Some("ping") => handle_ping(state, msg_id, &value),
         Some("surface-list") => handle_surface_list(state, msg_id),
+        Some("surface-info") => handle_surface_info(state, msg_id, &value),
+        Some("focused-surface") => handle_focused_surface(state, msg_id),
         Some("surface-focus") => handle_surface_focus(state, msg_id, &value),
         Some("surface-close") => handle_surface_close(state, msg_id, &value),
         Some("surface-move") => handle_surface_move(state, msg_id, &value),
@@ -271,8 +273,9 @@ fn handle_surface_list(state: &mut EwwmState, msg_id: i64) -> Option<String> {
             .map(|g| (g.loc.x, g.loc.y, g.size.w, g.size.h))
             .unwrap_or((0, 0, 0, 0));
 
+        let focused = state.focused_surface == Some(*id);
         surfaces_sexp.push_str(&format!(
-            "(:id {} :app-id \"{}\" :title \"{}\" :x11 {} :x11-class \"{}\" :x11-instance \"{}\" :geometry (:x {} :y {} :w {} :h {}) :workspace {} :floating {} :focused nil)",
+            "(:id {} :app-id \"{}\" :title \"{}\" :x11 {} :x11-class \"{}\" :x11-instance \"{}\" :geometry (:x {} :y {} :w {} :h {}) :workspace {} :floating {} :focused {})",
             id,
             escape_string(app_id),
             escape_string(title),
@@ -282,6 +285,7 @@ fn handle_surface_list(state: &mut EwwmState, msg_id: i64) -> Option<String> {
             geo.0, geo.1, geo.2, geo.3,
             data.workspace,
             if data.floating { "t" } else { "nil" },
+            if focused { "t" } else { "nil" },
         ));
     }
     surfaces_sexp.push(')');
@@ -289,6 +293,68 @@ fn handle_surface_list(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     Some(format!(
         "(:type :response :id {} :status :ok :surfaces {})",
         msg_id, surfaces_sexp
+    ))
+}
+
+fn handle_focused_surface(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    match state.focused_surface {
+        Some(id) => {
+            let data = state.surfaces.get(&id);
+            let app_id = data.and_then(|d| d.app_id.as_deref()).unwrap_or("");
+            let title = data.and_then(|d| d.title.as_deref()).unwrap_or("");
+            Some(format!(
+                "(:type :response :id {} :status :ok :surface-id {} :app-id \"{}\" :title \"{}\")",
+                msg_id,
+                id,
+                escape_string(app_id),
+                escape_string(title),
+            ))
+        }
+        None => Some(format!(
+            "(:type :response :id {} :status :ok :surface-id nil)",
+            msg_id,
+        )),
+    }
+}
+
+fn handle_surface_info(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
+    let surface_id = match get_int(value, "surface-id") {
+        Some(id) => id as u64,
+        None => return Some(error_response(msg_id, "missing :surface-id")),
+    };
+
+    let data = match state.surfaces.get(&surface_id) {
+        Some(d) => d,
+        None => return Some(error_response(msg_id, "unknown surface")),
+    };
+
+    let app_id = data.app_id.as_deref().unwrap_or("");
+    let title = data.title.as_deref().unwrap_or("");
+    let x11_flag = if data.is_x11 { "t" } else { "nil" };
+    let x11_class = data.x11_class.as_deref().unwrap_or("");
+    let x11_instance = data.x11_instance.as_deref().unwrap_or("");
+    let focused = state.focused_surface == Some(surface_id);
+
+    let geo = state
+        .surface_to_window
+        .get(&surface_id)
+        .and_then(|w| state.space.element_geometry(w))
+        .map(|g| (g.loc.x, g.loc.y, g.size.w, g.size.h))
+        .unwrap_or((0, 0, 0, 0));
+
+    Some(format!(
+        "(:type :response :id {} :status :ok :surface-id {} :app-id \"{}\" :title \"{}\" :x11 {} :x11-class \"{}\" :x11-instance \"{}\" :geometry (:x {} :y {} :w {} :h {}) :workspace {} :floating {} :focused {})",
+        msg_id,
+        surface_id,
+        escape_string(app_id),
+        escape_string(title),
+        x11_flag,
+        escape_string(x11_class),
+        escape_string(x11_instance),
+        geo.0, geo.1, geo.2, geo.3,
+        data.workspace,
+        if data.floating { "t" } else { "nil" },
+        if focused { "t" } else { "nil" },
     ))
 }
 

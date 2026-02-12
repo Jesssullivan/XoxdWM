@@ -168,11 +168,28 @@ pub struct EwwmState {
     pub headless_width: i32,
     pub headless_height: i32,
 
+    // Focus tracking
+    pub focused_surface: Option<u64>,
+
+    // Cursor image status
+    pub cursor_status: CursorImageStatus,
+
     // Shutdown flag
     pub running: bool,
 
     // Clock (real or test)
     pub clock: Arc<dyn Clock>,
+}
+
+/// Simplified cursor image status for tracking.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CursorImageStatus {
+    /// Default cursor (compositor-provided).
+    Default,
+    /// Client-set cursor surface (tracked by Smithay).
+    Surface,
+    /// Cursor is hidden.
+    Hidden,
 }
 
 impl EwwmState {
@@ -234,6 +251,8 @@ impl EwwmState {
             headless_output_count: 0,
             headless_width: 1920,
             headless_height: 1080,
+            focused_surface: None,
+            cursor_status: CursorImageStatus::Default,
             running: true,
             clock: Arc::new(SystemClock),
         }
@@ -244,6 +263,17 @@ impl EwwmState {
     /// Look up a Window by its surface_id.
     pub fn find_window(&self, surface_id: u64) -> Option<&Window> {
         self.surface_to_window.get(&surface_id)
+    }
+
+    /// Find the surface_id for a given WlSurface.
+    pub fn surface_id_for_wl_surface(&self, wl_surface: &WlSurface) -> Option<u64> {
+        self.surface_to_window.iter().find_map(|(id, window)| {
+            window
+                .toplevel()
+                .map(|t| *t.wl_surface() == *wl_surface)
+                .unwrap_or(false)
+                .then_some(*id)
+        })
     }
 }
 
