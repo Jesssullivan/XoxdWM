@@ -45,6 +45,10 @@ impl DataDeviceHandler for EwwmState {
 impl ClientDndGrabHandler for EwwmState {}
 impl ServerDndGrabHandler for EwwmState {}
 
+impl smithay::wayland::selection::SelectionHandler for EwwmState {
+    type SelectionUserData = ();
+}
+
 delegate_seat!(EwwmState);
 delegate_data_device!(EwwmState);
 delegate_output!(EwwmState);

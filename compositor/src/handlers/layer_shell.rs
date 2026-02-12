@@ -27,7 +27,7 @@ impl WlrLayerShellHandler for EwwmState {
 
     fn new_layer_surface(
         &mut self,
-        surface: smithay::wayland::shell::wlr_layer::WlrLayerSurface,
+        surface: LayerSurface,
         wl_output: Option<WlOutput>,
         layer: Layer,
         namespace: String,
@@ -45,10 +45,9 @@ impl WlrLayerShellHandler for EwwmState {
             return;
         };
 
-        // Create the LayerSurface wrapper and map it
-        let layer_surface = LayerSurface::new(surface, namespace.clone());
+        // Map the layer surface on the output
         let mut map = layer_map_for_output(&output);
-        if let Err(e) = map.map_layer(&layer_surface) {
+        if let Err(e) = map.map_layer(&surface) {
             warn!("layer-shell: failed to map layer surface: {}", e);
             return;
         }
@@ -66,22 +65,18 @@ impl WlrLayerShellHandler for EwwmState {
         );
     }
 
-    fn layer_destroyed(&mut self, surface: smithay::wayland::shell::wlr_layer::WlrLayerSurface) {
+    fn layer_destroyed(&mut self, surface: LayerSurface) {
         debug!("layer-shell: surface destroyed");
 
         // Find and unmap from the correct output's layer map
-        let output_and_layer = self.space.outputs().find_map(|o| {
+        let output = self.space.outputs().find(|o| {
             let map = layer_map_for_output(o);
-            let layer = map
-                .layers()
-                .find(|l| l.layer_surface() == &surface)
-                .cloned();
-            layer.map(|l| (o.clone(), l))
-        });
+            map.layers().any(|l| l == &surface)
+        }).cloned();
 
-        if let Some((output, layer)) = output_and_layer {
+        if let Some(output) = output {
             let mut map = layer_map_for_output(&output);
-            map.unmap_layer(&layer);
+            map.unmap_layer(&surface);
             drop(map);
             self.recalculate_usable_area(&output);
         }

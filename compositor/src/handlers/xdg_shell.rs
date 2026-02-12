@@ -83,14 +83,14 @@ impl XdgShellHandler for EwwmState {
                 }
                 keyboard.set_grab(
                     self,
-                    smithay::input::keyboard::PopupKeyboardGrab::new(&grab),
+                    smithay::desktop::PopupKeyboardGrab::new(&grab),
                     serial,
                 );
             }
             if let Some(pointer) = seat.get_pointer() {
                 pointer.set_grab(
                     self,
-                    smithay::input::pointer::PopupPointerGrab::new(&grab),
+                    smithay::desktop::PopupPointerGrab::new(&grab),
                     serial,
                     Focus::Keep,
                 );
@@ -98,7 +98,7 @@ impl XdgShellHandler for EwwmState {
         }
     }
 
-    fn reposition(&mut self, surface: PopupSurface, positioner: PositionerState, token: u32) {
+    fn reposition_request(&mut self, surface: PopupSurface, positioner: PositionerState, token: u32) {
         surface.with_pending_state(|state| {
             state.geometry = positioner.get_geometry();
             state.positioner = positioner;

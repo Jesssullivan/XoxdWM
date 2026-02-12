@@ -15,6 +15,14 @@ impl CompositorHandler for EwwmState {
     fn compositor_state(&mut self) -> &mut CompositorState {
         &mut self.compositor_state
     }
+
+    fn client_compositor_state<'a>(&self, client: &'a Client) -> &'a CompositorClientState {
+        &client.get_data::<ClientState>().unwrap().compositor_state
+    }
+
+    fn commit(&mut self, surface: &WlSurface) {
+        on_commit_buffer_handler::<Self>(surface);
+    }
 }
 
 impl smithay::wayland::buffer::BufferHandler for EwwmState {
@@ -26,4 +34,3 @@ impl smithay::wayland::buffer::BufferHandler for EwwmState {
 }
 
 delegate_compositor!(EwwmState);
-smithay::delegate_buffer!(EwwmState);

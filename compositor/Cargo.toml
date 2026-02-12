@@ -18,8 +18,10 @@ vr = ["openxrs"]    # enables OpenXR VR runtime integration
 [dependencies]
 smithay = { version = "0.7", default-features = false, features = [
     "backend_drm",
+    "backend_gbm",
     "backend_libinput",
     "backend_session_libseat",
+    "backend_udev",
     "backend_winit",
     "desktop",
     "renderer_gl",

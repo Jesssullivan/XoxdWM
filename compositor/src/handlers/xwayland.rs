@@ -9,9 +9,10 @@ use smithay::{
     delegate_xwayland_shell,
     desktop::Window,
     utils::Rectangle,
+    wayland::xwayland_shell::{XWaylandShellHandler, XWaylandShellState},
     xwayland::{
         xwm::{Reorder, ResizeEdge, XwmHandler, XwmId},
-        X11Surface, X11Wm, XWaylandShellHandler, XWaylandShellState,
+        X11Surface, X11Wm,
     },
 };
 use tracing::{debug, info, warn};

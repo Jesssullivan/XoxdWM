@@ -29,7 +29,7 @@ use smithay::{
         shm::ShmState,
     },
     xwayland::xwm::X11Wm,
-    xwayland::XWaylandShellState,
+    wayland::xwayland_shell::XWaylandShellState,
 };
 use std::{
     collections::{HashMap, HashSet},

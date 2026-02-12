@@ -39,7 +39,7 @@ use smithay::{
         },
         session::{
             libseat::LibSeatSession,
-            Session, SessionEvent,
+            Session, Event as SessionEvent,
         },
         udev::{UdevBackend, UdevEvent},
     },
