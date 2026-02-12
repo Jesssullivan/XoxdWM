@@ -301,7 +301,7 @@ fn scan_connectors(
             .find(|crtc| !used_crtcs.contains(crtc));
 
         let crtc = match crtc {
-            Some(c) => *c,
+            Some(c) => c,
             None => {
                 warn!(
                     connector = ?connector.handle(),
