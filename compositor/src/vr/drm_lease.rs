@@ -154,11 +154,17 @@ impl LeaseState {
     }
 
     /// Grant the lease.
-    pub fn grant(&mut self, lessee_id: u32, client_pid: Option<u32>) {
+    /// Pass `clock.now()` as `now` for deterministic testing.
+    pub fn grant(
+        &mut self,
+        lessee_id: u32,
+        client_pid: Option<u32>,
+        now: Instant,
+    ) {
         self.lessee_id = lessee_id;
         self.client_pid = client_pid;
         self.status = LeaseStatus::Active;
-        self.granted_at = Some(Instant::now());
+        self.granted_at = Some(now);
         info!(
             "DRM lease granted: connector {} -> lessee {} (pid {:?})",
             self.connector_id, lessee_id, client_pid
@@ -396,15 +402,26 @@ impl HmdManager {
 
     /// Handle a hotplug event (connector connected/disconnected).
     /// Returns true if the event was processed (not debounced).
-    pub fn handle_hotplug(&mut self, connector_id: u32, connected: bool) -> bool {
+    /// Pass `clock.now()` as `now` for deterministic testing.
+    pub fn handle_hotplug(
+        &mut self,
+        connector_id: u32,
+        connected: bool,
+        now: Instant,
+    ) -> bool {
         // Debounce
         if let Some(last) = self.last_hotplug {
-            if last.elapsed().as_millis() < self.hotplug_debounce_ms as u128 {
-                debug!("HMD manager: hotplug debounced for connector {}", connector_id);
+            if now.duration_since(last).as_millis()
+                < self.hotplug_debounce_ms as u128
+            {
+                debug!(
+                    "HMD manager: hotplug debounced for connector {}",
+                    connector_id
+                );
                 return false;
             }
         }
-        self.last_hotplug = Some(Instant::now());
+        self.last_hotplug = Some(now);
 
         if connected {
             info!("HMD manager: connector {} connected", connector_id);
@@ -589,7 +606,7 @@ mod tests {
         let mut lease = LeaseState::new(1);
         assert!(!lease.is_active());
 
-        lease.grant(42, Some(1234));
+        lease.grant(42, Some(1234), Instant::now());
         assert!(lease.is_active());
         assert_eq!(lease.lessee_id, 42);
 
@@ -622,7 +639,7 @@ mod tests {
         mgr.connectors[0].connected = false;
 
         // Reconnect
-        let processed = mgr.handle_hotplug(1, true);
+        let processed = mgr.handle_hotplug(1, true, Instant::now());
         assert!(processed);
     }
 
@@ -633,7 +650,7 @@ mod tests {
         mgr.set_display_mode(VrDisplayMode::Headset);
 
         // Disconnect the only HMD
-        mgr.handle_hotplug(1, false);
+        mgr.handle_hotplug(1, false, Instant::now());
         assert_eq!(mgr.display_mode, VrDisplayMode::Preview);
         assert!(mgr.selected_hmd.is_none());
     }

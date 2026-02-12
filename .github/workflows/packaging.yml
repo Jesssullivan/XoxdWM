@@ -1,0 +1,178 @@
+name: Package Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version (without v prefix)'
+        required: true
+        default: '0.2.0'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-binary:
+    name: Build Compositor Binary
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Build compositor
+        run: nix build .#compositor --out-link result
+
+      - name: Build headless compositor
+        run: nix build .#compositor-headless --out-link result-headless
+
+      - name: Upload binary artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: compositor-binaries
+          path: |
+            result/bin/ewwm-compositor
+            result-headless/bin/ewwm-compositor
+          retention-days: 1
+
+  package-rpm:
+    name: Package RPM
+    needs: build-binary
+    runs-on: ubuntu-latest
+    container: rockylinux:10
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install FPM dependencies
+        run: |
+          dnf install -y ruby ruby-devel gcc make rpm-build
+          gem install fpm
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: compositor-binaries
+          path: dist/
+
+      - name: Set version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build RPM
+        run: |
+          chmod +x dist/result/bin/ewwm-compositor
+          fpm -s dir -t rpm \
+            -n ewwm-compositor \
+            -v "${{ steps.version.outputs.version }}" \
+            --license "GPL-3.0-or-later" \
+            --description "EXWM-VR Wayland compositor" \
+            --url "https://github.com/Jesssullivan/XoxdWM" \
+            --architecture x86_64 \
+            --depends wayland \
+            --depends mesa-libEGL \
+            --depends libinput \
+            --depends libxkbcommon \
+            dist/result/bin/ewwm-compositor=/usr/bin/ewwm-compositor \
+            packaging/systemd/=/usr/lib/systemd/user/ \
+            packaging/desktop/ewwm.desktop=/usr/share/wayland-sessions/ewwm.desktop \
+            packaging/udev/99-exwm-vr.rules=/usr/lib/udev/rules.d/99-exwm-vr.rules \
+            lisp/core/=/usr/share/emacs/site-lisp/exwm/ \
+            lisp/vr/=/usr/share/emacs/site-lisp/exwm-vr/
+
+      - name: Upload RPM
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-package
+          path: '*.rpm'
+
+  package-deb:
+    name: Package DEB
+    needs: build-binary
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install FPM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev build-essential
+          sudo gem install fpm
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: compositor-binaries
+          path: dist/
+
+      - name: Set version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build DEB
+        run: |
+          chmod +x dist/result/bin/ewwm-compositor
+          fpm -s dir -t deb \
+            -n ewwm-compositor \
+            -v "${{ steps.version.outputs.version }}" \
+            --license "GPL-3.0-or-later" \
+            --description "EXWM-VR Wayland compositor" \
+            --url "https://github.com/Jesssullivan/XoxdWM" \
+            --architecture amd64 \
+            --depends libwayland-client0 \
+            --depends libegl1 \
+            --depends libinput10 \
+            --depends libxkbcommon0 \
+            dist/result/bin/ewwm-compositor=/usr/bin/ewwm-compositor \
+            packaging/systemd/=/usr/lib/systemd/user/ \
+            packaging/desktop/ewwm.desktop=/usr/share/wayland-sessions/ewwm.desktop \
+            packaging/udev/99-exwm-vr.rules=/usr/lib/udev/rules.d/99-exwm-vr.rules \
+            lisp/core/=/usr/share/emacs/site-lisp/exwm/ \
+            lisp/vr/=/usr/share/emacs/site-lisp/exwm-vr/
+
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-package
+          path: '*.deb'
+
+  release:
+    name: Create Release
+    needs: [package-rpm, package-deb]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: rpm-package
+          path: packages/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: deb-package
+          path: packages/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packages/*
+          generate_release_notes: true

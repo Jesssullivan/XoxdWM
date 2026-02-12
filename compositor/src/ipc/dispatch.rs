@@ -173,6 +173,10 @@ pub fn handle_message(state: &mut EwwmState, client_id: u64, raw: &str) -> Optio
         // BCI fatigue EEG (Week 19)
         Some("bci-fatigue-eeg-status") => handle_bci_fatigue_eeg_status(state, msg_id),
         Some("bci-fatigue-eeg-config") => handle_bci_fatigue_eeg_config(state, msg_id, &value),
+        // IPC recording (v0.2.0)
+        Some("ipc-record-start") => handle_ipc_record_start(state, msg_id, &value),
+        Some("ipc-record-stop") => handle_ipc_record_stop(state, msg_id),
+        Some("ipc-record-status") => handle_ipc_record_status(state, msg_id),
         Some(other) => Some(error_response(
             msg_id,
             &format!("unknown message type: {other}"),
@@ -211,12 +215,9 @@ fn handle_hello(
     ))
 }
 
-fn handle_ping(_state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
+fn handle_ping(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let client_ts = get_int(value, "timestamp").unwrap_or(0);
-    let server_ts = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as i64)
-        .unwrap_or(0);
+    let server_ts = state.clock.unix_millis();
 
     Some(format!(
         "(:type :response :id {} :status :ok :client-timestamp {} :server-timestamp {})",
@@ -1315,7 +1316,8 @@ fn handle_secure_input_mode(
         if let Some(t) = timeout {
             state.secure_input.config.auto_exit_timeout_secs = t as u64;
         }
-        state.secure_input.enter(&reason, surface_id);
+        let now = state.clock.now();
+        state.secure_input.enter(&reason, surface_id, now);
         Some(ok_response(msg_id))
     } else {
         state.secure_input.exit();
@@ -1324,7 +1326,8 @@ fn handle_secure_input_mode(
 }
 
 fn handle_secure_input_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
-    let status = state.secure_input.status_sexp();
+    let now = state.clock.now();
+    let status = state.secure_input.status_sexp(now);
     Some(format!(
         "(:type :response :id {} :status :ok :secure-input {})",
         msg_id, status
@@ -2207,6 +2210,35 @@ fn handle_bci_fatigue_eeg_config(
     Some(format!(
         "(:type :response :id {} :status :ok :config {})",
         msg_id, config
+    ))
+}
+
+// ── IPC recording handlers ─────────────────────────────────
+
+fn handle_ipc_record_start(
+    state: &mut EwwmState,
+    msg_id: i64,
+    value: &Value,
+) -> Option<String> {
+    let session_name = get_string(value, "session-name");
+    state.ipc_server.recorder.start(session_name);
+    Some(format!("(:type :response :id {} :status :ok)", msg_id))
+}
+
+fn handle_ipc_record_stop(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    state.ipc_server.recorder.stop();
+    let recording = state.ipc_server.recorder.to_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :recording {})",
+        msg_id, recording
+    ))
+}
+
+fn handle_ipc_record_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let status = state.ipc_server.recorder.status_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :recorder {})",
+        msg_id, status
     ))
 }
 

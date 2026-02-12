@@ -1,0 +1,41 @@
+name: Nix Build & Cache
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'compositor/**'
+      - 'flake.nix'
+      - 'flake.lock'
+  pull_request:
+    paths:
+      - 'compositor/**'
+      - 'flake.nix'
+      - 'flake.lock'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Nix Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Check flake
+        run: nix flake check --no-build
+
+      - name: Build compositor
+        run: nix build .#compositor
+
+      - name: Build headless compositor
+        run: nix build .#compositor-headless
+
+      - name: Build devShell
+        run: nix build .#devShells.x86_64-linux.default

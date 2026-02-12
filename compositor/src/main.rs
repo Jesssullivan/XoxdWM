@@ -2,15 +2,7 @@
 //!
 //! Part of the EXWM-VR project: a transhuman Emacs window manager.
 
-pub mod autotype;
-mod backend;
-mod handlers;
-mod input;
-pub mod ipc;
-mod render;
-pub mod secure_input;
-mod state;
-pub mod vr;
+use ewwm_compositor::backend;
 
 use clap::Parser;
 use tracing::info;

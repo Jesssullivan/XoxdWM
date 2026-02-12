@@ -4,6 +4,7 @@
 //! Wire format: 4-byte big-endian length prefix + UTF-8 s-expression payload.
 
 pub mod dispatch;
+pub mod recorder;
 pub mod server;
 
 pub use server::IpcServer;

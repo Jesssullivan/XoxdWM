@@ -1,0 +1,55 @@
+name: Rocky Linux Test
+
+on:
+  push:
+    branches: [main, dev]
+    paths: ['compositor/**']
+  pull_request:
+    paths: ['compositor/**']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Rocky Linux 10 Build & Test
+    runs-on: ubuntu-latest
+    container: rockylinux:10
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          dnf install -y epel-release
+          dnf install -y \
+            gcc gcc-c++ make cmake pkg-config \
+            wayland-devel mesa-libEGL-devel mesa-libGL-devel \
+            libinput-devel libxkbcommon-devel libseat-devel \
+            libdrm-devel \
+            emacs-nox \
+            curl
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: Build headless compositor
+        run: |
+          source "$HOME/.cargo/env"
+          cargo build --manifest-path compositor/Cargo.toml --no-default-features
+
+      - name: Run Rust tests (headless)
+        run: |
+          source "$HOME/.cargo/env"
+          cargo test --manifest-path compositor/Cargo.toml --no-default-features
+
+      - name: Run ERT tests
+        run: |
+          emacs --batch \
+            -L lisp/core -L lisp/vr -L lisp/ext \
+            -l ert \
+            $(find test -name '*-test.el' -printf '-l %p ') \
+            -f ert-run-tests-batch-and-exit
