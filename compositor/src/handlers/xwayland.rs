@@ -44,7 +44,7 @@ impl XwmHandler for EwwmState {
 
         // Create a unified Window element
         let win = Window::new_x11_window(window.clone());
-        self.space.map_element(win, (0, 0), false);
+        self.space.map_element(win.clone(), (0, 0), false);
 
         // Extract X11 properties
         let wm_class = window.class();
@@ -67,6 +67,7 @@ impl XwmHandler for EwwmState {
         }
 
         self.surfaces.insert(surface_id, data);
+        self.surface_to_window.insert(surface_id, win);
 
         // Configure the window
         if let Some(geo) = self.space.elements().last().and_then(|w| {
@@ -107,15 +108,21 @@ impl XwmHandler for EwwmState {
         // X11 window unmapped — find and remove from space
         debug!("XWayland: window unmapped");
 
-        // Find the surface_id for this window and clean up
+        // Find the surface_id for this specific X11 window
+        let window_id = window.window_id();
         let surface_id = self
-            .surfaces
+            .surface_to_window
             .iter()
-            .find(|(_, data)| data.is_x11)
+            .find(|(_, w)| {
+                w.x11_surface()
+                    .map(|xs| xs.window_id() == window_id)
+                    .unwrap_or(false)
+            })
             .map(|(id, _)| *id);
 
         if let Some(sid) = surface_id {
             self.surfaces.remove(&sid);
+            self.surface_to_window.remove(&sid);
 
             // Emit IPC event
             let event = format_event("surface-destroyed", &[("id", &sid.to_string())]);

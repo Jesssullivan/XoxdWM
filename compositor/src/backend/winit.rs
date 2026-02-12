@@ -3,7 +3,10 @@
 use crate::{ipc, render, state::EwwmState};
 use super::IpcConfig;
 use smithay::{
-    backend::winit::{self as winit_backend, WinitEvent},
+    backend::{
+        renderer::damage::OutputDamageTracker,
+        winit::{self as winit_backend, WinitEvent},
+    },
     output::{Mode as OutputMode, Output, PhysicalProperties, Subpixel},
     reexports::calloop::{
         timer::{TimeoutAction, Timer},
@@ -120,12 +123,26 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
         },
     )?;
 
+    // Create damage tracker from the output (persists across frames
+    // for efficient partial redraws).
+    let mut damage_tracker = OutputDamageTracker::from_output(&output);
+
+    // Clone output for the render timer closure (Output is Arc-based,
+    // so this is cheap).  The original `output` stays available for
+    // the resize handler below.
+    let render_output = output.clone();
+
     // Render timer (60 Hz)
     event_loop.handle().insert_source(
         Timer::from_duration(Duration::from_millis(16)),
         move |_, _, state| {
-            // Render frame
-            render::render_winit(&mut backend, state, &output);
+            // Render frame with damage tracking
+            render::render_winit(
+                &mut backend,
+                &mut damage_tracker,
+                state,
+                &render_output,
+            );
             TimeoutAction::ToDuration(Duration::from_millis(16))
         },
     )?;

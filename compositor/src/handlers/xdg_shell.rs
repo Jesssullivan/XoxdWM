@@ -31,7 +31,8 @@ impl XdgShellHandler for EwwmState {
         info!(surface_id, "new toplevel surface");
 
         let window = Window::new_wayland_window(surface.clone());
-        self.space.map_element(window, (0, 0), false);
+        self.space.map_element(window.clone(), (0, 0), false);
+        self.surface_to_window.insert(surface_id, window);
 
         let mut data = SurfaceData::new(surface_id);
         data.workspace = self.active_workspace;
@@ -119,6 +120,7 @@ impl XdgShellHandler for EwwmState {
 
         if let Some(sid) = surface_id {
             self.surfaces.remove(&sid);
+            self.surface_to_window.remove(&sid);
 
             let event = format_event("surface-destroyed", &[("id", &sid.to_string())]);
             IpcServer::broadcast_event(self, &event);

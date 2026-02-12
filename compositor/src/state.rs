@@ -144,6 +144,8 @@ pub struct EwwmState {
     // Window management
     pub space: Space<Window>,
     pub surfaces: HashMap<u64, SurfaceData>,
+    /// Maps surface_id → Window for O(1) dispatch lookups.
+    pub surface_to_window: HashMap<u64, Window>,
     pub active_workspace: usize,
 
     // Output usable area (after layer-shell exclusive zones)
@@ -222,6 +224,7 @@ impl EwwmState {
             seat,
             space: Space::default(),
             surfaces: HashMap::new(),
+            surface_to_window: HashMap::new(),
             active_workspace: 0,
             usable_area: UsableArea::default(),
             ipc_server: IpcServer::new(ipc_socket_path),
@@ -236,6 +239,13 @@ impl EwwmState {
             running: true,
             clock: Arc::new(SystemClock),
         }
+    }
+}
+
+impl EwwmState {
+    /// Look up a Window by its surface_id.
+    pub fn find_window(&self, surface_id: u64) -> Option<&Window> {
+        self.surface_to_window.get(&surface_id)
     }
 }
 

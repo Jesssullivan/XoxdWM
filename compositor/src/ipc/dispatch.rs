@@ -234,15 +234,12 @@ fn handle_surface_list(state: &mut EwwmState, msg_id: i64) -> Option<String> {
         let x11_flag = if data.is_x11 { "t" } else { "nil" };
         let x11_class = data.x11_class.as_deref().unwrap_or("");
         let x11_instance = data.x11_instance.as_deref().unwrap_or("");
-        // Get geometry from Space
+        // Get geometry for this specific surface's Window
         let geo = state
-            .space
-            .elements()
-            .find_map(|w| {
-                state.space.element_geometry(w).map(|g| {
-                    (g.loc.x, g.loc.y, g.size.w, g.size.h)
-                })
-            })
+            .surface_to_window
+            .get(id)
+            .and_then(|w| state.space.element_geometry(w))
+            .map(|g| (g.loc.x, g.loc.y, g.size.w, g.size.h))
             .unwrap_or((0, 0, 0, 0));
 
         surfaces_sexp.push_str(&format!(
@@ -279,15 +276,8 @@ fn handle_surface_focus(state: &mut EwwmState, msg_id: i64, value: &Value) -> Op
         ));
     }
 
-    // Find the Window in space and raise it
-    let window = state
-        .space
-        .elements()
-        .find(|w| {
-            // For now, find by position in the surfaces map
-            true // TODO: proper window-to-surface-id correlation
-        })
-        .cloned();
+    // Find the Window by surface_id and raise it
+    let window = state.find_window(surface_id).cloned();
 
     if let Some(w) = window {
         state.space.raise_element(&w, true);
@@ -315,12 +305,10 @@ fn handle_surface_close(state: &mut EwwmState, msg_id: i64, value: &Value) -> Op
         ));
     }
 
-    // Send close request to the toplevel
-    // TODO: correlate surface_id to Window more robustly
-    for w in state.space.elements() {
+    // Send close request to the correct toplevel
+    if let Some(w) = state.find_window(surface_id) {
         if let Some(toplevel) = w.toplevel() {
             toplevel.send_close();
-            break;
         }
     }
 
@@ -342,9 +330,8 @@ fn handle_surface_move(state: &mut EwwmState, msg_id: i64, value: &Value) -> Opt
         ));
     }
 
-    // Find window and remap at new location
-    let window = state.space.elements().next().cloned(); // TODO: proper lookup
-    if let Some(w) = window {
+    // Find window by surface_id and remap at new location
+    if let Some(w) = state.find_window(surface_id).cloned() {
         state.space.map_element(w, (x, y), false);
     }
 
@@ -366,14 +353,13 @@ fn handle_surface_resize(state: &mut EwwmState, msg_id: i64, value: &Value) -> O
         ));
     }
 
-    // Resize via pending state
-    for win in state.space.elements() {
+    // Resize via pending state using proper surface_id lookup
+    if let Some(win) = state.find_window(surface_id) {
         if let Some(toplevel) = win.toplevel() {
             toplevel.with_pending_state(|s| {
                 s.size = Some(smithay::utils::Size::from((w, h)));
             });
             toplevel.send_pending_configure();
-            break; // TODO: proper lookup
         }
     }
 
@@ -2332,4 +2318,206 @@ pub fn format_event(event_type: &str, fields: &[(&str, &str)]) -> String {
     }
     s.push(')');
     s
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── ok_response / error_response ────────────────────────
+
+    #[test]
+    fn test_ok_response_format() {
+        let r = ok_response(42);
+        assert!(r.contains(":type :response"));
+        assert!(r.contains(":id 42"));
+        assert!(r.contains(":status :ok"));
+    }
+
+    #[test]
+    fn test_error_response_format() {
+        let r = error_response(7, "bad input");
+        assert!(r.contains(":type :response"));
+        assert!(r.contains(":id 7"));
+        assert!(r.contains(":status :error"));
+        assert!(r.contains(":reason \"bad input\""));
+    }
+
+    #[test]
+    fn test_error_response_escapes_quotes() {
+        let r = error_response(1, "say \"hello\"");
+        assert!(r.contains("say \\\"hello\\\""));
+    }
+
+    // ── escape_string ───────────────────────────────────────
+
+    #[test]
+    fn test_escape_string_plain() {
+        assert_eq!(escape_string("hello"), "hello");
+    }
+
+    #[test]
+    fn test_escape_string_quotes() {
+        assert_eq!(escape_string("say \"hi\""), "say \\\"hi\\\"");
+    }
+
+    #[test]
+    fn test_escape_string_backslash() {
+        assert_eq!(escape_string("a\\b"), "a\\\\b");
+    }
+
+    #[test]
+    fn test_escape_string_both() {
+        assert_eq!(escape_string("\"\\\""), "\\\"\\\\\\\"");
+    }
+
+    // ── get_keyword ─────────────────────────────────────────
+
+    #[test]
+    fn test_get_keyword_from_plist() {
+        let v = lexpr::from_str("(:type :hello :version 1)").unwrap();
+        assert_eq!(get_keyword(&v, "type"), Some("hello".to_string()));
+        assert_eq!(get_keyword(&v, "version"), Some("1".to_string()));
+    }
+
+    #[test]
+    fn test_get_keyword_string_value() {
+        let v = lexpr::from_str("(:type :hello :client \"emacs\")").unwrap();
+        assert_eq!(get_keyword(&v, "client"), Some("emacs".to_string()));
+    }
+
+    #[test]
+    fn test_get_keyword_missing_key() {
+        let v = lexpr::from_str("(:type :hello)").unwrap();
+        assert_eq!(get_keyword(&v, "nonexistent"), None);
+    }
+
+    #[test]
+    fn test_get_keyword_empty_list() {
+        let v = lexpr::from_str("()").unwrap();
+        assert_eq!(get_keyword(&v, "type"), None);
+    }
+
+    // ── get_int ─────────────────────────────────────────────
+
+    #[test]
+    fn test_get_int_positive() {
+        let v = lexpr::from_str("(:id 42)").unwrap();
+        assert_eq!(get_int(&v, "id"), Some(42));
+    }
+
+    #[test]
+    fn test_get_int_negative() {
+        let v = lexpr::from_str("(:x -100)").unwrap();
+        assert_eq!(get_int(&v, "x"), Some(-100));
+    }
+
+    #[test]
+    fn test_get_int_missing() {
+        let v = lexpr::from_str("(:type :hello)").unwrap();
+        assert_eq!(get_int(&v, "id"), None);
+    }
+
+    #[test]
+    fn test_get_int_non_numeric() {
+        let v = lexpr::from_str("(:id :hello)").unwrap();
+        assert_eq!(get_int(&v, "id"), None);
+    }
+
+    // ── get_bool ────────────────────────────────────────────
+
+    #[test]
+    fn test_get_bool_true() {
+        let v = lexpr::from_str("(:enable t)").unwrap();
+        assert_eq!(get_bool(&v, "enable"), Some(true));
+    }
+
+    #[test]
+    fn test_get_bool_nil() {
+        let v = lexpr::from_str("(:enable nil)").unwrap();
+        assert_eq!(get_bool(&v, "enable"), Some(false));
+    }
+
+    // ── get_float ───────────────────────────────────────────
+
+    #[test]
+    fn test_get_float_integer() {
+        let v = lexpr::from_str("(:speed 10)").unwrap();
+        assert_eq!(get_float(&v, "speed"), Some(10.0));
+    }
+
+    // ── format_event ────────────────────────────────────────
+
+    #[test]
+    fn test_format_event_no_fields() {
+        let e = format_event("test", &[]);
+        assert_eq!(e, "(:type :event :event :test)");
+    }
+
+    #[test]
+    fn test_format_event_with_fields() {
+        let e = format_event("surface-created", &[("id", "1"), ("app-id", "\"firefox\"")]);
+        assert!(e.starts_with("(:type :event :event :surface-created"));
+        assert!(e.contains(":id 1"));
+        assert!(e.contains(":app-id \"firefox\""));
+        assert!(e.ends_with(')'));
+    }
+
+    // ── flatten_list ────────────────────────────────────────
+
+    #[test]
+    fn test_flatten_list_simple() {
+        let v = lexpr::from_str("(:a 1 :b 2)").unwrap();
+        let flat = flatten_list(&v);
+        assert!(flat.len() >= 4); // :a, 1, :b, 2
+    }
+
+    #[test]
+    fn test_flatten_list_empty() {
+        let v = lexpr::from_str("()").unwrap();
+        let flat = flatten_list(&v);
+        assert!(flat.is_empty());
+    }
+
+    // ── Protocol round-trip ─────────────────────────────────
+
+    #[test]
+    fn test_ok_response_is_valid_sexp() {
+        let r = ok_response(1);
+        let parsed = lexpr::from_str(&r);
+        assert!(parsed.is_ok(), "ok_response should produce valid s-expression");
+    }
+
+    #[test]
+    fn test_error_response_is_valid_sexp() {
+        let r = error_response(1, "test error");
+        let parsed = lexpr::from_str(&r);
+        assert!(parsed.is_ok(), "error_response should produce valid s-expression");
+    }
+
+    #[test]
+    fn test_format_event_is_valid_sexp() {
+        let e = format_event("test", &[("key", "123")]);
+        let parsed = lexpr::from_str(&e);
+        assert!(parsed.is_ok(), "format_event should produce valid s-expression");
+    }
+
+    #[test]
+    fn test_ok_response_parseable_fields() {
+        let r = ok_response(99);
+        let v = lexpr::from_str(&r).unwrap();
+        assert_eq!(get_keyword(&v, "type"), Some("response".to_string()));
+        assert_eq!(get_int(&v, "id"), Some(99));
+        assert_eq!(get_keyword(&v, "status"), Some("ok".to_string()));
+    }
+
+    #[test]
+    fn test_error_response_parseable_fields() {
+        let r = error_response(5, "missing field");
+        let v = lexpr::from_str(&r).unwrap();
+        assert_eq!(get_keyword(&v, "type"), Some("response".to_string()));
+        assert_eq!(get_int(&v, "id"), Some(5));
+        assert_eq!(get_keyword(&v, "status"), Some("error".to_string()));
+        assert_eq!(get_keyword(&v, "reason"), Some("missing field".to_string()));
+    }
 }
