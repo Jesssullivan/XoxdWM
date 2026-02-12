@@ -298,7 +298,7 @@ fn scan_connectors(
             .iter()
             .filter_map(|enc_handle| gpu.drm.get_encoder(*enc_handle).ok())
             .flat_map(|enc| {
-                let possible_bits = enc.possible_crtcs().0;
+                let possible_bits = u32::from(enc.possible_crtcs());
                 crtcs.iter().enumerate().filter_map(move |(idx, crtc)| {
                     if (possible_bits >> idx) & 1 != 0 { Some(crtc) } else { None }
                 })

@@ -137,17 +137,9 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
         }
     }
 
-    // Insert Wayland display source into event loop
-    event_loop.handle().insert_source(
-        smithay::reexports::calloop::generic::Generic::new(
-            display.backend().poll_fd(),
-            smithay::reexports::calloop::Interest::READ,
-            smithay::reexports::calloop::Mode::Level,
-        ),
-        |_, _, state: &mut EwwmState| {
-            Ok(smithay::reexports::calloop::PostAction::Continue)
-        },
-    )?;
+    // Wayland display dispatch is handled directly in the main loop
+    // (calling display.dispatch_clients + flush_clients) to avoid
+    // borrow conflicts with display.backend().poll_fd().
 
     // Create damage tracker from the output (persists across frames
     // for efficient partial redraws).
@@ -201,7 +193,8 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
         // Dispatch calloop events
         event_loop.dispatch(Some(Duration::from_millis(1)), &mut state)?;
 
-        // Flush client events
+        // Dispatch and flush client events
+        display.dispatch_clients(&mut state)?;
         display.flush_clients()?;
     }
 

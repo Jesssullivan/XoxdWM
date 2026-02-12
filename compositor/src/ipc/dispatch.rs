@@ -2248,25 +2248,45 @@ fn escape_string(s: &str) -> String {
 }
 
 /// Extract a keyword value from an s-expression plist.
-/// Looks for `:key` followed by a value in a flat list.
+/// Walks cons pairs directly to find `:key` followed by its value.
+/// Handles both `Value::Keyword("key")` (elisp parser) and
+/// `Value::Symbol(":key")` (default parser) forms.
 fn get_keyword(value: &Value, key: &str) -> Option<String> {
-    let _keyword = format!(":{}", key);
-    if let Value::Cons(_) = value {
-        // Iterate pairs: (:key value :key value ...)
-        // lexpr parses (:type :hello) as a list of cons/atoms
-        let flat: Vec<&Value> = flatten_list(value);
-        for i in 0..flat.len().saturating_sub(1) {
-            if let Value::Keyword(k) = flat[i] {
-                if k.as_ref() == key {
-                    return match flat[i + 1] {
-                        Value::Keyword(v) => Some(v.to_string()),
-                        Value::Symbol(v) => Some(v.to_string()),
-                        Value::String(v) => Some(v.to_string()),
-                        Value::Number(n) => Some(n.to_string()),
-                        _ => Some(flat[i + 1].to_string()),
-                    };
+    let prefixed = format!(":{}", key);
+    let mut current = value;
+    loop {
+        match current {
+            Value::Cons(pair) => {
+                let car = pair.car();
+                let is_key = match car {
+                    Value::Keyword(k) => k.as_ref() == key,
+                    Value::Symbol(s) => s.as_ref() == prefixed,
+                    _ => false,
+                };
+                if is_key {
+                    // Value is the car of the next cons cell
+                    if let Value::Cons(next) = pair.cdr() {
+                        let val = next.car();
+                        return match val {
+                            Value::Keyword(v) => Some(v.to_string()),
+                            Value::Symbol(v) => {
+                                let s = v.to_string();
+                                Some(s.strip_prefix(':').unwrap_or(&s).to_string())
+                            }
+                            Value::String(v) => Some(v.to_string()),
+                            Value::Number(n) => Some(n.to_string()),
+                            Value::Bool(b) => {
+                                Some(if *b { "t" } else { "nil" }.to_string())
+                            }
+                            Value::Null => Some("nil".to_string()),
+                            _ => Some(val.to_string()),
+                        };
+                    }
+                    return None;
                 }
+                current = pair.cdr();
             }
+            _ => break,
         }
     }
     None
