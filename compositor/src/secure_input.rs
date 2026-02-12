@@ -108,7 +108,14 @@ impl SecureInputState {
     }
 
     /// Activate secure input mode for the given reason and surface.
-    pub fn enter(&mut self, reason: &str, surface_id: u64) {
+    /// The `now` parameter should come from the compositor clock
+    /// (`state.clock.now()`) so tests can control time.
+    pub fn enter(
+        &mut self,
+        reason: &str,
+        surface_id: u64,
+        now: std::time::Instant,
+    ) {
         if self.active {
             debug!(
                 "Secure input mode re-entered: reason=\"{}\" surface_id={}",
@@ -123,7 +130,7 @@ impl SecureInputState {
         self.active = true;
         self.reason = Some(reason.to_string());
         self.surface_id = Some(surface_id);
-        self.entered_at = Some(std::time::Instant::now());
+        self.entered_at = Some(now);
     }
 
     /// Deactivate secure input mode and clear all state.
@@ -143,22 +150,24 @@ impl SecureInputState {
     }
 
     /// Check whether the auto-exit timeout has been reached.
-    pub fn is_expired(&self) -> bool {
+    /// Pass `clock.now()` as `now` for deterministic testing.
+    pub fn is_expired(&self, now: std::time::Instant) -> bool {
         if !self.active {
             return false;
         }
         if let Some(entered) = self.entered_at {
-            let elapsed = entered.elapsed().as_secs();
+            let elapsed = now.duration_since(entered).as_secs();
             elapsed >= self.config.auto_exit_timeout_secs
         } else {
             false
         }
     }
 
-    /// Tick the secure input state.  If the timeout has expired, deactivate
-    /// and return `Some(SecureInputEvent::AutoExitTimeout)`.
-    pub fn tick(&mut self) -> Option<SecureInputEvent> {
-        if self.is_expired() {
+    /// Tick the secure input state.  If the timeout has expired,
+    /// deactivate and return
+    /// `Some(SecureInputEvent::AutoExitTimeout)`.
+    pub fn tick(&mut self, now: std::time::Instant) -> Option<SecureInputEvent> {
+        if self.is_expired(now) {
             warn!(
                 "Secure input mode auto-exit: timeout after {}s",
                 self.config.auto_exit_timeout_secs
@@ -171,7 +180,8 @@ impl SecureInputState {
     }
 
     /// Generate IPC status s-expression.
-    pub fn status_sexp(&self) -> String {
+    /// Pass `clock.now()` as `now` for deterministic testing.
+    pub fn status_sexp(&self, now: std::time::Instant) -> String {
         format!(
             "(:active {} :reason {} :surface-id {} :elapsed-s {} :timeout-s {})",
             if self.active { "t" } else { "nil" },
@@ -184,7 +194,9 @@ impl SecureInputState {
                 None => "nil".to_string(),
             },
             match self.entered_at {
-                Some(t) => format!("{}", t.elapsed().as_secs()),
+                Some(t) => {
+                    format!("{}", now.duration_since(t).as_secs())
+                }
                 None => "0".to_string(),
             },
             self.config.auto_exit_timeout_secs,
@@ -235,6 +247,7 @@ impl SecureInputState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Instant;
 
     #[test]
     fn test_default_inactive() {
@@ -248,8 +261,9 @@ mod tests {
     #[test]
     fn test_enter_exit() {
         let mut state = SecureInputState::new();
+        let now = Instant::now();
 
-        state.enter("read-passwd", 42);
+        state.enter("read-passwd", 42, now);
         assert!(state.active);
         assert_eq!(state.reason.as_deref(), Some("read-passwd"));
         assert_eq!(state.surface_id, Some(42));
@@ -267,27 +281,29 @@ mod tests {
         let mut state = SecureInputState::new();
         state.config.auto_exit_timeout_secs = 0; // immediate timeout
 
-        state.enter("test", 1);
+        let now = Instant::now();
+        state.enter("test", 1, now);
         // With a 0-second timeout, it should be expired immediately
-        assert!(state.is_expired());
+        assert!(state.is_expired(now));
 
-        let event = state.tick();
+        let event = state.tick(now);
         assert!(matches!(event, Some(SecureInputEvent::AutoExitTimeout)));
         assert!(!state.active);
     }
 
     #[test]
     fn test_status_sexp() {
+        let now = Instant::now();
         let state = SecureInputState::new();
-        let sexp = state.status_sexp();
+        let sexp = state.status_sexp(now);
         assert!(sexp.contains(":active nil"));
         assert!(sexp.contains(":reason nil"));
         assert!(sexp.contains(":surface-id nil"));
         assert!(sexp.contains(":timeout-s 30"));
 
         let mut state = SecureInputState::new();
-        state.enter("pin-entry", 99);
-        let sexp = state.status_sexp();
+        state.enter("pin-entry", 99, now);
+        let sexp = state.status_sexp(now);
         assert!(sexp.contains(":active t"));
         assert!(sexp.contains(":reason \"pin-entry\""));
         assert!(sexp.contains(":surface-id 99"));
@@ -296,13 +312,14 @@ mod tests {
     #[test]
     fn test_double_enter_updates() {
         let mut state = SecureInputState::new();
+        let now = Instant::now();
 
-        state.enter("first-reason", 10);
+        state.enter("first-reason", 10, now);
         assert_eq!(state.reason.as_deref(), Some("first-reason"));
         assert_eq!(state.surface_id, Some(10));
 
         // Second enter should update reason and surface
-        state.enter("second-reason", 20);
+        state.enter("second-reason", 20, now);
         assert!(state.active);
         assert_eq!(state.reason.as_deref(), Some("second-reason"));
         assert_eq!(state.surface_id, Some(20));
@@ -363,7 +380,8 @@ mod tests {
     #[test]
     fn test_enter_exit_event_sexp() {
         let mut state = SecureInputState::new();
-        state.enter("sudo", 55);
+        let now = Instant::now();
+        state.enter("sudo", 55, now);
 
         let enter_sexp = state.enter_event_sexp();
         assert!(enter_sexp.contains(":secure-input-entered"));
@@ -378,13 +396,15 @@ mod tests {
     #[test]
     fn test_tick_no_event_when_inactive() {
         let mut state = SecureInputState::new();
-        let event = state.tick();
+        let now = Instant::now();
+        let event = state.tick(now);
         assert!(event.is_none());
     }
 
     #[test]
     fn test_is_expired_when_inactive() {
         let state = SecureInputState::new();
-        assert!(!state.is_expired());
+        let now = Instant::now();
+        assert!(!state.is_expired(now));
     }
 }

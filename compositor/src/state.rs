@@ -33,11 +33,12 @@ use smithay::{
 };
 use std::{
     collections::{HashMap, HashSet},
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{atomic::{AtomicU64, Ordering}, Arc},
 };
 use tracing::info;
 
 use crate::autotype::AutoTypeManager;
+use crate::clock::{Clock, SystemClock};
 use crate::ipc::IpcServer;
 use crate::secure_input::SecureInputState;
 use crate::vr::VrState;
@@ -169,6 +170,9 @@ pub struct EwwmState {
 
     // Shutdown flag
     pub running: bool,
+
+    // Clock (real or test)
+    pub clock: Arc<dyn Clock>,
 }
 
 impl EwwmState {
@@ -230,6 +234,7 @@ impl EwwmState {
             headless_width: 1920,
             headless_height: 1080,
             running: true,
+            clock: Arc::new(SystemClock),
         }
     }
 }

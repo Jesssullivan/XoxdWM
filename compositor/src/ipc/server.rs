@@ -10,6 +10,7 @@ use calloop::{Interest, LoopHandle, Mode, PostAction};
 use tracing::{debug, error, info, warn};
 
 use super::dispatch;
+use super::recorder::{IpcRecorder, MessageDirection};
 
 /// Maximum message payload size (1 MiB).
 const MAX_MESSAGE_SIZE: u32 = 1_048_576;
@@ -108,6 +109,7 @@ pub struct IpcServer {
     pub clients: HashMap<u64, IpcClient>,
     next_client_id: u64,
     pub ipc_trace: bool,
+    pub recorder: IpcRecorder,
 }
 
 impl IpcServer {
@@ -118,6 +120,7 @@ impl IpcServer {
             clients: HashMap::new(),
             next_client_id: 1,
             ipc_trace: false,
+            recorder: IpcRecorder::new(),
         }
     }
 
@@ -216,13 +219,23 @@ impl IpcServer {
                 if state.ipc_server.ipc_trace {
                     info!(client_id, "<< {}", msg_str);
                 }
+                state.ipc_server.recorder.record(
+                    client_id,
+                    MessageDirection::Request,
+                    &msg_str,
+                );
                 let response = dispatch::handle_message(state, client_id, &msg_str);
-                if let Some(resp) = response {
+                if let Some(ref resp) = response {
                     if state.ipc_server.ipc_trace {
                         info!(client_id, ">> {}", resp);
                     }
+                    state.ipc_server.recorder.record(
+                        client_id,
+                        MessageDirection::Response,
+                        resp,
+                    );
                     if let Some(client) = state.ipc_server.clients.get_mut(&client_id) {
-                        client.enqueue_message(&resp);
+                        client.enqueue_message(resp);
                     }
                 }
             }
@@ -248,6 +261,11 @@ impl IpcServer {
         if state.ipc_server.ipc_trace {
             info!("broadcast >> {}", event);
         }
+        state.ipc_server.recorder.record(
+            0,
+            MessageDirection::Event,
+            event,
+        );
         for client in state.ipc_server.clients.values_mut() {
             if client.authenticated {
                 client.enqueue_event(event);
