@@ -112,9 +112,14 @@ impl SsvepClassifier {
             return None;
         }
 
+        // Copy config values before any mutation
+        let min_snr_db = self.config.min_snr_db;
+        let min_confidence = self.config.min_confidence;
+        let frequencies: Vec<(usize, f64)> = self.config.frequencies.clone();
+
         // Compute power at each target frequency
-        let mut powers = Vec::with_capacity(self.config.frequencies.len());
-        for &(_ws_id, freq) in &self.config.frequencies {
+        let mut powers = Vec::with_capacity(frequencies.len());
+        for &(_ws_id, freq) in &frequencies {
             let power = Self::compute_power_at_freq(eeg_data, freq, sample_rate);
             powers.push(power);
         }
@@ -122,11 +127,6 @@ impl SsvepClassifier {
         // Compute mean power for noise estimate (excluding target bins)
         let total_power: f64 = powers.iter().sum();
         let n = powers.len() as f64;
-        let mean_power = if n > 1.0 {
-            total_power / n
-        } else {
-            total_power
-        };
 
         // Find the strongest frequency
         let mut best_idx = 0;
@@ -154,13 +154,13 @@ impl SsvepClassifier {
         self.frequency_powers = powers;
 
         // Check thresholds
-        if snr_db < self.config.min_snr_db
-            || confidence < self.config.min_confidence
+        if snr_db < min_snr_db
+            || confidence < min_confidence
         {
             return None;
         }
 
-        let (ws_id, freq) = self.config.frequencies[best_idx];
+        let (ws_id, freq) = frequencies[best_idx];
         let result = SsvepResult {
             workspace_id: ws_id,
             frequency: freq,

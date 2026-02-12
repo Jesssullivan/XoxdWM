@@ -1647,8 +1647,8 @@ fn handle_hand_tracking_skeleton(
         Some(joints) => {
             let mut sexp = String::from("(");
             for joint in &joints {
-                let pos = joint.position;
-                let rot = joint.orientation;
+                let pos = joint.position.clone();
+                let rot = joint.orientation.clone();
                 sexp.push_str(&format!(
                     "(:name \"{}\" :position (:x {:.4} :y {:.4} :z {:.4}) :orientation (:x {:.4} :y {:.4} :z {:.4} :w {:.4}) :radius {:.4})",
                     escape_string(&joint.name),
@@ -2251,7 +2251,7 @@ fn escape_string(s: &str) -> String {
 /// Looks for `:key` followed by a value in a flat list.
 fn get_keyword(value: &Value, key: &str) -> Option<String> {
     let keyword = format!(":{}", key);
-    if let Value::List(items) = value {
+    if let Value::Cons(_) = value {
         // Iterate pairs: (:key value :key value ...)
         // lexpr parses (:type :hello) as a list of cons/atoms
         let flat: Vec<&Value> = flatten_list(value);

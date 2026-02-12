@@ -273,6 +273,10 @@ impl GestureState {
         // Detect static gestures
         let detected = self.classify_gesture(skeleton);
 
+        // Copy config values before taking mutable borrow of hand state
+        let hold_threshold_ms = self.config.hold_threshold_ms;
+        let debounce_ms = self.config.debounce_ms;
+
         let hs = self.hand_state_mut(hand);
 
         // Update cooldown
@@ -284,7 +288,7 @@ impl GestureState {
             (Some(current), Some(new_gesture)) if current == new_gesture => {
                 // Same gesture continues — update hold
                 hs.hold_duration_ms += dt_ms;
-                if hs.hold_duration_ms >= self.config.hold_threshold_ms && !hs.held_emitted {
+                if hs.hold_duration_ms >= hold_threshold_ms && !hs.held_emitted {
                     hs.held_emitted = true;
                     events.push(GestureEvent::Held {
                         hand,
@@ -318,7 +322,7 @@ impl GestureState {
             }
             (None, Some(new_gesture)) => {
                 // New gesture detected — check debounce
-                if hs.cooldown_ms >= self.config.debounce_ms {
+                if hs.cooldown_ms >= debounce_ms {
                     hs.active_gesture = Some(new_gesture);
                     hs.hold_duration_ms = 0.0;
                     hs.held_emitted = false;
@@ -409,6 +413,11 @@ impl GestureState {
         dt_ms: f64,
     ) -> Option<GestureEvent> {
         let palm_pos = skeleton.joints[HandJoint::Palm.index()].position;
+
+        // Copy config values before taking mutable borrow of hand state
+        let swipe_min_velocity = self.config.swipe_min_velocity;
+        let swipe_min_distance_m = self.config.swipe_min_distance_m;
+
         let hs = self.hand_state_mut(hand);
 
         let prev = match hs.prev_palm_pos {
@@ -431,7 +440,7 @@ impl GestureState {
         let displacement = (dx * dx + dy * dy).sqrt();
         let velocity = displacement / dt_s;
 
-        if velocity >= self.config.swipe_min_velocity {
+        if velocity >= swipe_min_velocity {
             hs.swipe_displacement[0] += dx;
             hs.swipe_displacement[1] += dy;
             hs.swipe_tracking = true;
@@ -440,7 +449,7 @@ impl GestureState {
                 + hs.swipe_displacement[1].powi(2))
             .sqrt();
 
-            if total_disp >= self.config.swipe_min_distance_m {
+            if total_disp >= swipe_min_distance_m {
                 let sx = hs.swipe_displacement[0];
                 let sy = hs.swipe_displacement[1];
 

@@ -137,16 +137,9 @@ pub fn compute_gaze_ray(head: &HeadPose, config: &GazeRayConfig) -> Ray {
 
 /// Rotate a vector by a quaternion.
 pub fn quat_rotate(q: &Quat, v: &Vec3) -> Vec3 {
-    // q * v * q^-1, using the formula:
-    // result = v + 2 * cross(q.xyz, cross(q.xyz, v) + q.w * v)
+    // q * v * q^-1, using the standard formula:
+    // result = v + 2 * (q.w * cross(q.xyz, v) + cross(q.xyz, cross(q.xyz, v)))
     let qv = Vec3::new(q.x, q.y, q.z);
-    let t = cross(&qv, v);
-    let t = Vec3::new(
-        t.x * 2.0 + v.x * (2.0 * q.w * q.w - 1.0) + qv.x * 2.0 * dot(v, &qv),
-        t.y * 2.0 + v.y * (2.0 * q.w * q.w - 1.0) + qv.y * 2.0 * dot(v, &qv),
-        t.z * 2.0 + v.z * (2.0 * q.w * q.w - 1.0) + qv.z * 2.0 * dot(v, &qv),
-    );
-    // Simpler: use the standard formula
     let uv = cross(&qv, v);
     let uuv = cross(&qv, &uv);
     Vec3::new(

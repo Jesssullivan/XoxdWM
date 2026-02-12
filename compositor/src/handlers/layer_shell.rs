@@ -13,9 +13,8 @@ use smithay::{
         LayerSurface,
     },
     output::Output,
-    reexports::wayland_server::protocol::wl_output::WlOutput,
     wayland::shell::wlr_layer::{
-        Layer, LayerSurfaceData, WlrLayerShellHandler, WlrLayerShellState,
+        ExclusiveZone, WlrLayerShellHandler, WlrLayerShellState,
     },
 };
 use tracing::{debug, info, warn};
@@ -25,20 +24,13 @@ impl WlrLayerShellHandler for EwwmState {
         &mut self.layer_shell_state
     }
 
-    fn new_layer_surface(
-        &mut self,
-        surface: LayerSurface,
-        wl_output: Option<WlOutput>,
-        layer: Layer,
-        namespace: String,
-    ) {
+    fn new_layer_surface(&mut self, surface: LayerSurface) {
+        let layer = surface.layer();
+        let namespace = surface.namespace().to_string();
         info!(?layer, %namespace, "layer-shell: new surface");
 
         // Find the target output (default to first output)
-        let output = wl_output
-            .as_ref()
-            .and_then(Output::from_resource)
-            .or_else(|| self.space.outputs().next().cloned());
+        let output = self.space.outputs().next().cloned();
 
         let Some(output) = output else {
             warn!("layer-shell: no output available for layer surface");
@@ -68,13 +60,15 @@ impl WlrLayerShellHandler for EwwmState {
     fn layer_destroyed(&mut self, surface: LayerSurface) {
         debug!("layer-shell: surface destroyed");
 
-        // Find and unmap from the correct output's layer map
-        let output = self.space.outputs().find(|o| {
+        // Collect outputs first to avoid lifetime issues with layer_map_for_output guard
+        let outputs: Vec<Output> = self.space.outputs().cloned().collect();
+
+        let target_output = outputs.into_iter().find(|o| {
             let map = layer_map_for_output(o);
             map.layers().any(|l| l == &surface)
-        }).cloned();
+        });
 
-        if let Some(output) = output {
+        if let Some(output) = target_output {
             let mut map = layer_map_for_output(&output);
             map.unmap_layer(&surface);
             drop(map);
@@ -102,10 +96,13 @@ impl EwwmState {
         let map = layer_map_for_output(output);
         for layer in map.layers() {
             let layer_data = layer.cached_state();
-            let exclusive = layer_data.exclusive_zone;
-            if exclusive <= 0 {
-                continue;
-            }
+
+            // In Smithay 0.7, exclusive_zone is an ExclusiveZone enum.
+            // Only Exclusive(val) reserves screen space; Neutral and DontCare are skipped.
+            let exclusive = match layer_data.exclusive_zone {
+                ExclusiveZone::Exclusive(val) => val,
+                _ => continue,
+            };
 
             let anchor = layer_data.anchor;
 

@@ -4,8 +4,6 @@
 //! passed as `&mut self` to all handler trait implementations.
 
 use smithay::{
-    delegate_compositor, delegate_data_device, delegate_output, delegate_seat, delegate_shm,
-    delegate_xdg_shell,
     desktop::{PopupManager, Space, Window},
     input::{Seat, SeatState},
     reexports::{

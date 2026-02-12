@@ -269,8 +269,11 @@ impl HandTrackingState {
             return;
         }
 
-        let skel = self.skeleton_mut(hand);
+        // Copy config values before taking mutable borrow of skeleton
         let alpha = self.config.smoothing;
+        let min_confidence = self.config.min_confidence;
+
+        let skel = self.skeleton_mut(hand);
 
         // Apply smoothing if previous data was valid
         if skel.tracking_active && alpha > 0.0 {
@@ -298,7 +301,7 @@ impl HandTrackingState {
 
         skel.timestamp_ns = timestamp_ns;
         skel.confidence = confidence;
-        skel.tracking_active = confidence >= self.config.min_confidence;
+        skel.tracking_active = confidence >= min_confidence;
 
         self.active = self.left.tracking_active || self.right.tracking_active;
     }

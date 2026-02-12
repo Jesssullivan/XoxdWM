@@ -6,15 +6,15 @@
 
 use crate::{ipc, state::EwwmState};
 use super::IpcConfig;
-use calloop::signals::{Signal, Signals};
 use smithay::{
     output::{Mode as OutputMode, Output, PhysicalProperties, Subpixel},
     reexports::{
         calloop::{
+            signals::{Signal, Signals},
             timer::{TimeoutAction, Timer},
             EventLoop,
         },
-        wayland_server::Display,
+        wayland_server::{Display, ListeningSocket},
     },
     utils::Transform,
 };
@@ -145,22 +145,45 @@ pub fn run(
         output_count, config.width, config.height
     );
 
-    // Set up Wayland socket
-    let socket = if let Some(name) = socket_name {
-        display.handle().add_socket_name(name)?
+    // Set up Wayland socket via ListeningSocket (Smithay 0.7 / wayland-server 0.31)
+    let listening_socket = if let Some(ref name) = socket_name {
+        let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
+            .unwrap_or_else(|_| "/tmp".to_string());
+        let path = std::path::PathBuf::from(runtime_dir).join(name);
+        ListeningSocket::bind(path)
+            .map_err(|e| anyhow::anyhow!("failed to bind wayland socket '{}': {}", name, e))?
     } else {
-        display.handle().add_socket_auto()?
+        ListeningSocket::bind_auto("wayland", 0..33)
+            .map_err(|e| anyhow::anyhow!("failed to bind wayland socket: {}", e))?
     };
-    info!("Wayland socket: {}", socket.to_string_lossy());
-    std::env::set_var("WAYLAND_DISPLAY", &socket);
+    let socket_name_os = listening_socket
+        .socket_name()
+        .expect("listening socket must have a name")
+        .to_os_string();
+    info!("Wayland socket: {}", socket_name_os.to_string_lossy());
+    std::env::set_var("WAYLAND_DISPLAY", &socket_name_os);
+
+    // Register ListeningSocket with calloop to accept client connections
+    event_loop.handle().insert_source(
+        listening_socket,
+        |client_stream, _, state: &mut EwwmState| {
+            if let Err(e) = state
+                .display_handle
+                .insert_client(client_stream, std::sync::Arc::new(crate::state::ClientState::default()))
+            {
+                tracing::warn!("Failed to accept wayland client: {}", e);
+            }
+        },
+    ).map_err(|e| anyhow::anyhow!("failed to register listening socket: {}", e.error))?;
 
     // Signal handling: SIGTERM and SIGINT for graceful shutdown
-    let signals = Signals::new([Signal::SIGTERM, Signal::SIGINT])?;
+    let signals = Signals::new([Signal::SIGTERM, Signal::SIGINT])
+        .map_err(|e| anyhow::anyhow!("failed to create signal source: {}", e))?;
     event_loop.handle().insert_source(signals, |event, _, state: &mut EwwmState| {
         info!("Received signal {:?}, initiating graceful shutdown", event.signal());
         SHUTDOWN_REQUESTED.store(true, Ordering::SeqCst);
         state.running = false;
-    })?;
+    }).map_err(|e| anyhow::anyhow!("failed to register signal handler: {}", e.error))?;
 
     // Exit timer for CI
     if let Some(seconds) = exit_after {
@@ -172,7 +195,7 @@ pub fn run(
                 state.running = false;
                 TimeoutAction::Drop
             },
-        )?;
+        ).map_err(|e| anyhow::anyhow!("failed to register exit timer: {}", e.error))?;
     }
 
     // Periodic status logging (every 60 seconds)
@@ -187,7 +210,7 @@ pub fn run(
             );
             TimeoutAction::ToDuration(Duration::from_secs(60))
         },
-    )?;
+    ).map_err(|e| anyhow::anyhow!("failed to register status timer: {}", e.error))?;
 
     let poll_interval = Duration::from_millis(config.poll_interval_ms);
     info!(

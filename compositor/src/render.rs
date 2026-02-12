@@ -7,14 +7,11 @@
 //! frame, and sends Wayland frame callbacks to clients.
 
 use smithay::{
-    backend::{
-        renderer::{
-            damage::OutputDamageTracker,
-            element::surface::WaylandSurfaceRenderElement,
-            gles::GlesRenderer,
-            Color32F, ImportAll, Renderer,
-        },
-        winit::WinitGraphicsBackend,
+    backend::renderer::{
+        damage::OutputDamageTracker,
+        element::surface::WaylandSurfaceRenderElement,
+        gles::{GlesFrame, GlesRenderer},
+        Color32F, ImportAll, Renderer,
     },
     desktop::{
         space::SpaceRenderElements,
@@ -27,6 +24,8 @@ use smithay::{
     output::Output,
     utils::{Physical, Rectangle},
 };
+#[cfg(feature = "full-backend")]
+use smithay::backend::winit::WinitGraphicsBackend;
 use std::time::Duration;
 use tracing::{trace, warn};
 
@@ -53,6 +52,7 @@ pub const BG_COLOR: Color32F = Color32F::new(0.118, 0.118, 0.180, 1.0);
 /// 4. Submit the frame (buffer swap) with damage hints.
 /// 5. Send Wayland `wl_surface::frame` callbacks so clients know
 ///    their content was presented.
+#[cfg(feature = "full-backend")]
 pub fn render_winit(
     backend: &mut WinitGraphicsBackend<GlesRenderer>,
     damage_tracker: &mut OutputDamageTracker,
@@ -167,7 +167,7 @@ pub fn render_winit(
 /// damage into `drm_surface.queue_buffer(damage)`.
 pub fn render_drm(
     renderer: &mut GlesRenderer,
-    framebuffer: &mut <GlesRenderer as Renderer>::Framebuffer<'_>,
+    framebuffer: &mut GlesFrame,
     damage_tracker: &mut OutputDamageTracker,
     space: &mut Space<Window>,
     output: &Output,

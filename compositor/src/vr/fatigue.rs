@@ -342,30 +342,10 @@ impl FatigueMonitor {
                 }
             }
 
-            // Emit specific alert based on new level
-            let alert_event = match new_level {
-                FatigueLevel::Mild => Some(FatigueEvent::AlertMild {
-                    blink_rate,
-                    session_min,
-                }),
-                FatigueLevel::Significant => Some(FatigueEvent::AlertSignificant {
-                    blink_rate,
-                    perclos,
-                    session_min,
-                }),
-                FatigueLevel::Critical => Some(FatigueEvent::AlertCritical {
-                    blink_rate,
-                    perclos,
-                    jitter,
-                    session_min,
-                }),
-                FatigueLevel::Normal => None,
-            };
-
             self.last_alert_level = new_level;
 
-            // Return the level change event (alerts are secondary)
-            // For simplicity, emit the LevelChanged event; callers can inspect level.
+            // Return the level change event; callers can inspect level
+            // to determine specific alert type.
             return Some(FatigueEvent::LevelChanged {
                 from: prev_level,
                 to: new_level,

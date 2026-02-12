@@ -741,8 +741,8 @@ impl GazeFocusManager {
             let in_saccade = self.saccade.update(gaze.ray.direction, dt_s);
             if in_saccade {
                 // Reset dwell during saccade
-                if let DwellState::Dwelling { surface_id, .. } = &self.dwell {
-                    let sid = *surface_id;
+                let was_dwelling = matches!(self.dwell, DwellState::Dwelling { .. });
+                if was_dwelling {
                     self.dwell = DwellState::Idle;
                     self.analytics.record_saccade_suppression();
                     return Some(GazeFocusEvent::SaccadeDetected {
@@ -807,10 +807,13 @@ impl GazeFocusManager {
         let effective_threshold = self.config.threshold_ms
             + self.hysteresis.effective_extra_ms(timestamp_s);
 
-        match (&self.dwell, hit) {
+        // Clone dwell state to avoid borrow conflicts when assigning
+        let dwell_snapshot = self.dwell.clone();
+
+        match (&dwell_snapshot, hit) {
             // No hit — reset to idle
             (_, None) => {
-                if let DwellState::Dwelling { surface_id, .. } = &self.dwell {
+                if let DwellState::Dwelling { surface_id, .. } = &dwell_snapshot {
                     let sid = *surface_id;
                     self.dwell = DwellState::Idle;
                     return Some(GazeFocusEvent::FocusCancelled {
@@ -894,7 +897,6 @@ impl GazeFocusManager {
 
                     // Start cooldown
                     self.cooldown.start();
-                    let cooldown_ms = self.cooldown.default_ms;
 
                     // Transition to idle (cooldown active)
                     self.dwell = DwellState::Idle;
@@ -924,8 +926,7 @@ impl GazeFocusManager {
             }
 
             // Dwelling but surface changed — reset
-            (DwellState::Dwelling { surface_id, .. }, Some(hit)) => {
-                let old_sid = *surface_id;
+            (DwellState::Dwelling { .. }, Some(hit)) => {
                 self.dwell = DwellState::Dwelling {
                     surface_id: hit.surface_id,
                     elapsed_ms: 0.0,
