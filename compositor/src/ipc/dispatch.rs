@@ -1,6 +1,7 @@
 //! IPC message dispatch — parse s-expressions and route to handlers.
 
 use crate::state::EwwmState;
+use super::server::IpcServer;
 use lexpr::Value;
 use tracing::{debug, warn};
 
