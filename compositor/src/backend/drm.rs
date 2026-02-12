@@ -292,17 +292,12 @@ fn scan_connectors(
         };
 
         // Find an available CRTC for this connector.
-        // Try to pick a CRTC from the connector's encoder list.
+        // Use ResourceHandles::filter_crtcs to get compatible CRTCs.
         let crtc = connector
             .encoders()
             .iter()
             .filter_map(|enc_handle| gpu.drm.get_encoder(*enc_handle).ok())
-            .flat_map(|enc| {
-                let possible_bits = u32::from(enc.possible_crtcs());
-                crtcs.iter().enumerate().filter_map(move |(idx, crtc)| {
-                    if (possible_bits >> idx) & 1 != 0 { Some(crtc) } else { None }
-                })
-            })
+            .flat_map(|enc| res.filter_crtcs(enc.possible_crtcs()))
             .find(|crtc| !used_crtcs.contains(crtc));
 
         let crtc = match crtc {
