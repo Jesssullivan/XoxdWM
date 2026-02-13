@@ -2,10 +2,10 @@ name: Rocky Linux Test
 
 on:
   push:
-    branches: [main, dev]
-    paths: ['compositor/**']
+    branches: [main, dev, 'feature/*']
+    paths: ['compositor/**', 'flake.nix', 'nix/**', 'lisp/**']
   pull_request:
-    paths: ['compositor/**']
+    paths: ['compositor/**', 'flake.nix', 'nix/**', 'lisp/**']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,40 +13,42 @@ concurrency:
 
 jobs:
   test:
-    name: Rocky Linux 9 Build & Test
+    name: Rocky Linux 10 Build & Test
     runs-on: ubuntu-latest
-    container: rockylinux:9
+    container:
+      image: rockylinux/rockylinux:10
+      options: --user root
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: /usr/bin/bash -e {0}
+    env:
+      HOME: /root
+      CARGO_HOME: /root/.cargo
+      PATH: /root/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     steps:
       - uses: actions/checkout@v4
 
       - name: Install build dependencies
         run: |
           dnf install -y epel-release
-          dnf config-manager --set-enabled crb
+          dnf config-manager --set-enabled crb || dnf config-manager setopt crb.enabled=1
           dnf install -y \
             gcc gcc-c++ make cmake pkg-config \
             wayland-devel mesa-libEGL-devel mesa-libGL-devel \
             libinput-devel libxkbcommon-devel libdrm-devel \
             emacs-nox
-          # curl-minimal is pre-installed in the container; skip full curl
-          # libseat-devel may not be in default repos; install if available
           dnf install -y libseat-devel 2>/dev/null || true
 
       - name: Install Rust
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Build headless compositor
-        run: |
-          source "$HOME/.cargo/env"
-          cargo build --manifest-path compositor/Cargo.toml --no-default-features
+        run: cargo build --manifest-path compositor/Cargo.toml --no-default-features
 
       - name: Run Rust tests (headless)
-        run: |
-          source "$HOME/.cargo/env"
-          cargo test --manifest-path compositor/Cargo.toml --no-default-features
+        run: cargo test --manifest-path compositor/Cargo.toml --no-default-features
 
       - name: Run ERT tests
         run: |
@@ -55,3 +57,51 @@ jobs:
             -l ert \
             $(find test -name '*-test.el' -printf '-l %p ') \
             -f ert-run-tests-batch-and-exit
+
+  nix-on-rocky:
+    name: Rocky Linux 10 + Nix
+    runs-on: ubuntu-latest
+    container:
+      image: rockylinux/rockylinux:10
+      options: --user root
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: /usr/bin/bash -e {0}
+    env:
+      HOME: /root
+      PATH: /root/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      NIX_SSL_CERT_FILE: /etc/pki/tls/certs/ca-bundle.crt
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix (single-user)
+        run: |
+          dnf install -y curl xz tar git ca-certificates
+          mkdir -m 0755 /nix
+          mkdir -p /etc/nix
+          echo "build-users-group =" > /etc/nix/nix.conf
+          curl -L https://nixos.org/nix/install | sh -s -- --no-daemon
+
+      - name: Configure Nix
+        run: |
+          echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
+          echo "sandbox = false" >> /etc/nix/nix.conf
+          echo "filter-syscalls = false" >> /etc/nix/nix.conf
+          rm -rf /homeless-shelter
+          nix --version
+
+      - name: Build headless compositor via Nix
+        run: |
+          rm -rf /homeless-shelter
+          nix build .#compositor-headless --no-link --print-out-paths
+
+      - name: Build ewwm-elisp package
+        run: |
+          rm -rf /homeless-shelter
+          nix build .#ewwm-elisp --no-link --print-out-paths
+
+      - name: Verify headless binary runs
+        run: |
+          RESULT=$(nix build .#compositor-headless --print-out-paths)
+          timeout 5 "$RESULT/bin/ewwm-compositor" --backend headless || true

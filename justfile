@@ -159,7 +159,7 @@ release-check: test test-compositor
     @echo "Release checks passed."
 
 [group('release')]
-release tag="v0.1.0":
+release tag="v0.5.0":
     @echo "Preparing release {{tag}}..."
     git-cliff --tag "{{tag}}" --output "{{project_root}}/CHANGELOG.md"
     @echo "CHANGELOG.md updated."
@@ -177,3 +177,80 @@ release-notes:
 [group('ci')]
 ci: lint-elisp build test
     @echo "CI passed."
+
+# ── nix ────────────────────────────────────────────────
+
+[group('nix')]
+nix-build:
+    @echo "Building compositor via Nix..."
+    nix build .#compositor
+
+[group('nix')]
+nix-build-headless:
+    @echo "Building headless compositor via Nix..."
+    nix build .#compositor-headless
+
+[group('nix')]
+nix-build-elisp:
+    @echo "Building ewwm-elisp package via Nix..."
+    nix build .#ewwm-elisp
+
+[group('nix')]
+nix-check:
+    @echo "Running nix flake check..."
+    nix flake check
+
+[group('nix')]
+nix-test-boot:
+    @echo "Running NixOS boot-test VM..."
+    nix build .#checks.x86_64-linux.boot-test -L
+
+[group('nix')]
+nix-test-full:
+    @echo "Running NixOS full-stack-test VM..."
+    nix build .#checks.x86_64-linux.full-stack-test -L
+
+[group('nix')]
+nix-fmt:
+    @echo "Formatting Nix files..."
+    nixpkgs-fmt flake.nix nix/**/*.nix
+
+# ── selinux ───────────────────────────────────────────
+
+selinux_dir := project_root + "/packaging/selinux"
+devel_mk := "/usr/share/selinux/devel/Makefile"
+
+[group('selinux')]
+selinux-build:
+    @echo "Building SELinux policy modules..."
+    make -C "{{selinux_dir}}" -f "{{devel_mk}}" exwm_vr.pp
+    make -C "{{selinux_dir}}" -f "{{devel_mk}}" exwm_vr_nix.pp
+
+[group('selinux')]
+selinux-install:
+    @echo "Installing SELinux policy modules..."
+    sudo semodule -i "{{selinux_dir}}/exwm_vr.pp"
+    sudo semodule -i "{{selinux_dir}}/exwm_vr_nix.pp"
+
+[group('selinux')]
+selinux-uninstall:
+    @echo "Removing SELinux policy modules..."
+    sudo semodule -r exwm_vr 2>/dev/null || true
+    sudo semodule -r exwm_vr_nix 2>/dev/null || true
+
+[group('selinux')]
+selinux-label-nix:
+    @echo "Labeling Nix compositor binary..."
+    sudo "{{selinux_dir}}/label-nix-compositor.sh"
+
+[group('selinux')]
+selinux-check:
+    @echo "Checking SELinux policy syntax..."
+    checkmodule -M -m -o /dev/null "{{selinux_dir}}/exwm_vr.te" && echo "  exwm_vr.te: OK"
+    checkmodule -M -m -o /dev/null "{{selinux_dir}}/exwm_vr_nix.te" && echo "  exwm_vr_nix.te: OK"
+
+[group('selinux')]
+selinux-clean:
+    @echo "Cleaning SELinux build artifacts..."
+    rm -f "{{selinux_dir}}"/*.pp "{{selinux_dir}}"/*.mod "{{selinux_dir}}"/*.mod.fc
+    rm -rf "{{selinux_dir}}/tmp"

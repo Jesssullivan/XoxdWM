@@ -46,7 +46,7 @@ jobs:
 
       - name: Verify headless binary starts
         run: |
-          result/bin/ewwm-compositor --headless --headless-exit-after 5 || true
+          result/bin/ewwm-compositor --backend headless --headless-exit-after 5 || true
 
   ert-tests:
     name: ERT Tests
@@ -97,3 +97,25 @@ jobs:
 
       - name: Build s390x headless compositor
         run: nix build .#packages.s390x-linux.compositor-headless
+
+  nix-checks:
+    name: NixOS VM integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@v16
+        with:
+          extra-conf: |
+            system-features = kvm nixos-test
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Build ewwm-elisp package
+        run: nix build .#ewwm-elisp
+
+      - name: Run boot-test (compositor VM)
+        run: nix build .#checks.x86_64-linux.boot-test -L
+
+      - name: Run full-stack-test (compositor + Emacs + home-manager VM)
+        run: nix build .#checks.x86_64-linux.full-stack-test -L

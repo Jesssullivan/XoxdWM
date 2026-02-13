@@ -47,7 +47,7 @@ jobs:
     name: Package RPM
     needs: build-binary
     runs-on: ubuntu-latest
-    container: rockylinux:10
+    container: rockylinux/rockylinux:10
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -87,7 +87,7 @@ jobs:
             --depends libxkbcommon \
             dist/result/bin/ewwm-compositor=/usr/bin/ewwm-compositor \
             packaging/systemd/=/usr/lib/systemd/user/ \
-            packaging/desktop/ewwm.desktop=/usr/share/wayland-sessions/ewwm.desktop \
+            packaging/desktop/exwm-vr.desktop=/usr/share/wayland-sessions/exwm-vr.desktop \
             packaging/udev/99-exwm-vr.rules=/usr/lib/udev/rules.d/99-exwm-vr.rules \
             lisp/core/=/usr/share/emacs/site-lisp/exwm/ \
             lisp/vr/=/usr/share/emacs/site-lisp/exwm-vr/
@@ -142,7 +142,7 @@ jobs:
             --depends libxkbcommon0 \
             dist/result/bin/ewwm-compositor=/usr/bin/ewwm-compositor \
             packaging/systemd/=/usr/lib/systemd/user/ \
-            packaging/desktop/ewwm.desktop=/usr/share/wayland-sessions/ewwm.desktop \
+            packaging/desktop/exwm-vr.desktop=/usr/share/wayland-sessions/exwm-vr.desktop \
             packaging/udev/99-exwm-vr.rules=/usr/lib/udev/rules.d/99-exwm-vr.rules \
             lisp/core/=/usr/share/emacs/site-lisp/exwm/ \
             lisp/vr/=/usr/share/emacs/site-lisp/exwm-vr/
