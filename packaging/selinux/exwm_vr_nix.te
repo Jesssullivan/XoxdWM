@@ -1,0 +1,48 @@
+policy_module(exwm_vr_nix, 0.1.0)
+
+########################################
+#
+# EXWM-VR Nix store path policy
+#
+# Allows execution of the compositor and Emacs from Nix store paths
+# (~/.nix-profile/bin/ewwm-compositor) on Rocky Linux with SELinux enforcing.
+#
+
+require {
+    type unconfined_t;
+    type user_t;
+    type staff_t;
+    type bin_t;
+    class file { execute execute_no_trans open read getattr map };
+    class dir { search getattr open read };
+    class lnk_file { read getattr };
+}
+
+# Declare the Nix compositor executable type
+type exwm_vr_nix_exec_t;
+files_type(exwm_vr_nix_exec_t)
+
+# Allow unconfined users to execute Nix-managed compositor
+allow unconfined_t exwm_vr_nix_exec_t:file { execute execute_no_trans open read getattr map };
+allow unconfined_t exwm_vr_nix_exec_t:dir { search getattr open read };
+allow unconfined_t exwm_vr_nix_exec_t:lnk_file { read getattr };
+
+# Allow regular users to execute
+allow user_t exwm_vr_nix_exec_t:file { execute execute_no_trans open read getattr map };
+allow user_t exwm_vr_nix_exec_t:dir { search getattr open read };
+allow user_t exwm_vr_nix_exec_t:lnk_file { read getattr };
+
+# Allow staff users to execute
+allow staff_t exwm_vr_nix_exec_t:file { execute execute_no_trans open read getattr map };
+allow staff_t exwm_vr_nix_exec_t:dir { search getattr open read };
+allow staff_t exwm_vr_nix_exec_t:lnk_file { read getattr };
+
+# Optional: domain transition to confined compositor domain
+# Uncomment if using the base exwm_vr policy with exwm_vr_compositor_t:
+#
+# optional_policy(`
+#     type exwm_vr_compositor_t;
+#     domain_auto_trans(unconfined_t, exwm_vr_nix_exec_t, exwm_vr_compositor_t)
+#     domain_auto_trans(user_t, exwm_vr_nix_exec_t, exwm_vr_compositor_t)
+#     domain_auto_trans(staff_t, exwm_vr_nix_exec_t, exwm_vr_compositor_t)
+# ')

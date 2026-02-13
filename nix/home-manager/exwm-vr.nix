@@ -173,18 +173,153 @@ in {
       default = "${config.xdg.configHome}/exwm-vr";
       description = "EXWM-VR configuration directory.";
     };
-  };
 
-  config = lib.mkIf cfg.enable {
-    # Generate config.el from Nix attrset
-    xdg.configFile."exwm-vr/config.el".text = configEl;
+    # --- Compositor options ---
 
-    # Generate Qutebrowser theme
-    xdg.configFile."qutebrowser/exwm-vr-theme.py".text = qutebrowserTheme cfg.theme;
+    compositor = {
+      package = lib.mkOption {
+        type = lib.types.nullOr lib.types.package;
+        default = null;
+        description = "Compositor package (ewwm-compositor binary).";
+      };
 
-    # Set environment variable pointing to config dir
-    home.sessionVariables = {
-      EXWM_VR_CONFIG_DIR = cfg.configDir;
+      extraArgs = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        description = "Extra command-line arguments for the compositor.";
+        example = [ "--headless" "--backend" "drm" ];
+      };
+    };
+
+    # --- Emacs options ---
+
+    emacs = {
+      package = lib.mkOption {
+        type = lib.types.package;
+        default = pkgs.emacs-pgtk or pkgs.emacs;
+        defaultText = lib.literalExpression "pkgs.emacs-pgtk";
+        description = "Emacs package to use.";
+      };
+    };
+
+    # --- Elisp package (load-path) ---
+
+    elisp = {
+      package = lib.mkOption {
+        type = lib.types.nullOr lib.types.package;
+        default = null;
+        description = ''
+          ewwm-elisp store path for load-path.
+          Set to the flake's packages.ewwm-elisp output.
+        '';
+      };
+    };
+
+    # --- Systemd user services ---
+
+    systemd = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Generate systemd user services for compositor and Emacs.
+          Useful for non-NixOS hosts (e.g. Rocky Linux with Nix).
+          home-manager switch will install the services.
+        '';
+      };
     };
   };
+
+  config = lib.mkIf cfg.enable (lib.mkMerge [
+    # Always: generate config.el, qutebrowser theme, env var
+    {
+      xdg.configFile."exwm-vr/config.el".text = configEl;
+      xdg.configFile."qutebrowser/exwm-vr-theme.py".text = qutebrowserTheme cfg.theme;
+      home.sessionVariables = {
+        EXWM_VR_CONFIG_DIR = cfg.configDir;
+      };
+    }
+
+    # Systemd user services (for non-NixOS hosts like Rocky)
+    (lib.mkIf cfg.systemd.enable (
+      let
+        compositorBin = "${cfg.compositor.package}/bin/ewwm-compositor";
+        compositorArgs = lib.concatStringsSep " " cfg.compositor.extraArgs;
+        elispLoadPath =
+          if cfg.elisp.package != null then
+            lib.concatStringsSep ":" [
+              "${cfg.elisp.package}/share/emacs/site-lisp/ewwm/core"
+              "${cfg.elisp.package}/share/emacs/site-lisp/ewwm/vr"
+              "${cfg.elisp.package}/share/emacs/site-lisp/ewwm/ext"
+            ]
+          else "";
+        emacsLoadFlags =
+          if cfg.elisp.package != null then
+            "-L ${cfg.elisp.package}/share/emacs/site-lisp/ewwm/core "
+            + "-L ${cfg.elisp.package}/share/emacs/site-lisp/ewwm/vr "
+            + "-L ${cfg.elisp.package}/share/emacs/site-lisp/ewwm/ext"
+          else "";
+      in {
+        assertions = [
+          {
+            assertion = cfg.compositor.package != null;
+            message = "programs.exwm-vr.systemd.enable requires compositor.package to be set.";
+          }
+        ];
+
+        systemd.user.services.ewwm-compositor = {
+          Unit = {
+            Description = "EWWM Wayland Compositor";
+            Documentation = "https://github.com/Jesssullivan/XoxdWM";
+            ConditionEnvironment = "WAYLAND_DISPLAY";
+          };
+          Service = {
+            ExecStart = "${compositorBin} ${compositorArgs}";
+            Restart = "on-failure";
+            RestartSec = 2;
+            Environment = [
+              "XDG_RUNTIME_DIR=%t"
+            ];
+          };
+          Install = {
+            WantedBy = [ "ewwm-session.target" ];
+          };
+        };
+
+        systemd.user.services.ewwm-emacs = {
+          Unit = {
+            Description = "EWWM Emacs Daemon";
+            Documentation = "https://github.com/Jesssullivan/XoxdWM";
+            After = [ "ewwm-compositor.service" ];
+            Requires = [ "ewwm-compositor.service" ];
+          };
+          Service = {
+            ExecStart = "${cfg.emacs.package}/bin/emacs --daemon ${emacsLoadFlags}"
+              + lib.optionalString (cfg.elisp.package != null)
+                " -l ${cfg.configDir}/config.el";
+            Restart = "on-failure";
+            RestartSec = 3;
+            Environment = [
+              "XDG_RUNTIME_DIR=%t"
+            ] ++ lib.optional (elispLoadPath != "")
+              "EMACSLOADPATH=${elispLoadPath}:";
+          };
+          Install = {
+            WantedBy = [ "ewwm-session.target" ];
+          };
+        };
+
+        systemd.user.targets.ewwm-session = {
+          Unit = {
+            Description = "EWWM Session";
+            Documentation = "https://github.com/Jesssullivan/XoxdWM";
+            Wants = [ "ewwm-compositor.service" "ewwm-emacs.service" ];
+          };
+          Install = {
+            WantedBy = [ "graphical-session.target" ];
+          };
+        };
+      }
+    ))
+  ]);
 }

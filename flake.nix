@@ -20,10 +20,17 @@
       url = "github:nlewo/nix2container";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, emacs-overlay, rust-overlay, flake-utils, nix2container }:
+  outputs = { self, nixpkgs, emacs-overlay, rust-overlay, flake-utils, nix2container, home-manager }:
     let
+      version = "0.5.0";
+
       # NixOS modules (not per-system)
       nixosModuleOutputs = {
         nixosModules = {
@@ -114,8 +121,7 @@
           # Common function to build the compositor with given features
           mkCompositor = { pname, features ? [ ], extraBuildInputs ? [ ] }:
             pkgs.rustPlatform.buildRustPackage {
-              inherit pname;
-              version = "0.1.0";
+              inherit pname version;
               src = ./compositor;
               cargoLock.lockFile = ./compositor/Cargo.lock;
 
@@ -202,7 +208,23 @@
           };
 
           packages.default = self.packages.${system}.compositor;
-        }
+
+          # Elisp package: all .el files for load-path
+          packages.ewwm-elisp = pkgs.runCommand "ewwm-elisp-${version}" { } ''
+            mkdir -p $out/share/emacs/site-lisp/ewwm/{core,vr,ext}
+            cp ${./lisp/core}/*.el $out/share/emacs/site-lisp/ewwm/core/ 2>/dev/null || true
+            cp ${./lisp/vr}/*.el $out/share/emacs/site-lisp/ewwm/vr/ 2>/dev/null || true
+            cp ${./lisp/ext}/*.el $out/share/emacs/site-lisp/ewwm/ext/ 2>/dev/null || true
+          '';
+        } // (pkgs.lib.optionalAttrs (system == "x86_64-linux") {
+          # NixOS VM integration tests (require KVM)
+          checks.boot-test = import ./nix/tests/boot-test.nix {
+            inherit pkgs self;
+          };
+          checks.full-stack-test = import ./nix/tests/full-stack-test.nix {
+            inherit pkgs self home-manager;
+          };
+        })
       );
 
       # Cross-compilation outputs (not produced by eachDefaultSystem)
@@ -233,7 +255,7 @@
         in {
           compositor = pkgs.rustPlatform.buildRustPackage {
             pname = "ewwm-compositor";
-            version = "0.1.0";
+            inherit version;
             src = ./compositor;
             cargoLock.lockFile = ./compositor/Cargo.lock;
 
@@ -259,7 +281,7 @@
 
           compositor-headless = pkgs.rustPlatform.buildRustPackage {
             pname = "ewwm-compositor-headless";
-            version = "0.1.0";
+            inherit version;
             src = ./compositor;
             cargoLock.lockFile = ./compositor/Cargo.lock;
 
@@ -310,7 +332,7 @@
         in {
           compositor-headless = pkgs.rustPlatform.buildRustPackage {
             pname = "ewwm-compositor-headless";
-            version = "0.1.0";
+            inherit version;
             src = ./compositor;
             cargoLock.lockFile = ./compositor/Cargo.lock;
 

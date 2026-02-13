@@ -1,0 +1,9 @@
+# File contexts for Nix-managed EXWM-VR compositor
+#
+# Labels the Nix profile symlink and resolved store paths.
+# After installing, run: restorecon -R ~/.nix-profile/bin/ewwm-compositor
+
+HOME_DIR/\.nix-profile/bin/ewwm-compositor  -- gen_context(system_u:object_r:exwm_vr_nix_exec_t,s0)
+
+# Nix store paths (broad pattern — use label-nix-compositor.sh for precise labeling)
+# /nix/store/[hash]-ewwm-compositor-.*/bin/ewwm-compositor  -- gen_context(system_u:object_r:exwm_vr_nix_exec_t,s0)
