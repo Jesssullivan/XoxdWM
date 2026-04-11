@@ -1,0 +1,52 @@
+name: Bug Report
+description: Report a reproducible problem on a named host or packaging path.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: dropdown
+    id: support_state
+    attributes:
+      label: Support State
+      description: How should this area currently be treated?
+      options:
+        - Proven
+        - Smoke
+        - Design
+    validations:
+      required: true
+  - type: input
+    id: host
+    attributes:
+      label: Host
+      description: Use a real host name when possible, such as honey or yoga.
+      placeholder: honey
+  - type: input
+    id: kernel
+    attributes:
+      label: Kernel
+      placeholder: 6.19.5-5.xr.el10
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU
+      placeholder: Radeon RX 9070 XT
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Exact steps and commands.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Result
+    validations:
+      required: true

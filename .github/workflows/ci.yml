@@ -3,8 +3,28 @@ name: CI
 on:
   push:
     branches: [main, dev]
+    paths:
+      - 'compositor/**'
+      - 'lisp/**'
+      - 'nix/**'
+      - 'test/**'
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'justfile'
+      - '.github/workflows/ci.yml'
+      - '.github/actions/**'
   pull_request:
     branches: [main, dev]
+    paths:
+      - 'compositor/**'
+      - 'lisp/**'
+      - 'nix/**'
+      - 'test/**'
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'justfile'
+      - '.github/workflows/ci.yml'
+      - '.github/actions/**'
   workflow_dispatch:
 
 concurrency:

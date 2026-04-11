@@ -3,8 +3,8 @@ name: Runner Health Check
 on:
   workflow_dispatch:
   schedule:
-    # Daily at 06:00 UTC
-    - cron: '0 6 * * *'
+    # Weekly Monday at 06:00 UTC
+    - cron: '0 6 * * 1'
 
 concurrency:
   group: runner-health

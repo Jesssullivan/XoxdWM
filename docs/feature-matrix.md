@@ -1,7 +1,8 @@
 # XoxdWM (EXWM-VR) Feature Matrix
 
-Comprehensive reference for all IPC commands, subsystems, platform support,
-hardware requirements, and module inventory as of v0.1.0.
+Comprehensive reference for IPC commands, subsystems, and module inventory.
+
+This document is an inventory, not a support promise. For the current operational truth, read [Support Matrix](support-matrix.md) first.
 
 ---
 
