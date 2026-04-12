@@ -27,7 +27,7 @@ concurrency:
 jobs:
   build-x86_64:
     name: Build x86_64 (full + VR)
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM' && 'tinyland-nix' || 'ubuntu-latest' }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -60,7 +60,7 @@ jobs:
 
   build-headless:
     name: Build x86_64 (headless)
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM' && 'tinyland-nix' || 'ubuntu-latest' }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -90,7 +90,7 @@ jobs:
 
   ert-tests:
     name: ERT Tests
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM' && 'tinyland-nix' || 'ubuntu-latest' }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -113,7 +113,7 @@ jobs:
 
   cross-aarch64:
     name: Cross-compile aarch64
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM' && 'tinyland-nix' || 'ubuntu-latest' }}
     timeout-minutes: 60
     continue-on-error: true
     steps:
@@ -136,7 +136,7 @@ jobs:
 
   cross-s390x:
     name: Cross-compile s390x
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM' && 'tinyland-nix' || 'ubuntu-latest' }}
     timeout-minutes: 60
     continue-on-error: true
     steps:
