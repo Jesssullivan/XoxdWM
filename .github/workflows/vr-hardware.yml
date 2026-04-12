@@ -22,6 +22,7 @@ concurrency:
 jobs:
   preflight:
     name: Hardware Preflight
+    if: github.repository == 'tinyland-inc/XoxdWM'
     runs-on: [self-hosted, honey]
     timeout-minutes: 5
     steps:
@@ -58,6 +59,7 @@ jobs:
 
   compositor-gpu:
     name: Compositor GPU Build & Test
+    if: github.repository == 'tinyland-inc/XoxdWM'
     needs: preflight
     runs-on: [self-hosted, honey]
     timeout-minutes: 30
@@ -84,10 +86,10 @@ jobs:
 
   vr-session:
     name: VR Session Lifecycle
+    if: github.repository == 'tinyland-inc/XoxdWM' && (inputs.test-suite == 'full' || github.ref_type == 'tag')
     needs: compositor-gpu
     runs-on: [self-hosted, honey]
     timeout-minutes: 15
-    if: inputs.test-suite == 'full' || github.ref_type == 'tag'
     steps:
       - uses: actions/checkout@v4
 
@@ -123,10 +125,10 @@ jobs:
 
   drm-lease:
     name: DRM Lease Detection
+    if: github.repository == 'tinyland-inc/XoxdWM' && (inputs.test-suite != 'smoke' || github.ref_type == 'tag')
     needs: preflight
     runs-on: [self-hosted, honey]
     timeout-minutes: 10
-    if: inputs.test-suite != 'smoke' || github.ref_type == 'tag'
     steps:
       - uses: actions/checkout@v4
 
@@ -158,10 +160,10 @@ jobs:
 
   eye-tracking:
     name: Eye Tracking E2E
+    if: github.repository == 'tinyland-inc/XoxdWM' && (inputs.test-suite == 'full' || github.ref_type == 'tag')
     needs: compositor-gpu
     runs-on: [self-hosted, honey]
     timeout-minutes: 15
-    if: inputs.test-suite == 'full' || github.ref_type == 'tag'
     steps:
       - uses: actions/checkout@v4
 
@@ -201,10 +203,10 @@ jobs:
 
   benchmark:
     name: GPU Benchmark
+    if: github.repository == 'tinyland-inc/XoxdWM' && (inputs.test-suite == 'full' || github.ref_type == 'tag')
     needs: compositor-gpu
     runs-on: [self-hosted, honey]
     timeout-minutes: 20
-    if: inputs.test-suite == 'full' || github.ref_type == 'tag'
     steps:
       - uses: actions/checkout@v4
 

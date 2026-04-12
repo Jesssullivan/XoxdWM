@@ -12,6 +12,10 @@ Snapshot date: 2026-04-11
   - Rocky test: optional `sccache` setup step
   - Nix cache workflow: attempting to install Nix on a pre-provisioned self-hosted runner
   - self-hosted fast CI: heavy checks on all pushes, including non-code work
+- Current self-hosted runner scope does not match the current public repo:
+  - historical self-hosted evidence on `honey` points at `tinyland-inc/XoxdWM`
+  - live runners we found are registered to `tinyland-inc`, `Jesssullivan/cmux`, `Jesssullivan/outbot-ci`, and `Jesssullivan/chapel`
+  - we did not find a runner registration that can accept jobs from `Jesssullivan/XoxdWM`
 
 ## What This Repo Is Good For Right Now
 

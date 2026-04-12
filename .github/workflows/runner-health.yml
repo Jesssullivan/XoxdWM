@@ -13,7 +13,7 @@ concurrency:
 jobs:
   nix-runner:
     name: Nix Runner Health
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM' && 'tinyland-nix' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -61,7 +61,7 @@ jobs:
     name: VR Runner Health
     runs-on: [self-hosted, honey]
     timeout-minutes: 10
-    if: vars.USE_SELFHOSTED == 'true'
+    if: vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM'
     steps:
       - name: Runner info
         run: |

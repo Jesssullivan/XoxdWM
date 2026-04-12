@@ -23,6 +23,7 @@ Acceptance:
 - Rocky test no longer fails in optional cache setup
 - self-hosted Nix workflows stop reinstalling Nix on provisioned runners
 - weekly runner-health remains available without dominating repo signal
+- self-hosted jobs do not target unavailable `tinyland-inc/XoxdWM` runner scope from the current `Jesssullivan/XoxdWM` repo
 
 ## Epic 3: Rocky 10 Desktop/Dev MVP On `yoga`
 
