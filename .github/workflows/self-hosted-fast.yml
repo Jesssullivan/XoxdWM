@@ -7,8 +7,28 @@ name: Self-Hosted Fast CI
 on:
   push:
     branches: [main, dev, 'feature/*']
+    paths:
+      - 'compositor/**'
+      - 'lisp/**'
+      - 'nix/**'
+      - 'test/**'
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'justfile'
+      - '.github/workflows/self-hosted-fast.yml'
+      - '.github/actions/**'
   pull_request:
     branches: [main, dev]
+    paths:
+      - 'compositor/**'
+      - 'lisp/**'
+      - 'nix/**'
+      - 'test/**'
+      - 'flake.nix'
+      - 'flake.lock'
+      - 'justfile'
+      - '.github/workflows/self-hosted-fast.yml'
+      - '.github/actions/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

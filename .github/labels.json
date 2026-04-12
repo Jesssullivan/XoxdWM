@@ -1,0 +1,42 @@
+[
+  {
+    "name": "audit",
+    "color": "d4c5f9",
+    "description": "Reality-audit and support-matrix work"
+  },
+  {
+    "name": "mvp",
+    "color": "0e8a16",
+    "description": "Work required for the named-host MVP"
+  },
+  {
+    "name": "vr",
+    "color": "1d76db",
+    "description": "VR compositor, OpenXR, and HMD integration work"
+  },
+  {
+    "name": "bci",
+    "color": "5319e7",
+    "description": "BCI and biosignal integration work"
+  },
+  {
+    "name": "docs",
+    "color": "fbca04",
+    "description": "Documentation, support matrix, and status surfaces"
+  },
+  {
+    "name": "packaging",
+    "color": "0052cc",
+    "description": "RPM, DEB, Nix, and service packaging work"
+  },
+  {
+    "name": "hardware",
+    "color": "d93f0b",
+    "description": "Named-host and device-specific work"
+  },
+  {
+    "name": "ci",
+    "color": "c2e0c6",
+    "description": "GitHub Actions and runner automation work"
+  }
+]

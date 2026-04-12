@@ -1,5 +1,11 @@
 # XoxdWM Installation Quickstart
 
+This quickstart is intentionally narrower than the feature inventory.
+
+- For current support claims, read [Support Matrix](support-matrix.md).
+- For the repo’s current operational status, read [Status](status.md).
+- As of 2026-04-11, the Rocky path is a compositor/package path, not a claimed full VR deployment on `honey` or `yoga`.
+
 ## NixOS (Declarative)
 
 Add to your `flake.nix` inputs:
@@ -29,6 +35,8 @@ Home Manager (user config):
 
 ## Rocky Linux / Fedora (RPM)
 
+This installs the released compositor package. It does not, by itself, provision a proven full VR stack.
+
 Download from GitHub Releases:
 ```bash
 curl -LO https://github.com/Jesssullivan/XoxdWM/releases/latest/download/ewwm-compositor-*.x86_64.rpm
@@ -38,7 +46,7 @@ sudo dnf install ./ewwm-compositor-*.x86_64.rpm
 Install Emacs and enable the session:
 ```bash
 sudo dnf install emacs
-# Log out, select "EWWM" session at login screen
+# Log out, select "EXWM-VR" session at login screen if the session file is installed
 ```
 
 ## Debian / Ubuntu (DEB)
@@ -60,7 +68,8 @@ cargo build --release --manifest-path compositor/Cargo.toml
 # Install
 sudo install -Dm755 compositor/target/release/ewwm-compositor /usr/local/bin/
 sudo install -Dm644 packaging/systemd/exwm-vr-compositor.service /usr/lib/systemd/user/
-sudo install -Dm644 packaging/desktop/ewwm.desktop /usr/share/wayland-sessions/
+sudo install -Dm644 packaging/desktop/exwm-vr.desktop /usr/share/wayland-sessions/exwm-vr.desktop
+sudo install -Dm755 packaging/desktop/exwm-vr-session /usr/share/exwm-vr/exwm-vr-session
 
 # Emacs packages
 sudo mkdir -p /usr/share/emacs/site-lisp/exwm{,-vr}
@@ -88,3 +97,8 @@ ewwm-compositor --backend headless --headless-exit-after 5
 # Run ERT test suite
 emacs --batch -L lisp/core -L lisp/vr -L lisp/ext -l test/run-tests.el
 ```
+
+## Named-Host Guidance
+
+- `yoga`: target desktop/dev host for the next reproducible Rocky 10 install path.
+- `honey`: target VR smoke host, but not currently documented here as a proven XoxdWM deployment.

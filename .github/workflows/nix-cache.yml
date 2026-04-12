@@ -25,7 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: cachix/install-nix-action@v30
+      - name: Install Nix
+        if: vars.USE_SELFHOSTED != 'true'
+        uses: cachix/install-nix-action@v30
+      - name: Verify Nix
+        run: nix --version
       - uses: ryanccn/attic-action@v0
         if: env.ATTIC_SERVER != ''
         with:

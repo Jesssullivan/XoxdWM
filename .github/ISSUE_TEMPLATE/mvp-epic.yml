@@ -1,0 +1,32 @@
+name: MVP Epic
+description: Track a named-host milestone or 12-week execution item.
+title: "epic: "
+labels:
+  - epic
+body:
+  - type: input
+    id: target
+    attributes:
+      label: Target
+      placeholder: yoga Rocky 10 desktop install
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired Outcome
+      description: What will be demonstrably true when this epic is done?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: Keep this concrete and testable.
+    validations:
+      required: true
+  - type: textarea
+    id: blockers
+    attributes:
+      label: Known Blockers
+      description: External dependencies, hardware gaps, or upstream assumptions.
