@@ -122,12 +122,13 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           # The native Rocky release lane validates the base compositor package
-          # first. Keep SELinux policy hardening and the BrainFlow BCI venv as
-          # separate opt-in builds until the base compositor RPM is proven on
-          # named Rocky 10 hosts.
+          # first. Keep Monado integration, SELinux policy hardening, and the
+          # BrainFlow BCI venv as separate opt-in builds until the base
+          # compositor RPM is proven on named Rocky 10 hosts.
           rpmbuild -bb --nodeps \
             --define "version ${VERSION}" \
             --define "_version ${VERSION}" \
+            --without monado_integration \
             --without selinux_policy \
             --without bci \
             packaging/rpm/exwm-vr.spec

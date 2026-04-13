@@ -7,7 +7,7 @@ This quickstart is intentionally narrower than the feature inventory.
 - As of 2026-04-12, the Rocky path is not yet a claimed working named-host install path.
 - The current public `v0.5.0` RPM failed on `honey`: its metadata requires bare `wayland` on Rocky 10 and the packaged compositor binary points at a `/nix/store/.../ld-linux...` interpreter.
 - Until a corrected release is cut, treat the Rocky RPM section as release-surface documentation, not as a supported install path.
-- The active `0.5.1` repair lane is targeting a native Rocky compositor RPM without the `vr` Cargo feature; full VR enablement remains a separate source/Nix path for now.
+- The active `0.5.1` repair lane is targeting a native Rocky compositor RPM without the `vr` Cargo feature; Monado integration and full VR enablement remain separate source/Nix or follow-on packaging work for now.
 - The same repair lane now treats SELinux hardening and the BrainFlow BCI virtualenv as separate opt-in package concerns so the base Rocky compositor RPM is not blocked on those follow-on paths.
 
 ## NixOS (Declarative)

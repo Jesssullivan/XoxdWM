@@ -33,6 +33,12 @@
 # debuginfo pipeline.
 %bcond bci 0
 
+# Build conditional: Monado integration config and service units. Disabled by
+# default for the native Rocky release lane until the base compositor RPM is
+# proven on named Rocky 10 hosts and the Monado runtime path is packaged and
+# validated there as a separate follow-on step.
+%bcond monado_integration 0
+
 Name:           %{project_name}
 Version:        0.5.1
 Release:        1%{?dist}
@@ -132,7 +138,9 @@ currently supported native Rocky package components for the release lane.
 
 Requires:       %{name}-compositor = %{version}-%{release}
 Requires:       %{name}-elisp = %{version}-%{release}
+%if %{with monado_integration}
 Requires:       %{name}-monado = %{version}-%{release}
+%endif
 %if %{with selinux_policy}
 Requires:       %{name}-selinux = %{version}-%{release}
 %endif
@@ -186,6 +194,7 @@ depends on EXWM Lisp dependencies that are not yet packaged in Rocky 10.
 # ===========================================================================
 # Subpackage: monado
 # ===========================================================================
+%if %{with monado_integration}
 %package monado
 Summary:        Monado OpenXR runtime integration for EXWM-VR
 BuildArch:      noarch
@@ -196,6 +205,7 @@ Requires:       %{name}-compositor = %{version}-%{release}
 Configuration files, systemd service units, and udev rules for integrating
 the Monado OpenXR runtime with the EXWM-VR compositor.  Includes HMD
 auto-detection and DRM lease handoff.
+%endif
 
 # ===========================================================================
 # Subpackage: bci
@@ -388,8 +398,10 @@ ELISP_EOF
 %ifnarch s390x
 install -Dpm 0644 %{SOURCE20} \
     %{buildroot}%{_userunitdir}/exwm-vr-compositor.service
+%if %{with monado_integration}
 install -Dpm 0644 %{SOURCE21} \
     %{buildroot}%{_userunitdir}/exwm-vr-monado.service
+%endif
 install -Dpm 0644 %{SOURCE22} \
     %{buildroot}%{_userunitdir}/exwm-vr-emacs.service
 %if %{with bci}
@@ -400,12 +412,12 @@ install -Dpm 0644 %{SOURCE24} \
     %{buildroot}%{_userunitdir}/exwm-vr.target
 %endif
 
-# --- udev rules (skip on s390x -- no HMD hardware) ---
+# --- Monado runtime integration (skip on s390x -- no HMD hardware) ---
+%if %{with monado_integration}
 %ifnarch s390x
 install -Dpm 0644 %{SOURCE30} \
     %{buildroot}%{_udevrulesdir}/99-exwm-vr.rules
 
-# --- Monado config ---
 install -d %{buildroot}%{_sysconfdir}/xdg/openxr/1
 cat > %{buildroot}%{_sysconfdir}/xdg/openxr/1/active_runtime.json << 'JSON_EOF'
 {
@@ -430,6 +442,8 @@ auto_select_hmd = true
 target_fps = 90
 prediction_offset_ms = 5.0
 CONF_EOF
+%endif
+%endif
 
 # --- BCI venv ---
 %if %{with bci}
@@ -520,6 +534,7 @@ popd
     2>/dev/null || :
 
 # --- monado ---
+%if %{with monado_integration}
 %post monado
 %systemd_user_post exwm-vr-monado.service
 udevadm control --reload-rules 2>/dev/null || :
@@ -531,6 +546,7 @@ udevadm trigger --subsystem-match=usb 2>/dev/null || :
 
 %postun monado
 %systemd_user_postun_with_restart exwm-vr-monado.service
+%endif
 
 # --- bci ---
 %if %{with bci}
@@ -605,6 +621,7 @@ fi
 %{_datadir}/emacs/site-lisp/site-start.d/%{project_name}-init.el
 
 # --- monado (skip on s390x -- no VR hardware) ---
+%if %{with monado_integration}
 %ifnarch s390x
 %files monado
 %license LICENSE
@@ -615,6 +632,7 @@ fi
 %config(noreplace) %{_sysconfdir}/xdg/openxr/1/active_runtime.json
 %dir %{_sysconfdir}/%{project_name}
 %config(noreplace) %{_sysconfdir}/%{project_name}/monado.conf
+%endif
 %endif
 
 # --- bci (skip on s390x -- no USB peripherals) ---
@@ -656,6 +674,7 @@ fi
 - Keep Rocky docs honest about the current v0.5.0 release artifact failure on named hosts
 - Build the native Rocky RPM lane without the `vr` Cargo feature until libuvc-backed VR packaging is proven
 - Decouple the optional SELinux policy subpackage from the base Rocky compositor release lane
+- Decouple Monado integration from the base Rocky compositor release lane
 
 * Tue Mar 03 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 0.5.0-1
 - Version bump to 0.5.0 (v0.5.0-vr-renderer milestone)
