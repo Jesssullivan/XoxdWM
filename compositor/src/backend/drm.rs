@@ -250,7 +250,7 @@ fn is_non_desktop_connector(drm: &DrmDevice, conn: &connector::Info) -> bool {
         Err(_) => return false,
     };
 
-    for (&prop_handle, &value) in props.handles().iter().zip(props.values().iter()) {
+    for (prop_handle, value) in props.iter() {
         if let Ok(info) = drm.get_property(prop_handle) {
             if info.name().to_str() == Ok("non_desktop") {
                 return value != 0;
