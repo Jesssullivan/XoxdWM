@@ -572,7 +572,7 @@ fi
 # --- meta package (empty -- just dependencies) ---
 %files
 %license LICENSE
-%doc README.md PLAN.md
+%doc README.md
 
 # --- compositor (skip on s390x -- only headless available) ---
 %ifnarch s390x
@@ -669,7 +669,7 @@ fi
 - Add %%bcond headless build conditional
 - Include architecture-notes.md and gpu-compatibility.md in headless docs
 
-* Tue Feb 11 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 0.1.0-1
+* Wed Feb 11 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 0.1.0-1
 - Initial RPM packaging
 - Compositor: Smithay 0.7 with OpenXR VR, eye tracking, gaze focus
 - Elisp: full WM brain (ewwm-*), VR modules, secrets management
