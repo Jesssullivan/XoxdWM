@@ -88,13 +88,16 @@ jobs:
       - name: Create source tarball
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          # Use git archive so the source tarball is stable and does not race
-          # against files created in the working tree during packaging.
-          git archive \
-            --format=tar.gz \
-            --prefix="XoxdWM-${VERSION}/" \
-            -o "exwm-vr-${VERSION}.tar.gz" \
-            HEAD
+          # Write the archive outside the working tree first so tar does not
+          # observe its own output file changing while it walks ".".
+          TMP_TARBALL="/tmp/exwm-vr-${VERSION}.tar.gz"
+          tar czf "$TMP_TARBALL" \
+            --transform "s,^\.,XoxdWM-${VERSION}," \
+            --exclude='.git' --exclude='vendor' \
+            --exclude="exwm-vr-${VERSION}-vendor.tar.gz" \
+            --exclude="exwm-vr-${VERSION}.tar.gz" \
+            .
+          mv "$TMP_TARBALL" "exwm-vr-${VERSION}.tar.gz"
 
       - name: Set up rpmbuild tree
         run: |
