@@ -59,7 +59,7 @@ jobs:
 
       - name: Install rpmbuild dependencies
         run: |
-          dnf install -y rpm-build rpmdevtools gcc make \
+          dnf install -y rpm-build rpmdevtools gcc make cpio binutils \
             rust cargo pkgconfig \
             wayland-devel mesa-libEGL-devel mesa-libgbm-devel \
             libinput-devel libxkbcommon-devel libdrm-devel \
@@ -126,6 +126,37 @@ jobs:
             --define "version ${VERSION}" \
             --define "_version ${VERSION}" \
             packaging/rpm/exwm-vr.spec
+
+      - name: Validate RPM runtime metadata
+        run: |
+          set -euo pipefail
+          RPM=$(find ~/rpmbuild/RPMS -name 'ewwm-compositor-*.rpm' | head -1)
+          if [ -z "$RPM" ]; then
+            echo "No ewwm-compositor RPM found in rpmbuild output" >&2
+            exit 1
+          fi
+
+          mkdir -p /tmp/rpm-validate
+          pushd /tmp/rpm-validate >/dev/null
+          rpm2cpio "$RPM" | cpio -idmv "./usr/bin/ewwm-compositor" >/dev/null 2>&1
+          BIN=usr/bin/ewwm-compositor
+
+          if readelf -l "$BIN" | grep -q '/nix/store'; then
+            echo "RPM binary uses a /nix/store ELF interpreter; expected native Rocky runtime linking" >&2
+            exit 1
+          fi
+
+          if readelf -d "$BIN" | grep -q '/nix/store'; then
+            echo "RPM binary embeds a /nix/store RUNPATH; expected native Rocky runtime linking" >&2
+            exit 1
+          fi
+
+          if rpm -qpR "$RPM" | grep -Fxq 'wayland'; then
+            echo "RPM has unresolved bare 'wayland' dependency metadata; expected native Rocky library/runtime package deps" >&2
+            exit 1
+          fi
+
+          popd >/dev/null
 
       - name: Collect RPMs
         run: |

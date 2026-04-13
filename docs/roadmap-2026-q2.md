@@ -33,9 +33,11 @@ Current reality:
 
 - `yoga` has a validated one-time `kernel-xr` boot path.
 - `yoga` still has no installed Monado/OpenXR/XoxdWM userspace stack.
+- the current public `v0.5.0` Rocky RPM is not yet a usable named-host install path
 
 Acceptance:
 
+- a corrected native RPM or documented source-build path exists for Rocky 10
 - `yoga` can install the public package or build from source with documented steps
 - compositor launch path is documented and repeatable
 - rollback path is documented if package install fails

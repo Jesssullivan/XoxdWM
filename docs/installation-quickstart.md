@@ -4,7 +4,9 @@ This quickstart is intentionally narrower than the feature inventory.
 
 - For current support claims, read [Support Matrix](support-matrix.md).
 - For the repo’s current operational status, read [Status](status.md).
-- As of 2026-04-11, the Rocky path is a compositor/package path, not a claimed full VR deployment on `honey` or `yoga`.
+- As of 2026-04-12, the Rocky path is not yet a claimed working named-host install path.
+- The current public `v0.5.0` RPM failed on `honey`: its metadata requires bare `wayland` on Rocky 10 and the packaged compositor binary points at a `/nix/store/.../ld-linux...` interpreter.
+- Until a corrected release is cut, treat the Rocky RPM section as release-surface documentation, not as a supported install path.
 
 ## NixOS (Declarative)
 
@@ -35,13 +37,18 @@ Home Manager (user config):
 
 ## Rocky Linux / Fedora (RPM)
 
-This installs the released compositor package. It does not, by itself, provision a proven full VR stack.
+This describes the released compositor package path. It does not, by itself, provision a proven full VR stack, and the current public Rocky RPM still needs a packaging fix before it is a usable host install path.
 
 Download from GitHub Releases:
 ```bash
 curl -LO https://github.com/Jesssullivan/XoxdWM/releases/latest/download/ewwm-compositor-*.x86_64.rpm
 sudo dnf install ./ewwm-compositor-*.x86_64.rpm
 ```
+
+Current status:
+
+- `v0.5.0` RPM publication exists, but failed on `honey` in this audit.
+- A corrected native Rocky RPM or a validated source-build path is still required before this section can be promoted beyond `Design`.
 
 Install Emacs and enable the session:
 ```bash
