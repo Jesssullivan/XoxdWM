@@ -44,7 +44,7 @@ Latest public release:
 
 Current public install artifacts:
 
-- `ewwm-compositor-*.x86_64.rpm`
+- `exwm-vr-compositor-*.x86_64.rpm`
 - `ewwm-compositor_*_amd64.deb`
 
 These artifacts currently package the compositor path. They do not, by themselves, establish a proven full VR deployment on `honey` or `yoga`, and the Rocky RPM release lane is being repaired as a native non-`vr` compositor package before any full VR claim is made.

@@ -42,8 +42,8 @@ This describes the released compositor package path. It does not, by itself, pro
 
 Download from GitHub Releases:
 ```bash
-curl -LO https://github.com/Jesssullivan/XoxdWM/releases/latest/download/ewwm-compositor-*.x86_64.rpm
-sudo dnf install ./ewwm-compositor-*.x86_64.rpm
+curl -LO https://github.com/Jesssullivan/XoxdWM/releases/latest/download/exwm-vr-compositor-*.x86_64.rpm
+sudo dnf install ./exwm-vr-compositor-*.x86_64.rpm
 ```
 
 Current status:
