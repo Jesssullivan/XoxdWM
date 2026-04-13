@@ -1,20 +1,20 @@
 # XoxdWM Status
 
-Snapshot date: 2026-04-12
+Snapshot date: 2026-04-13
 
 ## Honest Assessment
 
 - The repo has a real public release and substantial packaging work.
-- The repo now has a root README and status surface, but the named-host runtime reality still trails the packaging story.
-- The current public Rocky RPM failed on `honey`: package metadata requires bare `wayland`, and the installed compositor binary points at a `/nix/store/.../ld-linux...` interpreter.
-- The active `0.5.1` repair lane is now building toward a native Rocky compositor RPM without the `vr` Cargo feature; full VR packaging is still blocked on a real `libuvc` path.
-- The latest native Rocky RPM blocker is no longer the compositor build itself. The repair lane now treats Monado integration, SELinux hardening, and the BrainFlow BCI virtualenv as separate opt-in package paths so the base Rocky compositor RPM can be proven first.
+- `v0.5.1` is publicly released and publishes the repaired Rocky compositor RPM and the DEB artifact.
+- The base Rocky RPM gate is complete: the public package now installs on Rocky 10 without the earlier bare-`wayland` metadata or `/nix/store` runtime-linking problems.
+- The release lane now treats Monado integration, SELinux hardening, and the BrainFlow BCI virtualenv as separate opt-in package paths so the base Rocky compositor package can stay shippable.
 - `honey` is not currently running a deployed XoxdWM stack.
 - `honey` now has a proven `linux-xr` kernel default and a one-time verified PREEMPT_RT boot, but the VR userspace is still incomplete.
 - `honey` has partial XR prereqs only: `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `/usr/local/bin/monado-service`, and `/usr/local/share/openxr/1/openxr_monado.json`.
 - `honey` does not currently expose `openxr-info`, `xrgears`, or `xoxdwm`, and no active DRM connector or obvious HMD path was present during the audit.
-- `yoga` is not currently running a deployed XoxdWM stack.
-- `yoga` now has a one-time validated `kernel-xr` boot path, but stock Rocky remains the persistent default and no XR userspace stack is installed.
+- `yoga` now has the public Rocky package installed: `exwm-vr`, `exwm-vr-compositor`, and `exwm-vr-elisp`.
+- `yoga` validated the named-host package line: the compositor binary links cleanly, a bounded runtime succeeds with `seatd`, and Wayland/DRM/libinput startup is confirmed.
+- `yoga` still does not have a polished local login/session path. The remaining follow-on is session ergonomics: display-manager or local-launch flow, seat backend propagation into user services, and a fresh-login/user-manager path after seat-group changes.
 - Recent push CI failures were concentrated in three places:
   - Rocky test: optional `sccache` setup step
   - Nix cache workflow: attempting to install Nix on a pre-provisioned self-hosted runner
@@ -30,17 +30,19 @@ Snapshot date: 2026-04-12
 - publishing experimental package artifacts
 - carrying the userspace side of Rocky 10 / Wayland / VR integration work
 - serving as the research and implementation repo for the `honey` and `yoga` MVP paths now that both hosts have validated kernel lanes
+- carrying a real public Rocky compositor package that has been validated on `yoga`
 
 ## What This Repo Is Not Claiming Right Now
 
 - daily-driver VR on `honey`
 - a complete turnkey Rocky 10 VR deployment
-- a working named-host XoxdWM compositor install on `honey` or `yoga`
+- a polished local login/session launch on `yoga`
+- a working named-host XoxdWM compositor install on `honey`
 - proven eye tracking, hand tracking, or BCI support on current named lab hosts
 
 ## Immediate Priorities
 
-1. Finish the corrected public Rocky RPM release path so it ships a host-runnable native compositor binary and correct dependency metadata, without making SELinux policy compilation or the BrainFlow BCI virtualenv a release gate.
+1. Finish the local login/session path on `yoga` so the named-host result is not limited to a bounded ssh-driven compositor smoke.
 2. Put a real XoxdWM/Monado/OpenXR client-tool install path on `honey`, not just a bare Monado runtime manifest.
-3. Produce the first named-host compositor startup on either `honey` or `yoga`.
-4. Produce one reproducible Rocky 10 XR userspace install on `yoga`.
+3. Produce the first named-host compositor startup on `honey`.
+4. Keep the Rocky base package lane green while leaving Monado, SELinux, and BCI as separate follow-on concerns.

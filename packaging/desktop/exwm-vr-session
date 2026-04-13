@@ -26,6 +26,14 @@ export ELECTRON_OZONE_PLATFORM_HINT=auto
 export XCURSOR_THEME="${XCURSOR_THEME:-Adwaita}"
 export XCURSOR_SIZE="${XCURSOR_SIZE:-24}"
 
+# ── Seat backend ──────────────────────────────────────────────────────
+# On Rocky hosts we validate the named-host launch path with seatd. When the
+# seatd socket exists and no explicit backend was provided, prefer that backend
+# so systemd user services inherit the same working seat setup as direct runs.
+if [ -z "${LIBSEAT_BACKEND:-}" ] && [ -S /run/seatd.sock ]; then
+    export LIBSEAT_BACKEND=seatd
+fi
+
 # ── XDG portal config ────────────────────────────────────────────────
 # Point portal backends at our config (screencopy, file chooser, etc.)
 if [ -f /usr/share/xdg-desktop-portal/exwm-vr-portals.conf ]; then
@@ -54,12 +62,58 @@ fi
 
 # ── Systemd path ─────────────────────────────────────────────────────
 if command -v systemctl >/dev/null 2>&1 && systemctl --user list-unit-files exwm-vr.target >/dev/null 2>&1; then
+    # Import the session environment into the user manager before starting the
+    # target so compositor/user services inherit the same runtime context as
+    # the launcher.
+    systemctl --user import-environment \
+        DBUS_SESSION_BUS_ADDRESS \
+        LIBSEAT_BACKEND \
+        WAYLAND_DISPLAY \
+        XDG_CURRENT_DESKTOP \
+        XDG_DESKTOP_PORTAL_DIR \
+        XDG_RUNTIME_DIR \
+        XDG_SESSION_DESKTOP \
+        XDG_SESSION_TYPE \
+        XR_RUNTIME_JSON \
+        QT_QPA_PLATFORM \
+        SDL_VIDEODRIVER \
+        MOZ_ENABLE_WAYLAND \
+        _JAVA_AWT_WM_NONREPARENTING \
+        CLUTTER_BACKEND \
+        ECORE_EVAS_ENGINE \
+        ELM_ENGINE \
+        GDK_BACKEND \
+        ELECTRON_OZONE_PLATFORM_HINT \
+        XCURSOR_THEME \
+        XCURSOR_SIZE >/dev/null 2>&1 || true
+
     echo "Starting EXWM-VR via systemd user target..."
     systemctl --user start exwm-vr.target
 
-    # Wait for the compositor to exit; when it stops the session is over.
-    # BindsTo in the emacs unit will bring everything else down.
-    exec systemctl --user --wait start exwm-vr-compositor.service
+    # Wait until the compositor reaches a stable running or failed state.
+    seen_active=0
+    while true; do
+        state="$(systemctl --user show -p ActiveState --value exwm-vr-compositor.service 2>/dev/null || echo failed)"
+        case "$state" in
+            active)
+                seen_active=1
+                ;;
+            failed)
+                echo "ERROR: exwm-vr-compositor.service failed to start" >&2
+                exec systemctl --user status exwm-vr-compositor.service --no-pager -l
+                ;;
+            inactive)
+                if [ "$seen_active" -eq 1 ]; then
+                    break
+                fi
+                ;;
+        esac
+        sleep 1
+    done
+
+    # Once the compositor has run, bring the session target down cleanly.
+    systemctl --user stop exwm-vr.target >/dev/null 2>&1 || true
+    exit 0
 fi
 
 # ── Fallback: direct launch ──────────────────────────────────────────
