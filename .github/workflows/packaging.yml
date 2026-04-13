@@ -133,9 +133,9 @@ jobs:
       - name: Validate RPM runtime metadata
         run: |
           set -euo pipefail
-          RPM=$(find ~/rpmbuild/RPMS -name 'ewwm-compositor-*.rpm' | head -1)
+          RPM=$(find ~/rpmbuild/RPMS -name 'exwm-vr-compositor-*.rpm' | head -1)
           if [ -z "$RPM" ]; then
-            echo "No ewwm-compositor RPM found in rpmbuild output" >&2
+            echo "No exwm-vr-compositor RPM found in rpmbuild output" >&2
             exit 1
           fi
 
