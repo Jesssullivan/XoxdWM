@@ -88,13 +88,13 @@ jobs:
       - name: Create source tarball
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          # Create a source tarball matching the spec's %autosetup expectation
-          tar czf exwm-vr-${VERSION}.tar.gz \
-            --transform "s,^\.,XoxdWM-${VERSION}," \
-            --exclude='.git' --exclude='vendor' \
-            --exclude="exwm-vr-${VERSION}-vendor.tar.gz" \
-            --exclude="exwm-vr-${VERSION}.tar.gz" \
-            .
+          # Use git archive so the source tarball is stable and does not race
+          # against files created in the working tree during packaging.
+          git archive \
+            --format=tar.gz \
+            --prefix="XoxdWM-${VERSION}/" \
+            -o "exwm-vr-${VERSION}.tar.gz" \
+            HEAD
 
       - name: Set up rpmbuild tree
         run: |
