@@ -68,7 +68,6 @@ BuildRequires:  mesa-libEGL-devel
 BuildRequires:  mesa-libgbm-devel
 BuildRequires:  libinput-devel
 BuildRequires:  libxkbcommon-devel
-BuildRequires:  openxr-devel
 BuildRequires:  libdrm-devel
 BuildRequires:  libseat-devel
 BuildRequires:  libxcb-devel
@@ -126,11 +125,6 @@ Requires:       libxkbcommon
 Requires:       libseat
 Requires:       libdrm
 Requires:       systemd-libs
-Requires:       openxr
-Requires:       pipewire
-Requires:       wireplumber
-Requires:       xdg-desktop-portal
-Requires:       xdg-desktop-portal-wlr
 Requires(post): systemd
 Requires(preun): systemd
 Requires(postun): systemd
@@ -139,9 +133,9 @@ Requires(postun): systemd
 The ewwm-compositor binary -- a Smithay 0.7 Wayland compositor with an
 s-expression IPC channel for Emacs control. The native Rocky RPM release lane
 currently builds the compositor without the `vr` Cargo feature so it can ship a
-host-runnable binary without a private libuvc packaging path. Full VR/OpenXR
-integration remains a source/Nix path until native Rocky packaging for that
-stack is proven.
+host-runnable binary without a private libuvc packaging path or a hard runtime
+dependency on the OpenXR/portal stack. Full VR/OpenXR integration remains a
+source/Nix path until native Rocky packaging for that stack is proven.
 
 # ===========================================================================
 # Subpackage: elisp

@@ -159,6 +159,13 @@ jobs:
             exit 1
           fi
 
+          for forbidden in openxr pipewire wireplumber xdg-desktop-portal xdg-desktop-portal-wlr; do
+            if rpm -qpR "$RPM" | grep -Fxq "$forbidden"; then
+              echo "RPM still hard-requires $forbidden even though the native Rocky lane is non-vr" >&2
+              exit 1
+            fi
+          done
+
           popd >/dev/null
 
       - name: Collect RPMs
