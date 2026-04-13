@@ -454,7 +454,6 @@ cp -a %{_builddir}/bci-venv/* %{buildroot}%{bci_venv_dir}/
 find %{buildroot}%{bci_venv_dir}/bin -type f -executable \
     -exec sed -i '1s|^#!.*python.*|#!/opt/%{project_name}/bci-venv/bin/python3|' {} \;
 %endif
-%endif
 
 # --- Headless documentation ---
 %if %{with headless}
