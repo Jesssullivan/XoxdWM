@@ -138,7 +138,6 @@ jobs:
     name: Cross-compile s390x
     runs-on: ${{ vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM' && 'tinyland-nix' || 'ubuntu-latest' }}
     timeout-minutes: 60
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -151,7 +150,17 @@ jobs:
           token: ${{ secrets.ATTIC_TOKEN }}
 
       - name: Build s390x headless compositor
+        id: s390x_build
+        continue-on-error: true
         run: nix build .#packages.s390x-linux.compositor-headless
+
+      - name: Note non-blocking s390x status
+        if: always()
+        run: |
+          if [ "${{ steps.s390x_build.outcome }}" = "failure" ]; then
+            echo "s390x cross-build is informational only: current nixpkgs/LLVM compiler-rt toolchain is failing upstream on s390x." >> "$GITHUB_STEP_SUMMARY"
+            echo "Treating s390x as non-blocking until the upstream toolchain issue clears."
+          fi
 
   nix-checks:
     name: NixOS VM integration tests
