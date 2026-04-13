@@ -1,6 +1,7 @@
 name: Multi-Architecture Build & Test
 
 on:
+  workflow_dispatch:
   push:
     branches: [main, dev, 'feature/*']
     paths:
