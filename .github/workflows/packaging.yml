@@ -50,7 +50,6 @@ jobs:
 
   package-rpm:
     name: Package RPM (rpmbuild)
-    needs: build-binary
     runs-on: ubuntu-latest
     container: rockylinux/rockylinux:10
     timeout-minutes: 30
