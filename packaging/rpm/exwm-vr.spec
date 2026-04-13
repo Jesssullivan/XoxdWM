@@ -17,7 +17,7 @@
 %bcond headless 1
 
 Name:           %{project_name}
-Version:        0.5.0
+Version:        0.5.1
 Release:        1%{?dist}
 Summary:        VR-first transhuman Emacs window manager (Wayland)
 License:        GPL-3.0-or-later
@@ -585,6 +585,11 @@ fi
 # Changelog
 # ===========================================================================
 %changelog
+* Sun Apr 12 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 0.5.1-1
+- Guard Rocky release RPMs against /nix/store-linked binaries
+- Fail packaging when bare 'wayland' dependency metadata leaks into the Rocky RPM
+- Keep Rocky docs honest about the current v0.5.0 release artifact failure on named hosts
+
 * Tue Mar 03 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 0.5.0-1
 - Version bump to 0.5.0 (v0.5.0-vr-renderer milestone)
 - Install .desktop + session wrapper to wayland-sessions for GDM/SDDM

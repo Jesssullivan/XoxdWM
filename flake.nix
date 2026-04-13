@@ -35,7 +35,7 @@
 
   outputs = { self, nixpkgs, emacs-overlay, rust-overlay, flake-utils, nix2container, home-manager, nixpkgs-xr }:
     let
-      version = "0.5.0";
+      version = "0.5.1";
 
       # XR kernel module — patches + structured config for Bigscreen Beyond 2e
       xrKernelLib = import ./nix/kernel/xr-kernel.nix;
