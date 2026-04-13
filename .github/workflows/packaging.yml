@@ -61,7 +61,7 @@ jobs:
         run: |
           dnf install -y 'dnf-command(config-manager)' epel-release
           dnf config-manager --set-enabled crb
-          dnf install -y rpm-build rpmdevtools gcc make cpio binutils \
+          dnf install -y bash rpm-build rpmdevtools gcc make cpio binutils \
             rust cargo pkgconfig \
             wayland-devel mesa-libEGL-devel mesa-libgbm-devel \
             libinput-devel libxkbcommon-devel libdrm-devel \
