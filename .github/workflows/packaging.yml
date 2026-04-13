@@ -69,8 +69,6 @@ jobs:
             systemd-devel selinux-policy-devel checkpolicy policycoreutils \
             emacs tar gzip
 
-      - uses: ./.github/actions/setup-sccache
-
       - name: Set version
         id: version
         run: |
