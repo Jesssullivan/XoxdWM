@@ -152,7 +152,9 @@ ewwm-layout, ewwm-input, ewwm-manage, ewwm-floating), VR integration
 (ewwm-vr, ewwm-vr-scene, ewwm-vr-display, ewwm-vr-eye), accessibility
 (ewwm-vr-wink, ewwm-vr-gaze-zone, ewwm-vr-fatigue), secrets management
 (ewwm-secrets, ewwm-keepassxc-browser, ewwm-secrets-autotype), and the
-original EXWM X11 compatibility layer.
+original EXWM X11 compatibility layer. The native Rocky RPM lane currently
+ships source `.el` files for this subpackage; successful byte-compilation
+depends on EXWM Lisp dependencies that are not yet packaged in Rocky 10.
 
 # ===========================================================================
 # Subpackage: monado
@@ -273,12 +275,11 @@ cargo build --release --no-default-features \
 %endif
 popd
 
-# --- Elisp byte-compilation ---
-%{_bindir}/emacs --batch \
-    -L lisp/core -L lisp/vr -L lisp/ext \
-    --eval '(setq byte-compile-error-on-warn nil)' \
-    -f batch-byte-compile \
-    lisp/core/*.el lisp/vr/*.el lisp/ext/*.el
+# --- Elisp ---
+# Rocky 10 does not currently ship the EXWM Lisp dependency set (`compat`,
+# `xelb`, and related XCB modules) needed for successful build-time
+# byte-compilation. Ship source `.el` files in the native Rocky package lane and
+# leave any host-local byte-compilation to `%post`, where it is best-effort.
 
 # --- SELinux policy module ---
 pushd selinux-build
@@ -328,11 +329,11 @@ install -d %{buildroot}%{emacs_sitelisp}/core
 install -d %{buildroot}%{emacs_sitelisp}/vr
 install -d %{buildroot}%{emacs_sitelisp}/ext
 
-install -pm 0644 lisp/core/*.el lisp/core/*.elc \
+install -pm 0644 lisp/core/*.el \
     %{buildroot}%{emacs_sitelisp}/core/
-install -pm 0644 lisp/vr/*.el lisp/vr/*.elc \
+install -pm 0644 lisp/vr/*.el \
     %{buildroot}%{emacs_sitelisp}/vr/
-install -pm 0644 lisp/ext/*.el lisp/ext/*.elc \
+install -pm 0644 lisp/ext/*.el \
     %{buildroot}%{emacs_sitelisp}/ext/
 
 # Emacs load-path setup
