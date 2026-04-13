@@ -35,7 +35,7 @@
 
   outputs = { self, nixpkgs, emacs-overlay, rust-overlay, flake-utils, nix2container, home-manager, nixpkgs-xr }:
     let
-      version = "0.5.0";
+      version = "0.5.1";
 
       # XR kernel module — patches + structured config for Bigscreen Beyond 2e
       xrKernelLib = import ./nix/kernel/xr-kernel.nix;
@@ -282,7 +282,7 @@
             };
 
             # Chapel 2.8 — parallel programming language for BCI analysis
-            chapel = import ./nix/packages/chapel.nix { inherit pkgs; inherit (pkgs) lib stdenv fetchurl python3 llvmPackages_18 gmp which perl bash cmake; };
+            chapel = import ./nix/packages/chapel.nix { inherit (pkgs) lib stdenv fetchurl python3 llvmPackages_18 gmp which perl bash cmake; };
 
             # Patched wlroots 0.18 — Bigscreen Beyond non_desktop detection
             wlroots-beyond = import ./nix/packages/wlroots-beyond.nix { inherit pkgs; };

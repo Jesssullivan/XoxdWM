@@ -41,6 +41,7 @@ Acceptance:
 - `yoga` can install the public package or build from source with documented steps
 - compositor launch path is documented and repeatable
 - rollback path is documented if package install fails
+- SELinux hardening is tracked as a follow-on package path rather than a gate on the first named-host compositor RPM
 
 ## Epic 4: `honey` VR Smoke Path
 

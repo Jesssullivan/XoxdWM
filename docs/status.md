@@ -7,6 +7,8 @@ Snapshot date: 2026-04-12
 - The repo has a real public release and substantial packaging work.
 - The repo now has a root README and status surface, but the named-host runtime reality still trails the packaging story.
 - The current public Rocky RPM failed on `honey`: package metadata requires bare `wayland`, and the installed compositor binary points at a `/nix/store/.../ld-linux...` interpreter.
+- The active `0.5.1` repair lane is now building toward a native Rocky compositor RPM without the `vr` Cargo feature; full VR packaging is still blocked on a real `libuvc` path.
+- The latest native Rocky RPM blocker is no longer the compositor build itself. The repair lane now treats Monado integration, SELinux hardening, and the BrainFlow BCI virtualenv as separate opt-in package paths so the base Rocky compositor RPM can be proven first.
 - `honey` is not currently running a deployed XoxdWM stack.
 - `honey` now has a proven `linux-xr` kernel default and a one-time verified PREEMPT_RT boot, but the VR userspace is still incomplete.
 - `honey` has partial XR prereqs only: `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `/usr/local/bin/monado-service`, and `/usr/local/share/openxr/1/openxr_monado.json`.
@@ -38,7 +40,7 @@ Snapshot date: 2026-04-12
 
 ## Immediate Priorities
 
-1. Repair the public Rocky RPM release path so it ships a host-runnable native compositor binary and correct dependency metadata.
+1. Finish the corrected public Rocky RPM release path so it ships a host-runnable native compositor binary and correct dependency metadata, without making SELinux policy compilation or the BrainFlow BCI virtualenv a release gate.
 2. Put a real XoxdWM/Monado/OpenXR client-tool install path on `honey`, not just a bare Monado runtime manifest.
 3. Produce the first named-host compositor startup on either `honey` or `yoga`.
 4. Produce one reproducible Rocky 10 XR userspace install on `yoga`.

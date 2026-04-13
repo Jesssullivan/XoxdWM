@@ -33,9 +33,18 @@ if [ -f /usr/share/xdg-desktop-portal/exwm-vr-portals.conf ]; then
 fi
 
 # ── D-Bus session bus ─────────────────────────────────────────────────
-# Ensure a session bus is running (display managers usually provide one).
-if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-    eval "$(dbus-launch --sh-syntax --exit-with-session)"
+# Ensure a session bus is running when a helper is available. Minimal Rocky
+# hosts may not ship dbus-launch or dbus-run-session by default, so do not hard
+# fail the session wrapper just because a helper is absent.
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -z "${EXWM_VR_DBUS_BOOTSTRAPPED:-}" ]; then
+    if command -v dbus-run-session >/dev/null 2>&1; then
+        export EXWM_VR_DBUS_BOOTSTRAPPED=1
+        exec dbus-run-session -- "$0" "$@"
+    elif command -v dbus-launch >/dev/null 2>&1; then
+        eval "$(dbus-launch --sh-syntax --exit-with-session)"
+    else
+        echo "WARN: no D-Bus session helper found; continuing without a session bus" >&2
+    fi
 fi
 
 # ── OpenXR runtime ────────────────────────────────────────────────────

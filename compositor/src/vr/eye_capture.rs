@@ -11,14 +11,14 @@
 //!
 //! # Platform support
 //!
-//! The real `UvcEyeCapture` is only compiled on Linux (`target_os = "linux"`).
-//! All other platforms get `StubEyeCapture` which satisfies the same
+//! The real `UvcEyeCapture` is only compiled on Linux when the `vr` feature is
+//! enabled. All other builds get `StubEyeCapture` which satisfies the same
 //! `EyeCapture` trait for testing and cross-compilation.
 //!
 //! # Usage
 //!
 //! ```rust,no_run
-//! # #[cfg(target_os = "linux")]
+//! # #[cfg(all(target_os = "linux", feature = "vr"))]
 //! # {
 //! use ewwm_compositor::vr::eye_capture::{UvcEyeCapture, EyeCapture};
 //! let mut capture = UvcEyeCapture::open_bigeye().unwrap();
@@ -126,7 +126,7 @@ pub trait EyeCapture: Send {
 
 // ── Linux: libuvc FFI + UvcEyeCapture ────────────────────────
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "vr"))]
 mod linux_uvc {
     use super::*;
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -681,10 +681,12 @@ mod linux_uvc {
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "vr"))]
 pub use linux_uvc::UvcEyeCapture;
+#[cfg(not(all(target_os = "linux", feature = "vr")))]
+pub use StubEyeCapture as UvcEyeCapture;
 
-// ── Stub implementation (non-Linux / tests) ──────────────────
+// ── Stub implementation (non-Linux / non-VR / tests) ─────────
 
 /// Stub eye capture for platforms without libuvc (macOS, CI, tests).
 ///
@@ -710,6 +712,11 @@ impl StubEyeCapture {
     /// Create a new stub capture.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Compatibility constructor for non-VR and non-Linux builds.
+    pub fn open_bigeye() -> Result<Self, String> {
+        Ok(Self::new())
     }
 
     /// Push a synthetic frame for testing.

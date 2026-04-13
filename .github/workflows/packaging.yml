@@ -8,7 +8,7 @@ on:
       version:
         description: 'Package version (without v prefix)'
         required: true
-        default: '0.5.0'
+        default: '0.5.1'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -50,7 +50,6 @@ jobs:
 
   package-rpm:
     name: Package RPM (rpmbuild)
-    needs: build-binary
     runs-on: ubuntu-latest
     container: rockylinux/rockylinux:10
     timeout-minutes: 30
@@ -59,15 +58,15 @@ jobs:
 
       - name: Install rpmbuild dependencies
         run: |
-          dnf install -y rpm-build rpmdevtools gcc make cpio binutils \
+          dnf install -y 'dnf-command(config-manager)' epel-release
+          dnf config-manager --set-enabled crb
+          dnf install -y bash rpm-build rpmdevtools gcc make cpio binutils \
             rust cargo pkgconfig \
             wayland-devel mesa-libEGL-devel mesa-libgbm-devel \
             libinput-devel libxkbcommon-devel libdrm-devel \
             libseat-devel libxcb-devel xcb-util-wm-devel \
-            systemd-devel selinux-policy-devel checkpolicy policycoreutils \
+            systemd-devel \
             emacs tar gzip
-
-      - uses: ./.github/actions/setup-sccache
 
       - name: Set version
         id: version
@@ -88,13 +87,16 @@ jobs:
       - name: Create source tarball
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          # Create a source tarball matching the spec's %autosetup expectation
-          tar czf exwm-vr-${VERSION}.tar.gz \
+          # Write the archive outside the working tree first so tar does not
+          # observe its own output file changing while it walks ".".
+          TMP_TARBALL="/tmp/exwm-vr-${VERSION}.tar.gz"
+          tar czf "$TMP_TARBALL" \
             --transform "s,^\.,XoxdWM-${VERSION}," \
             --exclude='.git' --exclude='vendor' \
             --exclude="exwm-vr-${VERSION}-vendor.tar.gz" \
             --exclude="exwm-vr-${VERSION}.tar.gz" \
             .
+          mv "$TMP_TARBALL" "exwm-vr-${VERSION}.tar.gz"
 
       - name: Set up rpmbuild tree
         run: |
@@ -102,10 +104,6 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           cp exwm-vr-${VERSION}.tar.gz ~/rpmbuild/SOURCES/exwm-vr-${VERSION}.tar.gz
           cp exwm-vr-${VERSION}-vendor.tar.gz ~/rpmbuild/SOURCES/exwm-vr-${VERSION}-vendor.tar.gz
-          # Copy SELinux policy sources
-          cp packaging/selinux/exwm_vr.te ~/rpmbuild/SOURCES/
-          cp packaging/selinux/exwm_vr.if ~/rpmbuild/SOURCES/
-          cp packaging/selinux/exwm_vr.fc ~/rpmbuild/SOURCES/
           # Copy systemd units
           cp packaging/systemd/exwm-vr-compositor.service ~/rpmbuild/SOURCES/
           cp packaging/systemd/exwm-vr-monado.service ~/rpmbuild/SOURCES/
@@ -122,17 +120,24 @@ jobs:
       - name: Build RPM
         run: |
           VERSION="${{ steps.version.outputs.version }}"
+          # The native Rocky release lane validates the base compositor package
+          # first. Keep Monado integration, SELinux policy hardening, and the
+          # BrainFlow BCI venv as separate opt-in builds until the base
+          # compositor RPM is proven on named Rocky 10 hosts.
           rpmbuild -bb --nodeps \
             --define "version ${VERSION}" \
             --define "_version ${VERSION}" \
+            --without monado_integration \
+            --without selinux_policy \
+            --without bci \
             packaging/rpm/exwm-vr.spec
 
       - name: Validate RPM runtime metadata
         run: |
           set -euo pipefail
-          RPM=$(find ~/rpmbuild/RPMS -name 'ewwm-compositor-*.rpm' | head -1)
+          RPM=$(find ~/rpmbuild/RPMS -name 'exwm-vr-compositor-*.rpm' | head -1)
           if [ -z "$RPM" ]; then
-            echo "No ewwm-compositor RPM found in rpmbuild output" >&2
+            echo "No exwm-vr-compositor RPM found in rpmbuild output" >&2
             exit 1
           fi
 
@@ -155,6 +160,13 @@ jobs:
             echo "RPM has unresolved bare 'wayland' dependency metadata; expected native Rocky library/runtime package deps" >&2
             exit 1
           fi
+
+          for forbidden in openxr pipewire wireplumber xdg-desktop-portal xdg-desktop-portal-wlr; do
+            if rpm -qpR "$RPM" | grep -Fxq "$forbidden"; then
+              echo "RPM still hard-requires $forbidden even though the native Rocky lane is non-vr" >&2
+              exit 1
+            fi
+          done
 
           popd >/dev/null
 

@@ -487,7 +487,7 @@ release-check: test test-compositor
     @echo "Release checks passed."
 
 [group('release')]
-release tag="v0.5.0":
+release tag="v0.5.1":
     @echo "Preparing release {{tag}}..."
     git-cliff --tag "{{tag}}" --output "{{project_root}}/CHANGELOG.md"
     @echo "CHANGELOG.md updated."

@@ -250,10 +250,10 @@ fn is_non_desktop_connector(drm: &DrmDevice, conn: &connector::Info) -> bool {
         Err(_) => return false,
     };
 
-    for (&prop_handle, &value) in props.handles().iter().zip(props.values().iter()) {
-        if let Ok(info) = drm.get_property(prop_handle) {
+    for (prop_handle, value) in props.iter() {
+        if let Ok(info) = drm.get_property(*prop_handle) {
             if info.name().to_str() == Ok("non_desktop") {
-                return value != 0;
+                return *value != 0;
             }
         }
     }
@@ -281,7 +281,7 @@ fn scan_connectors(
         .filter_map(|handle| gpu.drm.get_connector(*handle, false).ok())
         .collect();
 
-    let crtcs = res.crtcs();
+    let _crtcs = res.crtcs();
     let mut used_crtcs = std::collections::HashSet::new();
 
     // Track which CRTCs are already in use.
