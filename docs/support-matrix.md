@@ -28,10 +28,10 @@ Date baseline: 2026-04-12.
 
 | Surface | Status | Notes |
 | --- | --- | --- |
-| GitHub release RPM | Design | Public release exists, but the current `v0.5.0` Rocky RPM failed on `honey`: it depends on bare `wayland` and ships a `/nix/store`-linked compositor binary. The active `0.5.1` repair lane is targeting a native non-`vr` compositor RPM first and is treating SELinux hardening as a separate follow-on package path rather than a release gate. |
+| GitHub release RPM | Design | Public release exists, but the current `v0.5.0` Rocky RPM failed on `honey`: it depends on bare `wayland` and ships a `/nix/store`-linked compositor binary. The active `0.5.1` repair lane is targeting a native non-`vr` compositor RPM first and is treating SELinux hardening and the BrainFlow BCI virtualenv as separate follow-on package paths rather than release gates. |
 | GitHub release DEB | Smoke | Public release exists. |
 | Nix flake outputs | Smoke | Build surfaces exist; critical push CI is not green yet. |
-| Rocky 10 quickstart | Design | Keep as packaging guidance only until a corrected native RPM or validated source-build path succeeds on a named Rocky host. Full VR claims and SELinux hardening stay separate from that first native package milestone. |
+| Rocky 10 quickstart | Design | Keep as packaging guidance only until a corrected native RPM or validated source-build path succeeds on a named Rocky host. Full VR claims, SELinux hardening, and BrainFlow BCI packaging stay separate from that first native package milestone. |
 | NixOS / Home Manager module | Smoke | Present in repo, but not claimed as proven in this audit. |
 
 ## Runtime Areas

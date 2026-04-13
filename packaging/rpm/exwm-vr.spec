@@ -21,6 +21,12 @@
 # targets; keep it available as an opt-in hardening subpackage.
 %bcond selinux_policy 0
 
+# Build conditional: BrainFlow BCI virtualenv. Disabled by default for the
+# native Rocky release lane until the base compositor RPM is proven on named
+# hosts without dragging bundled NumPy/SciPy ELF objects through rpmbuild's
+# debuginfo pipeline.
+%bcond bci 0
+
 Name:           %{project_name}
 Version:        0.5.1
 Release:        1%{?dist}
@@ -97,10 +103,12 @@ BuildRequires:  policycoreutils
 %endif
 
 # BCI venv (skip on s390x -- no USB peripherals for OpenBCI)
+%if %{with bci}
 %ifnarch s390x
 BuildRequires:  python3-devel >= 3.9
 BuildRequires:  python3-pip
 BuildRequires:  python3-virtualenv
+%endif
 %endif
 
 %if 0%{?el9}
@@ -186,6 +194,7 @@ auto-detection and DRM lease handoff.
 # ===========================================================================
 # Subpackage: bci
 # ===========================================================================
+%if %{with bci}
 %package bci
 Summary:        BrainFlow BCI integration for EXWM-VR
 Requires:       python3 >= 3.9
@@ -195,6 +204,7 @@ Requires:       %{name}-compositor = %{version}-%{release}
 A self-contained Python virtual environment at %{bci_venv_dir} providing
 BrainFlow-based brain-computer interface support for EXWM-VR.  Communicates
 with the compositor over Unix domain sockets.
+%endif
 
 # ===========================================================================
 # Subpackage: selinux
@@ -306,10 +316,12 @@ popd
 %endif
 
 # --- BCI venv (skip on s390x) ---
+%if %{with bci}
 %ifnarch s390x
 python3 -m venv --system-site-packages %{_builddir}/bci-venv
 %{_builddir}/bci-venv/bin/pip install --no-build-isolation \
     brainflow numpy scipy
+%endif
 %endif
 
 # ===========================================================================
@@ -374,8 +386,10 @@ install -Dpm 0644 %{SOURCE21} \
     %{buildroot}%{_userunitdir}/exwm-vr-monado.service
 install -Dpm 0644 %{SOURCE22} \
     %{buildroot}%{_userunitdir}/exwm-vr-emacs.service
+%if %{with bci}
 install -Dpm 0644 %{SOURCE23} \
     %{buildroot}%{_userunitdir}/exwm-vr-brainflow.service
+%endif
 install -Dpm 0644 %{SOURCE24} \
     %{buildroot}%{_userunitdir}/exwm-vr.target
 %endif
@@ -412,12 +426,14 @@ prediction_offset_ms = 5.0
 CONF_EOF
 
 # --- BCI venv ---
+%if %{with bci}
 install -d %{buildroot}%{bci_venv_dir}
 cp -a %{_builddir}/bci-venv/* %{buildroot}%{bci_venv_dir}/
 
 # Fix shebang paths in venv
 find %{buildroot}%{bci_venv_dir}/bin -type f -executable \
     -exec sed -i '1s|^#!.*python.*|#!/opt/%{project_name}/bci-venv/bin/python3|' {} \;
+%endif
 %endif
 
 # --- Headless documentation ---
@@ -510,6 +526,18 @@ udevadm trigger --subsystem-match=usb 2>/dev/null || :
 %postun monado
 %systemd_user_postun_with_restart exwm-vr-monado.service
 
+# --- bci ---
+%if %{with bci}
+%post bci
+%systemd_user_post exwm-vr-brainflow.service
+
+%preun bci
+%systemd_user_preun exwm-vr-brainflow.service
+
+%postun bci
+%systemd_user_postun_with_restart exwm-vr-brainflow.service
+%endif
+
 # --- selinux ---
 %if %{with selinux_policy}
 %post selinux
@@ -575,7 +603,6 @@ fi
 %files monado
 %license LICENSE
 %{_userunitdir}/exwm-vr-monado.service
-%{_userunitdir}/exwm-vr-brainflow.service
 %{_udevrulesdir}/99-exwm-vr.rules
 %dir %{_sysconfdir}/xdg/openxr
 %dir %{_sysconfdir}/xdg/openxr/1
@@ -585,11 +612,14 @@ fi
 %endif
 
 # --- bci (skip on s390x -- no USB peripherals) ---
+%if %{with bci}
 %ifnarch s390x
 %files bci
 %license LICENSE
+%{_userunitdir}/exwm-vr-brainflow.service
 %dir /opt/%{project_name}
 %{bci_venv_dir}/
+%endif
 %endif
 
 # --- selinux ---
