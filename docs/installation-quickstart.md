@@ -7,6 +7,7 @@ This quickstart is intentionally narrower than the feature inventory.
 - As of 2026-04-12, the Rocky path is not yet a claimed working named-host install path.
 - The current public `v0.5.0` RPM failed on `honey`: its metadata requires bare `wayland` on Rocky 10 and the packaged compositor binary points at a `/nix/store/.../ld-linux...` interpreter.
 - Until a corrected release is cut, treat the Rocky RPM section as release-surface documentation, not as a supported install path.
+- The active `0.5.1` repair lane is targeting a native Rocky compositor RPM without the `vr` Cargo feature; full VR enablement remains a separate source/Nix path for now.
 
 ## NixOS (Declarative)
 
@@ -37,7 +38,7 @@ Home Manager (user config):
 
 ## Rocky Linux / Fedora (RPM)
 
-This describes the released compositor package path. It does not, by itself, provision a proven full VR stack, and the current public Rocky RPM still needs a packaging fix before it is a usable host install path.
+This describes the released compositor package path. It does not, by itself, provision a proven full VR stack, and the current public Rocky RPM still needs a packaging fix before it is a usable host install path. The repair lane is currently converging on a native non-`vr` compositor RPM first.
 
 Download from GitHub Releases:
 ```bash
@@ -49,6 +50,7 @@ Current status:
 
 - `v0.5.0` RPM publication exists, but failed on `honey` in this audit.
 - A corrected native Rocky RPM or a validated source-build path is still required before this section can be promoted beyond `Design`.
+- Full VR/OpenXR enablement on Rocky is still a separate follow-on step after the native compositor RPM works on a named host.
 
 Install Emacs and enable the session:
 ```bash

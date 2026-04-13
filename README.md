@@ -12,7 +12,7 @@ As of 2026-04-12:
 | --- | --- | --- |
 | Release artifacts | Smoke | `v0.5.0` publishes RPM and DEB artifacts, but the Rocky RPM is not yet a proven host-runnable install path. |
 | Headless compositor path | Smoke | Build and test surfaces exist, but not re-validated in this pass. |
-| Rocky 10 package install | Design | The current `v0.5.0` RPM failed on `honey`: it requires bare `wayland` metadata on Rocky and ships a `/nix/store`-linked compositor binary. |
+| Rocky 10 package install | Design | The current public `v0.5.0` RPM failed on `honey`: it requires bare `wayland` metadata on Rocky and ships a `/nix/store`-linked compositor binary. The active `0.5.1` repair lane is targeting a native non-`vr` compositor RPM first. |
 | `honey` VR session | Design | `honey` has partial Monado/OpenXR prereqs, but no deployed XoxdWM stack or working OpenXR client-tool path. |
 | `yoga` desktop/dev target | Design | `yoga` has validated kernel work, but still has no XoxdWM userspace install. |
 | Eye tracking / hand tracking / BCI | Design | Documented and partially implemented, but not currently claimed as proven on named lab hosts. |
@@ -47,7 +47,7 @@ Current public install artifacts:
 - `ewwm-compositor-*.x86_64.rpm`
 - `ewwm-compositor_*_amd64.deb`
 
-These artifacts currently package the compositor path. They do not, by themselves, establish a proven full VR deployment on `honey` or `yoga`, and the current Rocky RPM release lane still needs repair before it can be treated as a usable host install path.
+These artifacts currently package the compositor path. They do not, by themselves, establish a proven full VR deployment on `honey` or `yoga`, and the Rocky RPM release lane is being repaired as a native non-`vr` compositor package before any full VR claim is made.
 
 ## Near-Term Goal
 

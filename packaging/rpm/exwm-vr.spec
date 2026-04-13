@@ -117,7 +117,7 @@ Requires:       %{name}-selinux = %{version}-%{release}
 # Subpackage: compositor
 # ===========================================================================
 %package compositor
-Summary:        EXWM-VR Wayland compositor (Smithay + OpenXR)
+Summary:        EXWM-VR Wayland compositor (native Rocky package lane)
 Requires:       mesa-libEGL
 Requires:       mesa-libgbm
 Requires:       libwayland-server
@@ -136,9 +136,12 @@ Requires(preun): systemd
 Requires(postun): systemd
 
 %description compositor
-The ewwm-compositor binary -- a Smithay 0.7 Wayland compositor with OpenXR
-VR support, DRM lease management, eye-tracking pipelines, and an s-expression
-IPC channel for Emacs control.
+The ewwm-compositor binary -- a Smithay 0.7 Wayland compositor with an
+s-expression IPC channel for Emacs control. The native Rocky RPM release lane
+currently builds the compositor without the `vr` Cargo feature so it can ship a
+host-runnable binary without a private libuvc packaging path. Full VR/OpenXR
+integration remains a source/Nix path until native Rocky packaging for that
+stack is proven.
 
 # ===========================================================================
 # Subpackage: elisp
@@ -256,11 +259,15 @@ cargo build --release --no-default-features --features headless \
     --jobs %{_smp_build_ncpus} \
     %{?_cargo_extra_args}
 %else
-cargo build --release --features vr \
+# Native Rocky RPMs currently build the host-runnable compositor without the
+# `vr` feature; the full VR lane still depends on libuvc packaging that is not
+# yet proven on named Rocky hosts.
+cargo build --release \
     --jobs %{_smp_build_ncpus} \
     %{?_cargo_extra_args}
-# Save VR binary before headless build overwrites target/release/
-cp target/release/%{compositor_name} target/release/%{compositor_name}-vr
+# Save the native compositor binary before the headless build overwrites
+# target/release/.
+cp target/release/%{compositor_name} target/release/%{compositor_name}-native
 %if %{with headless}
 # Also build headless variant on non-s390x architectures
 cargo build --release --no-default-features --features headless \
@@ -296,7 +303,7 @@ python3 -m venv --system-site-packages %{_builddir}/bci-venv
 
 # --- Compositor binary ---
 %ifnarch s390x
-install -Dpm 0755 compositor/target/release/%{compositor_name}-vr \
+install -Dpm 0755 compositor/target/release/%{compositor_name}-native \
     %{buildroot}%{_bindir}/%{compositor_name}
 %endif
 
@@ -429,7 +436,7 @@ cargo test --release --no-default-features --features headless \
     %{?_cargo_extra_args} || \
     echo "WARN: Rust tests (headless) -- skipped on mock build"
 %else
-cargo test --release --features vr %{?_cargo_extra_args} || \
+cargo test --release %{?_cargo_extra_args} || \
     echo "WARN: Rust tests require Linux DRM/Wayland -- skipped on mock build"
 %endif
 popd
@@ -589,6 +596,7 @@ fi
 - Guard Rocky release RPMs against /nix/store-linked binaries
 - Fail packaging when bare 'wayland' dependency metadata leaks into the Rocky RPM
 - Keep Rocky docs honest about the current v0.5.0 release artifact failure on named hosts
+- Build the native Rocky RPM lane without the `vr` Cargo feature until libuvc-backed VR packaging is proven
 
 * Tue Mar 03 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 0.5.0-1
 - Version bump to 0.5.0 (v0.5.0-vr-renderer milestone)
