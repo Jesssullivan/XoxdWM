@@ -28,10 +28,10 @@ Date baseline: 2026-04-12.
 
 | Surface | Status | Notes |
 | --- | --- | --- |
-| GitHub release RPM | Smoke | Public release exists and ships `ewwm-compositor`. |
+| GitHub release RPM | Design | Public release exists, but the current `v0.5.0` Rocky RPM failed on `honey`: it depends on bare `wayland` and ships a `/nix/store`-linked compositor binary. |
 | GitHub release DEB | Smoke | Public release exists. |
 | Nix flake outputs | Smoke | Build surfaces exist; critical push CI is not green yet. |
-| Rocky 10 quickstart | Smoke | Documented as compositor/package path only. |
+| Rocky 10 quickstart | Design | Keep as packaging guidance only until a corrected native RPM or validated source-build path succeeds on a named Rocky host. |
 | NixOS / Home Manager module | Smoke | Present in repo, but not claimed as proven in this audit. |
 
 ## Runtime Areas
