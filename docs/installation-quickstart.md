@@ -4,11 +4,11 @@ This quickstart is intentionally narrower than the feature inventory.
 
 - For current support claims, read [Support Matrix](support-matrix.md).
 - For the repo’s current operational status, read [Status](status.md).
-- As of 2026-04-12, the Rocky path is not yet a claimed working named-host install path.
-- The current public `v0.5.0` RPM failed on `honey`: its metadata requires bare `wayland` on Rocky 10 and the packaged compositor binary points at a `/nix/store/.../ld-linux...` interpreter.
-- Until a corrected release is cut, treat the Rocky RPM section as release-surface documentation, not as a supported install path.
-- The active `0.5.1` repair lane is targeting a native Rocky compositor RPM without the `vr` Cargo feature; Monado integration and full VR enablement remain separate source/Nix or follow-on packaging work for now.
-- The same repair lane now treats SELinux hardening and the BrainFlow BCI virtualenv as separate opt-in package concerns so the base Rocky compositor RPM is not blocked on those follow-on paths.
+- As of 2026-04-13, the Rocky base compositor package lane is public in `v0.5.1`.
+- `yoga` validated the Rocky RPM install path: the compositor package installs, links cleanly on-host, and can be started in a bounded named-host run with `seatd`.
+- The remaining Rocky follow-on is local session ergonomics on `yoga`, not the base RPM artifact itself.
+- Monado integration and full VR enablement remain separate follow-on work after the base Rocky compositor package path.
+- SELinux hardening and the BrainFlow BCI virtualenv remain separate opt-in package concerns so the base Rocky compositor RPM stays shippable.
 
 ## NixOS (Declarative)
 
@@ -39,7 +39,7 @@ Home Manager (user config):
 
 ## Rocky Linux / Fedora (RPM)
 
-This describes the released compositor package path. It does not, by itself, provision a proven full VR stack, and the current public Rocky RPM still needs a packaging fix before it is a usable host install path. The repair lane is currently converging on a native non-`vr` compositor RPM first, with SELinux policy packaging and the BrainFlow BCI virtualenv treated as separate follow-on paths.
+This describes the released compositor package path. It does not, by itself, provision a full VR stack. The current public Rocky release is the native non-`vr` compositor package path; SELinux policy packaging, Monado integration, and the BrainFlow BCI virtualenv remain separate follow-on paths.
 
 Download from GitHub Releases:
 ```bash
@@ -49,15 +49,19 @@ sudo dnf install ./exwm-vr-compositor-*.x86_64.rpm
 
 Current status:
 
-- `v0.5.0` RPM publication exists, but failed on `honey` in this audit.
-- A corrected native Rocky RPM or a validated source-build path is still required before this section can be promoted beyond `Design`.
-- Full VR/OpenXR enablement on Rocky is still a separate follow-on step after the native compositor RPM works on a named host.
-- SELinux policy packaging and the BrainFlow BCI virtualenv are separate follow-on steps after the base compositor RPM works on a named host.
+- `v0.5.1` is public and ships the corrected native Rocky compositor RPM.
+- `yoga` validated package install and bounded runtime on Rocky 10.
+- A polished local login/session path on `yoga` is still follow-on work after the base package lane.
+- Full VR/OpenXR enablement on Rocky is still a separate follow-on step after the base compositor package path.
+- SELinux policy packaging and the BrainFlow BCI virtualenv are separate follow-on steps after the base compositor package path.
 
 Install Emacs and enable the session:
 ```bash
-sudo dnf install emacs
-# Log out, select "EXWM-VR" session at login screen if the session file is installed
+sudo dnf install emacs dbus-daemon seatd xorg-x11-server-Xwayland
+sudo systemctl enable --now seatd
+sudo usermod -aG seat "$USER"
+# Log out and back in so the seat group reaches the local session/user manager.
+# The display-manager or local-launch path is still being hardened on yoga.
 ```
 
 ## Debian / Ubuntu (DEB)
@@ -111,5 +115,5 @@ emacs --batch -L lisp/core -L lisp/vr -L lisp/ext -l test/run-tests.el
 
 ## Named-Host Guidance
 
-- `yoga`: target desktop/dev host for the next reproducible Rocky 10 install path.
+- `yoga`: Rocky 10 package install is validated; local session ergonomics are the active follow-on.
 - `honey`: target VR smoke host, but not currently documented here as a proven XoxdWM deployment.
