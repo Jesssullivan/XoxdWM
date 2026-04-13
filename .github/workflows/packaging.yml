@@ -8,7 +8,7 @@ on:
       version:
         description: 'Package version (without v prefix)'
         required: true
-        default: '0.5.0'
+        default: '0.5.1'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -66,7 +66,7 @@ jobs:
             wayland-devel mesa-libEGL-devel mesa-libgbm-devel \
             libinput-devel libxkbcommon-devel libdrm-devel \
             libseat-devel libxcb-devel xcb-util-wm-devel \
-            systemd-devel selinux-policy-devel checkpolicy policycoreutils \
+            systemd-devel \
             emacs tar gzip
 
       - name: Set version
@@ -105,10 +105,6 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           cp exwm-vr-${VERSION}.tar.gz ~/rpmbuild/SOURCES/exwm-vr-${VERSION}.tar.gz
           cp exwm-vr-${VERSION}-vendor.tar.gz ~/rpmbuild/SOURCES/exwm-vr-${VERSION}-vendor.tar.gz
-          # Copy SELinux policy sources
-          cp packaging/selinux/exwm_vr.te ~/rpmbuild/SOURCES/
-          cp packaging/selinux/exwm_vr.if ~/rpmbuild/SOURCES/
-          cp packaging/selinux/exwm_vr.fc ~/rpmbuild/SOURCES/
           # Copy systemd units
           cp packaging/systemd/exwm-vr-compositor.service ~/rpmbuild/SOURCES/
           cp packaging/systemd/exwm-vr-monado.service ~/rpmbuild/SOURCES/
@@ -125,9 +121,13 @@ jobs:
       - name: Build RPM
         run: |
           VERSION="${{ steps.version.outputs.version }}"
+          # The native Rocky release lane validates the base compositor package
+          # first. Keep SELinux policy hardening as a separate opt-in build
+          # until the policy module is portable across current Rocky 10 hosts.
           rpmbuild -bb --nodeps \
             --define "version ${VERSION}" \
             --define "_version ${VERSION}" \
+            --without selinux_policy \
             packaging/rpm/exwm-vr.spec
 
       - name: Validate RPM runtime metadata

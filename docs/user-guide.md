@@ -160,14 +160,16 @@ sudo dnf install exwm-vr
 sudo dnf install exwm-vr-vr           # VR support
 sudo dnf install exwm-vr-qutebrowser  # Browser integration
 sudo dnf install exwm-vr-bci          # BCI support
-sudo dnf install exwm-vr-selinux      # SELinux policy
+sudo dnf install exwm-vr-selinux      # optional SELinux hardening, when published
 sudo dnf install exwm-vr-headless     # Headless compositor
 ```
 
 ### SELinux Configuration
 
 The SELinux policy confines three domains: the compositor, the BrainFlow
-daemon, and the Monado runtime.
+daemon, and the Monado runtime. On the current Rocky MVP lane, this is a
+separate hardening follow-on step rather than a gate on the base compositor
+RPM.
 
 ```bash
 # Install and load SELinux policy

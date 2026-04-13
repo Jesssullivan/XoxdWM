@@ -16,6 +16,11 @@
 # Build conditional: headless compositor variant (for s390x and servers)
 %bcond headless 1
 
+# Build conditional: SELinux policy module. Disabled by default for the native
+# Rocky release lane until the policy is portable across current Rocky 10
+# targets; keep it available as an opt-in hardening subpackage.
+%bcond selinux_policy 0
+
 Name:           %{project_name}
 Version:        0.5.1
 Release:        1%{?dist}
@@ -28,9 +33,11 @@ Source0:        %{url}/archive/v%{version}/%{project_name}-%{version}.tar.gz
 Source1:        %{project_name}-%{version}-vendor.tar.gz
 
 # SELinux policy sources
+%if %{with selinux_policy}
 Source10:       %{selinux_mod}.te
 Source11:       %{selinux_mod}.if
 Source12:       %{selinux_mod}.fc
+%endif
 
 # Systemd user service units
 Source20:       exwm-vr-compositor.service
@@ -83,9 +90,11 @@ BuildRequires:  emacs-nox >= 29.1
 %endif
 
 # SELinux policy build
+%if %{with selinux_policy}
 BuildRequires:  selinux-policy-devel
 BuildRequires:  checkpolicy
 BuildRequires:  policycoreutils
+%endif
 
 # BCI venv (skip on s390x -- no USB peripherals for OpenBCI)
 %ifnarch s390x
@@ -104,13 +113,15 @@ BuildRequires:  epel-release
 %description
 EXWM-VR (XoxdWM) is a VR-first transhuman Emacs window manager built on
 Smithay (Wayland compositor), Emacs (pgtk) as the WM brain, and Monado
-(OpenXR runtime) for VR headset integration.  This is the meta-package that
-pulls in all components.
+(OpenXR runtime) for VR headset integration.  This meta-package pulls in the
+currently supported native Rocky package components for the release lane.
 
 Requires:       %{name}-compositor = %{version}-%{release}
 Requires:       %{name}-elisp = %{version}-%{release}
 Requires:       %{name}-monado = %{version}-%{release}
+%if %{with selinux_policy}
 Requires:       %{name}-selinux = %{version}-%{release}
+%endif
 
 # ===========================================================================
 # Subpackage: compositor
@@ -135,7 +146,9 @@ s-expression IPC channel for Emacs control. The native Rocky RPM release lane
 currently builds the compositor without the `vr` Cargo feature so it can ship a
 host-runnable binary without a private libuvc packaging path or a hard runtime
 dependency on the OpenXR/portal stack. Full VR/OpenXR integration remains a
-source/Nix path until native Rocky packaging for that stack is proven.
+source/Nix path until native Rocky packaging for that stack is proven. SELinux
+hardening is currently treated as a separate opt-in packaging concern rather
+than a release gate for this base compositor lane.
 
 # ===========================================================================
 # Subpackage: elisp
@@ -186,6 +199,7 @@ with the compositor over Unix domain sockets.
 # ===========================================================================
 # Subpackage: selinux
 # ===========================================================================
+%if %{with selinux_policy}
 %package selinux
 Summary:        SELinux policy module for EXWM-VR
 BuildArch:      noarch
@@ -198,6 +212,7 @@ SELinux type-enforcement policy module for EXWM-VR.  Confines the compositor,
 Monado runtime, and BrainFlow BCI processes with mandatory access controls.
 Denies network access for the compositor and restricts file writes to
 designated directories only.
+%endif
 
 # ===========================================================================
 # Subpackage: headless
@@ -238,8 +253,10 @@ CARGO_EOF
 %endif
 
 # Copy SELinux sources into build tree
+%if %{with selinux_policy}
 mkdir -p selinux-build
 cp %{SOURCE10} %{SOURCE11} %{SOURCE12} selinux-build/
+%endif
 
 # ===========================================================================
 # Build
@@ -282,9 +299,11 @@ popd
 # leave any host-local byte-compilation to `%post`, where it is best-effort.
 
 # --- SELinux policy module ---
+%if %{with selinux_policy}
 pushd selinux-build
 make -f %{_datadir}/selinux/devel/Makefile %{selinux_mod}.pp
 popd
+%endif
 
 # --- BCI venv (skip on s390x) ---
 %ifnarch s390x
@@ -411,10 +430,12 @@ install -pm 0644 docs/gpu-compatibility.md \
 %endif
 
 # --- SELinux policy ---
+%if %{with selinux_policy}
 install -Dpm 0644 selinux-build/%{selinux_mod}.pp \
     %{buildroot}%{_datadir}/selinux/packages/%{selinux_mod}.pp
 install -Dpm 0644 selinux-build/%{selinux_mod}.if \
     %{buildroot}%{_datadir}/selinux/devel/include/contrib/%{selinux_mod}.if
+%endif
 
 # --- State directories ---
 install -d %{buildroot}%{_localstatedir}/lib/%{project_name}
@@ -490,6 +511,7 @@ udevadm trigger --subsystem-match=usb 2>/dev/null || :
 %systemd_user_postun_with_restart exwm-vr-monado.service
 
 # --- selinux ---
+%if %{with selinux_policy}
 %post selinux
 %selinux_modules_install %{_datadir}/selinux/packages/%{selinux_mod}.pp
 # Relabel installed files
@@ -501,6 +523,7 @@ restorecon -R %{_localstatedir}/lib/%{project_name} 2>/dev/null || :
 if [ $1 -eq 0 ]; then
     %selinux_modules_uninstall %{selinux_mod}
 fi
+%endif
 
 # --- headless ---
 %if %{with headless}
@@ -570,10 +593,12 @@ fi
 %endif
 
 # --- selinux ---
+%if %{with selinux_policy}
 %files selinux
 %license LICENSE
 %{_datadir}/selinux/packages/%{selinux_mod}.pp
 %{_datadir}/selinux/devel/include/contrib/%{selinux_mod}.if
+%endif
 
 # --- headless ---
 %if %{with headless}
@@ -594,6 +619,7 @@ fi
 - Fail packaging when bare 'wayland' dependency metadata leaks into the Rocky RPM
 - Keep Rocky docs honest about the current v0.5.0 release artifact failure on named hosts
 - Build the native Rocky RPM lane without the `vr` Cargo feature until libuvc-backed VR packaging is proven
+- Decouple the optional SELinux policy subpackage from the base Rocky compositor release lane
 
 * Tue Mar 03 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 0.5.0-1
 - Version bump to 0.5.0 (v0.5.0-vr-renderer milestone)
