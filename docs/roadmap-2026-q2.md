@@ -29,6 +29,11 @@ Acceptance:
 
 Goal: produce a documented install path for the compositor on a real Rocky 10 lab machine.
 
+Current reality:
+
+- `yoga` has a validated one-time `kernel-xr` boot path.
+- `yoga` still has no installed Monado/OpenXR/XoxdWM userspace stack.
+
 Acceptance:
 
 - `yoga` can install the public package or build from source with documented steps
@@ -39,9 +44,15 @@ Acceptance:
 
 Goal: prove a minimal VR lifecycle on the current kernel host.
 
+Current reality:
+
+- `honey` has a proven generic `linux-xr` default and a one-time verified RT lane.
+- `honey` has a Monado runtime manifest and `monado-service`, but not the OpenXR client tooling or compositor deployment needed for a real smoke path.
+
 Acceptance:
 
 - Monado and required userspace are installed and documented
-- HMD enumeration is observed as expected
+- an OpenXR client tool path exists and is documented on-host
+- HMD enumeration is observed as expected, or the lack of attached VR hardware is explicitly recorded as the blocker
 - compositor starts on the target host
 - one smoke path for DRM lease / OpenXR startup is recorded in repo docs
