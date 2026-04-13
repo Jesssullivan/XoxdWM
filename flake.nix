@@ -282,7 +282,7 @@
             };
 
             # Chapel 2.8 — parallel programming language for BCI analysis
-            chapel = import ./nix/packages/chapel.nix { inherit pkgs; inherit (pkgs) lib stdenv fetchurl python3 llvmPackages_18 gmp which perl bash cmake; };
+            chapel = import ./nix/packages/chapel.nix { inherit (pkgs) lib stdenv fetchurl python3 llvmPackages_18 gmp which perl bash cmake; };
 
             # Patched wlroots 0.18 — Bigscreen Beyond non_desktop detection
             wlroots-beyond = import ./nix/packages/wlroots-beyond.nix { inherit pkgs; };
