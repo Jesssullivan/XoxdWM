@@ -254,8 +254,9 @@ cp %{SOURCE10} %{SOURCE11} %{SOURCE12} selinux-build/
 pushd compositor
 export CARGO_HOME="$PWD/.cargo-home"
 %ifarch s390x
-# s390x: headless only -- skip VR, eye tracking, BCI features
-cargo build --release --no-default-features --features headless \
+# s390x: build the headless-only compositor by disabling default backend/VR
+# features entirely. The crate does not expose a dedicated `headless` feature.
+cargo build --release --no-default-features \
     --jobs %{_smp_build_ncpus} \
     %{?_cargo_extra_args}
 %else
@@ -269,8 +270,9 @@ cargo build --release \
 # target/release/.
 cp target/release/%{compositor_name} target/release/%{compositor_name}-native
 %if %{with headless}
-# Also build headless variant on non-s390x architectures
-cargo build --release --no-default-features --features headless \
+# Also build the headless variant on non-s390x architectures by disabling the
+# default feature set.
+cargo build --release --no-default-features \
     --jobs %{_smp_build_ncpus} \
     %{?_cargo_extra_args}
 %endif
@@ -323,7 +325,7 @@ install -Dpm 0755 compositor/target/release/%{compositor_name} \
     %{buildroot}%{_bindir}/%{compositor_name}-headless
 %ifarch s390x
 # On s390x the headless build IS the only compositor build
-# (already built with --features headless above)
+# (already built above with --no-default-features)
 %endif
 %endif
 
@@ -432,7 +434,7 @@ install -d %{buildroot}%{_rundir}/%{project_name}
 pushd compositor
 export CARGO_HOME="$PWD/.cargo-home"
 %ifarch s390x
-cargo test --release --no-default-features --features headless \
+cargo test --release --no-default-features \
     %{?_cargo_extra_args} || \
     echo "WARN: Rust tests (headless) -- skipped on mock build"
 %else

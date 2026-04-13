@@ -141,7 +141,7 @@ Emacs.
 
 ### Build Notes
 
-- Skip VR features: `cargo build --release --no-default-features --features headless`
+- Skip VR and backend features: `cargo build --release --no-default-features`
 - Skip OpenXR, eye tracking, BCI build requirements entirely
 - Use `emacs-nox` (no X11/pgtk needed for terminal mode)
 - llvmpipe available for Mesa software rendering if needed
@@ -184,7 +184,7 @@ Aspirational target. Not currently tested, expected to require work.
 # Cross-compile from x86_64
 export CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER=riscv64-linux-gnu-gcc
 cargo build --target riscv64gc-unknown-linux-gnu --release \
-    --no-default-features --features headless
+    --no-default-features
 ```
 
 ## Optimization Flags Summary

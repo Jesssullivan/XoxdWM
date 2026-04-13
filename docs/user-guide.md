@@ -535,7 +535,7 @@ sessions.
 Or build the headless compositor:
 
 ```bash
-cargo build --release --no-default-features --features headless
+cargo build --release --no-default-features
 ```
 
 ### Headless IPC Commands
