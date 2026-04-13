@@ -269,7 +269,7 @@ impl TextureManager {
                     height as i32,
                     tex.format.gl_format(),
                     glow::UNSIGNED_BYTE,
-                    glow::PixelUnpackData::Slice(pixels),
+                    glow::PixelUnpackData::Slice(Some(pixels)),
                 );
             }
 
