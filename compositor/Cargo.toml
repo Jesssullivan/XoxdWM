@@ -1,6 +1,6 @@
 [package]
 name = "ewwm-compositor"
-version = "0.5.1"
+version = "0.5.3"
 edition = "2021"
 publish = false
 description = "EXWM-VR Wayland compositor built on Smithay"
