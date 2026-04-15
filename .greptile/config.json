@@ -1,0 +1,27 @@
+{
+  "strictness": 2,
+  "commentTypes": ["logic", "syntax", "style"],
+  "triggerOnUpdates": true,
+  "triggerOnDrafts": false,
+  "ignorePatterns": "build/**\n*.o\n*.d\n*.a\n*.so\n*.dylib\ntarget/**\nCargo.lock",
+  "statusCheck": true,
+  "fixWithAI": true,
+  "shouldUpdateDescription": true,
+  "summarySection": { "included": true, "collapsible": false, "defaultOpen": true },
+  "issuesTableSection": { "included": true, "collapsible": true, "defaultOpen": true },
+  "sequenceDiagramSection": { "included": false, "collapsible": true, "defaultOpen": false },
+  "instructions": "Window manager project. Review for memory safety, correct event handling, and proper resource cleanup. Flag any unbounded allocations or missing error checks on system calls.",
+  "patternRepositories": [],
+  "customContext": {
+    "rules": [
+      "All system call return values must be checked",
+      "Memory allocations must have corresponding free/dealloc on all code paths",
+      "If Rust: unsafe blocks require SAFETY comments",
+      "If C: no implicit fallthrough in switch statements without comment",
+      "Event loop must not block on I/O without timeout"
+    ],
+    "files": [
+      { "path": "CLAUDE.md", "description": "Project conventions and context", "scope": ["**"] }
+    ]
+  }
+}

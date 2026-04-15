@@ -1,0 +1,3 @@
+[
+  { "path": "CLAUDE.md", "description": "Project conventions and context", "scope": ["**"] }
+]
