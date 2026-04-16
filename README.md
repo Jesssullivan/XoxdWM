@@ -58,3 +58,4 @@ The next 12 weeks are aimed at one honest MVP:
 - `honey`: VR smoke path with Monado, non-desktop HMD detection, and compositor launch
 
 Everything else remains secondary until those two named-host outcomes are green.
+<\!-- greptile canary test — safe to close -->
