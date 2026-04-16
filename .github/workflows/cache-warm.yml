@@ -7,24 +7,26 @@ on:
 
 jobs:
   warm-nix-cache:
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM' && 'tinyland-nix' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
     timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Nix
-        if: vars.USE_SELFHOSTED != 'true' || github.repository != 'tinyland-inc/XoxdWM'
+        if: vars.USE_SELFHOSTED != 'true'
         uses: cachix/install-nix-action@v27
         with:
           nix_path: nixpkgs=channel:nixos-unstable
+
+      - uses: tinyland-inc/GloriousFlywheel/.github/actions/setup-flywheel@main
 
       - name: Setup Attic
         if: env.ATTIC_SERVER != ''
         uses: ryanccn/attic-action@v0
         with:
-          endpoint: ${{ secrets.ATTIC_SERVER }}
-          cache: ${{ secrets.ATTIC_CACHE }}
+          endpoint: ${{ env.ATTIC_SERVER }}
+          cache: ${{ env.ATTIC_CACHE }}
           token: ${{ secrets.ATTIC_TOKEN }}
 
       - name: Build x86_64 packages
@@ -58,7 +60,7 @@ jobs:
           done
 
       - name: Build cross targets
-        if: vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM'
+        if: vars.USE_SELFHOSTED == 'true'
         run: |
           echo "=== Cross-building aarch64 compositor ==="
           nix build .#packages.aarch64-linux.compositor --out-link result-aarch64 || true
@@ -70,7 +72,7 @@ jobs:
           nix build .#packages.s390x-linux.compositor-headless --out-link result-s390x || true
 
       - name: Push cross targets to Attic
-        if: env.ATTIC_SERVER != '' && vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM'
+        if: env.ATTIC_SERVER != '' && vars.USE_SELFHOSTED == 'true'
         run: |
           for link in result-aarch64 result-aarch64-headless result-s390x; do
             if [ -L "$link" ]; then
