@@ -8,7 +8,7 @@ Status vocabulary:
 - `Smoke`: packaged or manually validated once, but not yet a stable supported lane.
 - `Design`: code/docs/research exist, but the flow is not yet claimed as working on a named target.
 
-Date baseline: 2026-04-12.
+Date baseline: 2026-04-19.
 
 ## Named Hosts
 
@@ -53,8 +53,9 @@ Date baseline: 2026-04-12.
 | --- | --- | --- |
 | Lightweight CI on code changes | Smoke | Kept as primary CI surface. |
 | Rocky Linux test | Smoke | Workflow exists; current failure was isolated to optional `sccache` setup. |
-| Self-hosted fast CI | Smoke | Still useful, but now skips cleanly on `Jesssullivan/XoxdWM` when no matching self-hosted runner scope exists. |
-| Scheduled runner health | Smoke | Reduced to weekly to avoid daily noise dominating repo health. |
+| Self-hosted fast CI | Smoke | Shared `xoxdwm-nix` lane now runs on `Jesssullivan/XoxdWM`; repo-level runner inventory is still opaque, but the path is proven. |
+| VR hardware-in-the-loop CI | Design | Honey-backed jobs now require explicit `USE_VR_HARDWARE=true` instead of a fork-shaped repo-name gate. The lane is not yet claimed as active on the canonical repo by default. |
+| Scheduled runner health | Smoke | Reduced to weekly to avoid daily noise dominating repo health; the VR runner check is explicit opt-in. |
 
 ## Interpretation
 

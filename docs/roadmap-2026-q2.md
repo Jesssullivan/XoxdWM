@@ -23,7 +23,8 @@ Acceptance:
 - Rocky test no longer fails in optional cache setup
 - self-hosted Nix workflows stop reinstalling Nix on provisioned runners
 - weekly runner-health remains available without dominating repo signal
-- self-hosted jobs do not target unavailable `tinyland-inc/XoxdWM` runner scope from the current `Jesssullivan/XoxdWM` repo
+- shared self-hosted jobs run from `Jesssullivan/XoxdWM` without fork-specific repo-name gates
+- Honey / VR hardware lanes use explicit `USE_VR_HARDWARE` opt-in instead of repo-name policy
 
 ## Epic 3: Rocky 10 Desktop/Dev MVP On `yoga`
 
@@ -51,6 +52,7 @@ Current reality:
 
 - `honey` has a proven generic `linux-xr` default and a one-time verified RT lane.
 - `honey` has a Monado runtime manifest and `monado-service`, but not the OpenXR client tooling or compositor deployment needed for a real smoke path.
+- the Honey-backed workflows are now capability-gated, but the canonical repo is still not claiming an always-on hardware runner surface by default
 
 Acceptance:
 

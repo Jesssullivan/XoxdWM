@@ -6,7 +6,7 @@ This repository is the canonical public home for the compositor, packaging, rele
 
 ## Current State
 
-As of 2026-04-13:
+As of 2026-04-19:
 
 | Area | Status | Notes |
 | --- | --- | --- |
@@ -35,6 +35,8 @@ The repo contains four different kinds of work:
 - aspirational feature inventory
 
 Only the support matrix and status docs should be read as the current operational truth.
+
+Shared self-hosted CI now runs from this canonical repo. Honey-backed hardware lanes remain explicit opt-in via `USE_VR_HARDWARE` rather than implicit fork-only behavior.
 
 ## Releases
 

@@ -138,7 +138,9 @@ jobs:
 
   fast-vr:
     name: Fast VR Smoke (self-hosted)
-    if: vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM'
+    # Hardware-in-the-loop smoke is opt-in and should follow runner capability,
+    # not which repo name happened to own the lane historically.
+    if: vars.USE_SELFHOSTED == 'true' && vars.USE_VR_HARDWARE == 'true'
     needs: fast-build
     runs-on: [self-hosted, honey]
     timeout-minutes: 10
