@@ -61,7 +61,7 @@ jobs:
     name: VR Runner Health
     runs-on: [self-hosted, honey]
     timeout-minutes: 10
-    if: vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM'
+    if: vars.USE_SELFHOSTED == 'true' && vars.USE_VR_HARDWARE == 'true'
     steps:
       - name: Runner info
         run: |

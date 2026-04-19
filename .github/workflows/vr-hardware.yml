@@ -22,7 +22,7 @@ concurrency:
 jobs:
   preflight:
     name: Hardware Preflight
-    if: github.repository == 'tinyland-inc/XoxdWM'
+    if: vars.USE_SELFHOSTED == 'true' && vars.USE_VR_HARDWARE == 'true'
     runs-on: [self-hosted, honey]
     timeout-minutes: 5
     steps:
@@ -59,7 +59,7 @@ jobs:
 
   compositor-gpu:
     name: Compositor GPU Build & Test
-    if: github.repository == 'tinyland-inc/XoxdWM'
+    if: vars.USE_SELFHOSTED == 'true' && vars.USE_VR_HARDWARE == 'true'
     needs: preflight
     runs-on: [self-hosted, honey]
     timeout-minutes: 30
@@ -86,7 +86,7 @@ jobs:
 
   vr-session:
     name: VR Session Lifecycle
-    if: github.repository == 'tinyland-inc/XoxdWM' && (inputs.test-suite == 'full' || github.ref_type == 'tag')
+    if: vars.USE_SELFHOSTED == 'true' && vars.USE_VR_HARDWARE == 'true' && (inputs.test-suite == 'full' || github.ref_type == 'tag')
     needs: compositor-gpu
     runs-on: [self-hosted, honey]
     timeout-minutes: 15
@@ -125,7 +125,7 @@ jobs:
 
   drm-lease:
     name: DRM Lease Detection
-    if: github.repository == 'tinyland-inc/XoxdWM' && (inputs.test-suite != 'smoke' || github.ref_type == 'tag')
+    if: vars.USE_SELFHOSTED == 'true' && vars.USE_VR_HARDWARE == 'true' && (inputs.test-suite != 'smoke' || github.ref_type == 'tag')
     needs: preflight
     runs-on: [self-hosted, honey]
     timeout-minutes: 10
@@ -160,7 +160,7 @@ jobs:
 
   eye-tracking:
     name: Eye Tracking E2E
-    if: github.repository == 'tinyland-inc/XoxdWM' && (inputs.test-suite == 'full' || github.ref_type == 'tag')
+    if: vars.USE_SELFHOSTED == 'true' && vars.USE_VR_HARDWARE == 'true' && (inputs.test-suite == 'full' || github.ref_type == 'tag')
     needs: compositor-gpu
     runs-on: [self-hosted, honey]
     timeout-minutes: 15
@@ -203,7 +203,7 @@ jobs:
 
   benchmark:
     name: GPU Benchmark
-    if: github.repository == 'tinyland-inc/XoxdWM' && (inputs.test-suite == 'full' || github.ref_type == 'tag')
+    if: vars.USE_SELFHOSTED == 'true' && vars.USE_VR_HARDWARE == 'true' && (inputs.test-suite == 'full' || github.ref_type == 'tag')
     needs: compositor-gpu
     runs-on: [self-hosted, honey]
     timeout-minutes: 20
