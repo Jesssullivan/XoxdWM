@@ -37,8 +37,8 @@ concurrency:
 jobs:
   fast-check:
     name: Fast Check (self-hosted)
-    if: vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM'
-    runs-on: tinyland-nix
+    if: vars.USE_SELFHOSTED == 'true'
+    runs-on: xoxdwm-nix
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -96,8 +96,8 @@ jobs:
 
   fast-build:
     name: Fast Build (self-hosted)
-    if: vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM'
-    runs-on: tinyland-nix
+    if: vars.USE_SELFHOSTED == 'true'
+    runs-on: xoxdwm-nix
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4

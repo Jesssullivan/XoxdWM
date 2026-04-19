@@ -20,13 +20,13 @@ concurrency:
 jobs:
   build:
     name: Nix Build
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && github.repository == 'tinyland-inc/XoxdWM' && 'tinyland-nix' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Nix
-        if: vars.USE_SELFHOSTED != 'true' || github.repository != 'tinyland-inc/XoxdWM'
+        if: vars.USE_SELFHOSTED != 'true'
         uses: cachix/install-nix-action@v30
       - name: Verify Nix
         run: nix --version
