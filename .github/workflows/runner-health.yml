@@ -13,7 +13,9 @@ concurrency:
 jobs:
   nix-runner:
     name: Nix Runner Health
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
+    # Keep health checks on the same repo-owned label that already proves the
+    # live self-hosted path on main.
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'xoxdwm-nix' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4

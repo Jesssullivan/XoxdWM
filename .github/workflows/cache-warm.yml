@@ -7,7 +7,9 @@ on:
 
 jobs:
   warm-nix-cache:
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
+    # Follow the repo's proven self-hosted fast-path label instead of the
+    # broader shared-label aspiration, so scheduled maintenance runs can land.
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'xoxdwm-nix' || 'ubuntu-latest' }}
     timeout-minutes: 120
 
     steps:
