@@ -13,14 +13,54 @@ concurrency:
 jobs:
   nix-runner:
     name: Nix Runner Health
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
+    # Keep health checks on the same repo-owned label that already proves the
+    # live self-hosted path on main.
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'xoxdwm-nix' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: DeterminateSystems/nix-installer-action@main
+      - uses: tinyland-inc/GloriousFlywheel/.github/actions/setup-flywheel@main
+        if: vars.USE_SELFHOSTED == 'true'
+        with:
+          attic-cache: ${{ env.ATTIC_CACHE || 'main' }}
+      - name: Ensure Nix daemon is reachable
+        if: vars.USE_SELFHOSTED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if nix store ping >/dev/null 2>&1; then
+            exit 0
+          fi
+
+          echo "::warning::Nix is installed but the daemon socket is unavailable; starting the Nix daemon stack"
+          sudo rm -f /nix/var/nix/daemon-socket/socket || true
+          if command -v determinate-nixd >/dev/null 2>&1; then
+            sudo -b "$(command -v determinate-nixd)" daemon
+          else
+            NIX_DAEMON_BIN="$(command -v nix-daemon || true)"
+            if [ -z "$NIX_DAEMON_BIN" ]; then
+              echo "::error::nix-daemon is not on PATH, and nix store ping failed"
+              exit 1
+            fi
+            sudo -b "$NIX_DAEMON_BIN" --daemon
+          fi
+
+          for _ in $(seq 1 15); do
+            if nix store ping >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "::error::nix-daemon did not become reachable after restart"
+          exit 1
+
       - uses: ryanccn/attic-action@v0
         if: env.ATTIC_SERVER != ''
+        continue-on-error: true
         with:
           endpoint: ${{ env.ATTIC_SERVER }}
           cache: ${{ env.ATTIC_CACHE }}
@@ -41,7 +81,7 @@ jobs:
           echo "=== Nix ==="
           nix --version
           echo "Store: $(nix path-info --store-dir 2>/dev/null || echo '/nix/store')"
-          echo "Trusted: $(nix show-config | grep trusted-users || echo 'N/A')"
+          echo "Trusted: $(nix config show | grep trusted-users || echo 'N/A')"
           nix flake check --no-build
 
       - name: Attic cache check
@@ -50,12 +90,15 @@ jobs:
           echo "=== Attic ==="
           attic cache info "$ATTIC_CACHE" 2>&1 || echo "Attic cache not reachable"
 
-      - name: Quick devShell build
-        run: nix build .#devShells.x86_64-linux.default --no-link
-
-      - name: Emacs available
+      - name: Quick devShell smoke
         run: |
-          nix develop --command emacs --version | head -1
+          # Keep this bounded. Cache Warming owns the broader package and
+          # cache-realization path; the health lane only needs to prove that
+          # the default shell still evaluates on the live self-hosted runner.
+          nix eval --raw .#devShells.x86_64-linux.default.drvPath >/dev/null
+
+      - name: Elisp package build
+        run: nix build .#ewwm-elisp --no-link
 
   vr-runner:
     name: VR Runner Health

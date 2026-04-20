@@ -7,11 +7,13 @@ on:
 
 jobs:
   warm-nix-cache:
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
+    # Follow the repo's proven self-hosted fast-path label instead of the
+    # broader shared-label aspiration, so scheduled maintenance runs can land.
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'xoxdwm-nix' || 'ubuntu-latest' }}
     timeout-minutes: 120
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Nix
         if: vars.USE_SELFHOSTED != 'true'
@@ -19,12 +21,51 @@ jobs:
         with:
           nix_path: nixpkgs=channel:nixos-unstable
 
+      - uses: tinyland-inc/GloriousFlywheel/.github/actions/setup-flywheel@main
+        if: vars.USE_SELFHOSTED == 'true'
+        with:
+          attic-cache: ${{ env.ATTIC_CACHE || 'main' }}
+
+      - name: Ensure Nix daemon is reachable
+        if: vars.USE_SELFHOSTED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if nix store ping >/dev/null 2>&1; then
+            exit 0
+          fi
+
+          echo "::warning::Nix is installed but the daemon socket is unavailable; starting the Nix daemon stack"
+          sudo rm -f /nix/var/nix/daemon-socket/socket || true
+          if command -v determinate-nixd >/dev/null 2>&1; then
+            sudo -b "$(command -v determinate-nixd)" daemon
+          else
+            NIX_DAEMON_BIN="$(command -v nix-daemon || true)"
+            if [ -z "$NIX_DAEMON_BIN" ]; then
+              echo "::error::nix-daemon is not on PATH, and nix store ping failed"
+              exit 1
+            fi
+            sudo -b "$NIX_DAEMON_BIN" --daemon
+          fi
+
+          for _ in $(seq 1 15); do
+            if nix store ping >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "::error::nix-daemon did not become reachable after restart"
+          exit 1
+
       - name: Setup Attic
         if: env.ATTIC_SERVER != ''
         uses: ryanccn/attic-action@v0
+        continue-on-error: true
         with:
-          endpoint: ${{ secrets.ATTIC_SERVER }}
-          cache: ${{ secrets.ATTIC_CACHE }}
+          endpoint: ${{ env.ATTIC_SERVER }}
+          cache: ${{ env.ATTIC_CACHE }}
           token: ${{ secrets.ATTIC_TOKEN }}
 
       - name: Build x86_64 packages
