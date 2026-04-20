@@ -62,6 +62,7 @@ jobs:
       - name: Setup Attic
         if: env.ATTIC_SERVER != ''
         uses: ryanccn/attic-action@v0
+        continue-on-error: true
         with:
           endpoint: ${{ env.ATTIC_SERVER }}
           cache: ${{ env.ATTIC_CACHE }}
