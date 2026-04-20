@@ -18,7 +18,7 @@ jobs:
     runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'xoxdwm-nix' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: tinyland-inc/GloriousFlywheel/.github/actions/setup-flywheel@main
@@ -90,12 +90,15 @@ jobs:
           echo "=== Attic ==="
           attic cache info "$ATTIC_CACHE" 2>&1 || echo "Attic cache not reachable"
 
-      - name: Quick devShell build
-        run: nix build .#devShells.x86_64-linux.default --no-link
-
-      - name: Emacs available
+      - name: Quick devShell smoke
         run: |
-          nix develop --command emacs --version | head -1
+          # Keep this bounded. Cache Warming owns the broader package and
+          # cache-realization path; the health lane only needs to prove that
+          # the default shell still evaluates on the live self-hosted runner.
+          nix eval --raw .#devShells.x86_64-linux.default.drvPath >/dev/null
+
+      - name: Elisp package build
+        run: nix build .#ewwm-elisp --no-link
 
   vr-runner:
     name: VR Runner Health
