@@ -26,6 +26,39 @@ jobs:
         with:
           attic-cache: ${{ env.ATTIC_CACHE || 'main' }}
 
+      - name: Ensure Nix daemon is reachable
+        if: vars.USE_SELFHOSTED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if nix store ping >/dev/null 2>&1; then
+            exit 0
+          fi
+
+          echo "::warning::Nix is installed but the daemon socket is unavailable; starting the Nix daemon stack"
+          sudo rm -f /nix/var/nix/daemon-socket/socket || true
+          if command -v determinate-nixd >/dev/null 2>&1; then
+            sudo -b "$(command -v determinate-nixd)" daemon
+          else
+            NIX_DAEMON_BIN="$(command -v nix-daemon || true)"
+            if [ -z "$NIX_DAEMON_BIN" ]; then
+              echo "::error::nix-daemon is not on PATH, and nix store ping failed"
+              exit 1
+            fi
+            sudo -b "$NIX_DAEMON_BIN" --daemon
+          fi
+
+          for _ in $(seq 1 15); do
+            if nix store ping >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "::error::nix-daemon did not become reachable after restart"
+          exit 1
+
       - name: Setup Attic
         if: env.ATTIC_SERVER != ''
         uses: ryanccn/attic-action@v0
