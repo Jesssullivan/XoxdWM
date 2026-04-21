@@ -43,7 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: ./.github/actions/ensure-nix
       - uses: tinyland-inc/GloriousFlywheel/.github/actions/setup-flywheel@main
         with:
           attic-cache: ${{ env.ATTIC_CACHE || 'main' }}
@@ -102,7 +102,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: ./.github/actions/ensure-nix
       - uses: tinyland-inc/GloriousFlywheel/.github/actions/setup-flywheel@main
         with:
           attic-cache: ${{ env.ATTIC_CACHE || 'main' }}
@@ -147,7 +147,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: ./.github/actions/ensure-nix
       - uses: tinyland-inc/GloriousFlywheel/.github/actions/setup-flywheel@main
         with:
           attic-cache: ${{ env.ATTIC_CACHE || 'main' }}

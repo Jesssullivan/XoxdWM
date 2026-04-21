@@ -1,0 +1,32 @@
+name: Ensure Nix
+description: Prefer a preinstalled Nix toolchain and bootstrap only when absent
+
+runs:
+  using: composite
+  steps:
+    - name: Detect preinstalled Nix
+      id: detect-nix
+      shell: bash
+      run: |
+        if command -v nix >/dev/null 2>&1; then
+          echo "needs_bootstrap=false" >> "$GITHUB_OUTPUT"
+          echo "nix_bin=$(command -v nix)" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "needs_bootstrap=true" >> "$GITHUB_OUTPUT"
+
+    - name: Bootstrap Nix
+      if: steps.detect-nix.outputs.needs_bootstrap == 'true'
+      uses: DeterminateSystems/nix-installer-action@main
+
+    - name: Verify Nix toolchain
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ "${{ steps.detect-nix.outputs.needs_bootstrap }}" = "false" ]; then
+          echo "Using preinstalled Nix at ${{ steps.detect-nix.outputs.nix_bin }}"
+        else
+          echo "Bootstrapped Nix for this runner"
+        fi
+        nix --version

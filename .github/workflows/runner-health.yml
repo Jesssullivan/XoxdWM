@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: ./.github/actions/ensure-nix
       - uses: ryanccn/attic-action@v0
         if: env.ATTIC_SERVER != ''
         with:
