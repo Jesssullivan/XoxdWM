@@ -33,7 +33,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: cachix/install-nix-action@v30
+      - uses: ./.github/actions/ensure-nix
+        with:
+          self_hosted: ${{ vars.USE_SELFHOSTED }}
+          attic_cache: ${{ env.ATTIC_CACHE || 'main' }}
       - uses: ryanccn/attic-action@v0
         if: env.ATTIC_SERVER != ''
         with:
@@ -66,7 +69,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: cachix/install-nix-action@v30
+      - uses: ./.github/actions/ensure-nix
+        with:
+          self_hosted: ${{ vars.USE_SELFHOSTED }}
+          attic_cache: ${{ env.ATTIC_CACHE || 'main' }}
       - uses: ryanccn/attic-action@v0
         if: env.ATTIC_SERVER != ''
         with:
@@ -96,7 +102,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: cachix/install-nix-action@v30
+      - uses: ./.github/actions/ensure-nix
+        with:
+          self_hosted: ${{ vars.USE_SELFHOSTED }}
+          attic_cache: ${{ env.ATTIC_CACHE || 'main' }}
       - uses: ryanccn/attic-action@v0
         if: env.ATTIC_SERVER != ''
         with:
@@ -120,7 +129,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: cachix/install-nix-action@v30
+      - uses: ./.github/actions/ensure-nix
+        with:
+          self_hosted: ${{ vars.USE_SELFHOSTED }}
+          attic_cache: ${{ env.ATTIC_CACHE || 'main' }}
       - uses: ryanccn/attic-action@v0
         if: env.ATTIC_SERVER != ''
         with:
@@ -142,7 +154,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: cachix/install-nix-action@v30
+      - uses: ./.github/actions/ensure-nix
+        with:
+          self_hosted: ${{ vars.USE_SELFHOSTED }}
+          attic_cache: ${{ env.ATTIC_CACHE || 'main' }}
       - uses: ryanccn/attic-action@v0
         if: env.ATTIC_SERVER != ''
         with:
