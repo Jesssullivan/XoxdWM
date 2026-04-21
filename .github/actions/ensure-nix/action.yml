@@ -1,0 +1,62 @@
+name: Ensure Nix
+description: Install or recover Nix for hosted and self-hosted workflows.
+
+inputs:
+  self_hosted:
+    description: Whether the current job is running on a self-hosted runner.
+    required: false
+    default: "false"
+  attic_cache:
+    description: Preferred Attic cache name for self-hosted flywheel setup.
+    required: false
+    default: "main"
+
+runs:
+  using: composite
+  steps:
+    - name: Install Nix on hosted runners
+      if: ${{ inputs.self_hosted != 'true' }}
+      uses: cachix/install-nix-action@v30
+
+    - name: Install Nix on self-hosted runners
+      if: ${{ inputs.self_hosted == 'true' }}
+      uses: DeterminateSystems/nix-installer-action@main
+
+    - name: Setup self-hosted cache hints
+      if: ${{ inputs.self_hosted == 'true' }}
+      uses: tinyland-inc/GloriousFlywheel/.github/actions/setup-flywheel@main
+      with:
+        attic-cache: ${{ inputs.attic_cache }}
+
+    - name: Ensure Nix daemon is reachable
+      if: ${{ inputs.self_hosted == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if nix store ping >/dev/null 2>&1; then
+          exit 0
+        fi
+
+        echo "::warning::Nix is installed but the daemon socket is unavailable; starting the Nix daemon stack"
+        sudo rm -f /nix/var/nix/daemon-socket/socket || true
+        if command -v determinate-nixd >/dev/null 2>&1; then
+          sudo -b "$(command -v determinate-nixd)" daemon
+        else
+          NIX_DAEMON_BIN="$(command -v nix-daemon || true)"
+          if [ -z "$NIX_DAEMON_BIN" ]; then
+            echo "::error::nix-daemon is not on PATH, and nix store ping failed"
+            exit 1
+          fi
+          sudo -b "$NIX_DAEMON_BIN" --daemon
+        fi
+
+        for _ in $(seq 1 15); do
+          if nix store ping >/dev/null 2>&1; then
+            exit 0
+          fi
+          sleep 1
+        done
+
+        echo "::error::nix-daemon did not become reachable after restart"
+        exit 1

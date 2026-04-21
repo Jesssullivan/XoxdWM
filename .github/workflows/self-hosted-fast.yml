@@ -43,10 +43,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: tinyland-inc/GloriousFlywheel/.github/actions/setup-flywheel@main
+      - uses: ./.github/actions/ensure-nix
         with:
-          attic-cache: ${{ env.ATTIC_CACHE || 'main' }}
+          self_hosted: "true"
+          attic_cache: ${{ env.ATTIC_CACHE || 'main' }}
 
       - uses: ryanccn/attic-action@v0
         continue-on-error: true
@@ -102,10 +102,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: tinyland-inc/GloriousFlywheel/.github/actions/setup-flywheel@main
+      - uses: ./.github/actions/ensure-nix
         with:
-          attic-cache: ${{ env.ATTIC_CACHE || 'main' }}
+          self_hosted: "true"
+          attic_cache: ${{ env.ATTIC_CACHE || 'main' }}
 
       - uses: ryanccn/attic-action@v0
         continue-on-error: true
@@ -147,10 +147,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: tinyland-inc/GloriousFlywheel/.github/actions/setup-flywheel@main
+      - uses: ./.github/actions/ensure-nix
         with:
-          attic-cache: ${{ env.ATTIC_CACHE || 'main' }}
+          self_hosted: "true"
+          attic_cache: ${{ env.ATTIC_CACHE || 'main' }}
 
       - uses: ryanccn/attic-action@v0
         continue-on-error: true

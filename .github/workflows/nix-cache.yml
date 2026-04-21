@@ -20,14 +20,15 @@ concurrency:
 jobs:
   build:
     name: Nix Build
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'xoxdwm-nix' || 'ubuntu-latest' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Nix
-        if: vars.USE_SELFHOSTED != 'true'
-        uses: cachix/install-nix-action@v30
+      - uses: ./.github/actions/ensure-nix
+        with:
+          self_hosted: ${{ vars.USE_SELFHOSTED }}
+          attic_cache: ${{ env.ATTIC_CACHE || 'main' }}
       - name: Verify Nix
         run: nix --version
       - uses: ryanccn/attic-action@v0
