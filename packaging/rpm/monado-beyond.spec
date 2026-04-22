@@ -80,10 +80,8 @@ fi
 %{_libdir}/libopenxr_monado.so*
 %{_libdir}/libmonado*.so*
 %{_datadir}/openxr/1/openxr_monado.json
-# Include any installed cmake/pkgconfig files
-%{_libdir}/pkgconfig/monado*.pc
-%{_libdir}/cmake/monado*/
+%{_datadir}/steamvr-monado/
 
 %changelog
-* Mon Mar 10 2026 EXWM-VR <noreply@example.com> - 0.0.1-1
+* Tue Mar 10 2026 EXWM-VR <noreply@example.com> - 0.0.1-1
 - Initial package: Monado with SteamVR Lighthouse for Bigscreen Beyond
