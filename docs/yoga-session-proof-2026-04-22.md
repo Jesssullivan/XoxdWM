@@ -13,7 +13,8 @@ Read this together with [status.md](status.md),
 - Host: `yoga`
 - Date: `2026-04-22`
 - Branch under test: `codex/reality-authority-surface`
-- Artifact source: GitHub Actions packaging run `24768509226`
+- Initial artifact source: GitHub Actions packaging run `24768509226`
+- RPM refresh source: GitHub Actions packaging run `24771056471`
 - Branch-scoped RPM payload:
   - `exwm-vr-0.5.4-1.el10.x86_64.rpm`
   - `exwm-vr-compositor-0.5.4-1.el10.x86_64.rpm`
@@ -116,9 +117,9 @@ This run used the real installed `exwm-vr-*` units from
 
 ## What This Does Not Yet Prove
 
-- a display-manager-driven local login flow is still not claimed as complete
-- the current installed `0.5.4-1.el10` RPM set on `yoga` does not yet carry the
-  follow-up stop-path fix described below
+- a repeatedly exercised or daily-driver local session lane on `yoga`
+- a manual operator session-selection proof beyond the controlled
+  `sddm-autologin` harness
 
 ## Stop-Path Follow-Up
 
@@ -149,9 +150,29 @@ With that cleaned-up override path in place:
 - `systemctl --user cat exwm-vr-emacs.service` showed the packaged unit from
   `/usr/lib/systemd/user/` plus the host drop-in from `/etc/systemd/user/`
 
-This means the stop-path issue is understood and the in-tree unit fix is
-validated on `yoga`, but the installed host RPMs still need a follow-up package
-build and upgrade to carry that fix without a host-side drop-in.
+This proved the stop-path issue was understood, but at that point `yoga` still
+depended on a host-side drop-in rather than the packaged unit itself.
+
+## RPM Refresh And Drop-In Removal
+
+After the greeter-path proof, GitHub Actions packaging run `24771056471`
+produced a refreshed branch-scoped `0.5.4-1.el10` RPM payload. That refreshed
+payload was copied to `yoga`, reinstalled over the existing `0.5.4-1.el10`
+packages, and then the temporary host drop-in at
+`/etc/systemd/user/exwm-vr-emacs.service.d/10-success-exit.conf` was removed.
+
+The post-refresh bounded proof again reached:
+
+- startup: `active` / `active` / `active`
+- controlled stop: `inactive` / `inactive` / `inactive`
+- `systemctl --user cat exwm-vr-emacs.service` showed only the packaged unit
+  from `/usr/lib/systemd/user/exwm-vr-emacs.service`
+- the packaged unit itself now contains `SuccessExitStatus=15`
+- `systemd` reported `Stopped exwm-vr-emacs.service` instead of marking the unit
+  failed
+
+This closes the earlier stop-path packaging gap. `yoga` no longer depends on a
+host-only `/etc/systemd/user` override for the validated session stop path.
 
 ## Display-Manager Follow-Up
 
@@ -225,7 +246,7 @@ the earlier question of whether the installed SDDM path can launch the packaged
 ## Next Gate
 
 - keep the real installed `0.5.4-1.el10` host as the authoritative `yoga` lane
-- package and install the validated `SuccessExitStatus=15` fix on `yoga` so the
-  host no longer needs `/etc/systemd/user/exwm-vr-emacs.service.d/10-success-exit.conf`
+- use `yoga` as the stable 2D reference lane while primary execution shifts
+  back to `honey` substrate work
 - record a manual SDDM session selection if we want operator-polish evidence in
   addition to the successful `sddm-autologin` proof

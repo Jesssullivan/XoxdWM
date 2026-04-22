@@ -22,7 +22,7 @@ Date baseline: 2026-04-22.
 | `honey` OpenXR userspace prereqs | Smoke | `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `monado-service`, and `/usr/local/share/openxr/1/openxr_monado.json` are present. |
 | `honey` VR session | Design | Recent host recovery work has shown a stable Dell HDMI path and a `DP-2` display path, but there is still no deployed XoxdWM stack, no OpenXR client tools, and no recorded XoxdWM VR smoke path. |
 | `yoga` kernel-xr boot path | Smoke | One-time boot into `6.19.5-8.xr.el10` succeeded; normal reboot returned to the saved stock Rocky default. |
-| `yoga` XoxdWM install | Smoke | `yoga` now has installed `0.5.4-1.el10` `exwm-vr-*` RPMs from Actions run `24768509226`, and the real installed units pass a named-host proof with explicit `drm` backend and dedicated Emacs bootstrap. The repo-side `SuccessExitStatus=15` stop-path fix is active on-host via `/etc/systemd/user/exwm-vr-emacs.service.d/10-success-exit.conf`. `sddm` is installed and active, `state.conf` preselects `jsullivan2` plus `exwm-vr.desktop`, and a controlled `sddm-autologin` run reached a real `wayland` `EXWM-VR` user session on `seat0`; see [yoga-session-proof-2026-04-22.md](yoga-session-proof-2026-04-22.md). |
+| `yoga` XoxdWM install | Smoke | `yoga` now has refreshed installed `0.5.4-1.el10` `exwm-vr-*` RPMs from the current branch, and the real installed units pass a named-host proof with explicit `drm` backend and dedicated Emacs bootstrap. Actions run `24771056471` carried the packaged `SuccessExitStatus=15` stop-path fix onto the host, so no `/etc/systemd/user` drop-in is still required. `sddm` is installed and active, `state.conf` preselects `jsullivan2` plus `exwm-vr.desktop`, and a controlled `sddm-autologin` run reached a real `wayland` `EXWM-VR` user session on `seat0`; see [yoga-session-proof-2026-04-22.md](yoga-session-proof-2026-04-22.md). |
 | `yoga` OpenXR userspace prereqs | Design | No Monado/OpenXR/wlroots runtime packages or runtime manifest were found. |
 | `petting-zoo-mini` | Out of scope | Not a current Linux XR validation target. |
 
@@ -31,7 +31,7 @@ Date baseline: 2026-04-22.
 | Surface | Status | Notes |
 | --- | --- | --- |
 | GitHub release RPM | Smoke | `v0.5.1` publishes the repaired native Rocky compositor RPM, and the base package lane is named-host validated on `yoga`. This does not imply full VR enablement or a polished local session path. |
-| Branch-scoped Rocky RPM | Smoke | GitHub Actions packaging run `24768509226` produced `0.5.4-1.el10` RPMs for `codex/reality-authority-surface`, and that payload is now both installed and named-host validated on `yoga`. It is still not claimed as a public release. |
+| Branch-scoped Rocky RPM | Smoke | GitHub Actions packaging runs `24768509226` and `24771056471` produced branch-scoped `0.5.4-1.el10` RPMs for `codex/reality-authority-surface`; the refreshed payload is now installed and named-host validated on `yoga`, including the packaged `SuccessExitStatus=15` stop-path fix. It is still not claimed as a public release. |
 | GitHub release DEB | Smoke | Public release exists. |
 | Nix flake outputs | Smoke | Linux-oriented build surfaces exist. Local Darwin flake evaluation now works, but Darwin is still not the authoritative runtime or build target for this repo. |
 | Rocky 10 quickstart | Smoke | Valid for the base compositor package lane on `yoga`. Full VR/OpenXR enablement, SELinux hardening, and BrainFlow BCI packaging remain separate follow-on paths. |

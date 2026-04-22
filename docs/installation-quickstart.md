@@ -59,8 +59,9 @@ Current status:
 - `v0.5.1` is public and ships the corrected native Rocky compositor RPM.
 - `yoga` validated package install and bounded runtime on Rocky 10.
 - `yoga` now also has a one-time SDDM greeter-path proof via `sddm-autologin`
-  on `seat0`; packaging the stop-path fix and general session polish are still
-  follow-on work after the base package lane.
+  on `seat0`; the refreshed packaged unit now carries the stop-path fix, so
+  general session polish and repeatability are the remaining follow-on work
+  after the base package lane.
 - Full VR/OpenXR enablement on Rocky is still a separate follow-on step after the base compositor package path.
 - SELinux policy packaging and the BrainFlow BCI virtualenv are separate follow-on steps after the base compositor package path.
 
@@ -137,5 +138,5 @@ just remote-proof-runs
 
 ## Named-Host Guidance
 
-- `yoga`: Rocky 10 package install and a one-time SDDM greeter-path session proof are validated; package refresh and session ergonomics are the active follow-on.
+- `yoga`: Rocky 10 package install and a one-time SDDM greeter-path session proof are validated; repeatability and session ergonomics are the active follow-on.
 - `honey`: target VR smoke host, but not currently documented here as a proven XoxdWM deployment.

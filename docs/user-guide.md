@@ -211,7 +211,9 @@ session wrapper at `/usr/share/wayland-sessions/exwm-vr.desktop` handles
 environment setup, compositor launch, and Emacs startup.
 
 On `yoga`, this greeter-driven session path has now been smoke-validated once
-through SDDM on `seat0` using the installed package surface.
+through SDDM on `seat0` using the installed package surface, and the packaged
+`SuccessExitStatus=15` stop-path fix is now present on-host without a separate
+unit override.
 
 On the packaged Rocky session lane, Emacs starts through the dedicated
 `/usr/share/exwm-vr/exwm-vr-session-init.el` bootstrap. That session entrypoint

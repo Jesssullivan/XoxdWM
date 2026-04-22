@@ -72,11 +72,11 @@ Current state on `2026-04-22`:
   [yoga-session-proof-2026-04-22.md](yoga-session-proof-2026-04-22.md)
 - that closes the ambient-bootstrap question and the "is the real package lane
   installable on the host" question
-- the stop-path issue is understood and validated with an in-tree unit fix
+- the stop-path issue is understood, carried in the refreshed packaged unit,
+  and no longer requires a host-only drop-in on `yoga`
 - `yoga` now has a one-time SDDM greeter-path proof via `sddm-autologin` on
   `seat0`, which closes the basic local-session viability question
-- the remaining gap is packaging that stop-path fix into the next installed
-  host update plus any extra operator-polish evidence we want, not package or
+- the remaining gap is repeated operator evidence if we want it, not package or
   greeter-path viability
 
 ### Milestone 2: `honey` XR Substrate Proof
