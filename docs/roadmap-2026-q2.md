@@ -61,8 +61,9 @@ honest XoxdWM smoke on that substrate.
 Current reality:
 
 - `honey` has a proven generic `linux-xr` default and a one-time verified RT lane.
-- `honey` has a Monado runtime manifest and partial XR prereqs, but not the OpenXR client tooling or compositor deployment needed for a real smoke path.
-- recent host recovery work has shown a stable Dell HDMI management path and a `DP-2` display path on good boots, but that is still host-level evidence rather than a recorded XoxdWM smoke path.
+- `honey` now has branch-scoped `exwm-vr-0.5.4-1.el10` packages installed and a bounded named-host XoxdWM compositor startup.
+- `honey` now has an explicit active OpenXR runtime file plus a host-local Monado service override for the Beyond / `DP-2` path.
+- `hello_xr` now reaches Monado runtime selection, Bigscreen Beyond selection, and Vulkan device creation on `honey`, but `xrCreateSession` still fails because `monado-service` crashes with `VK_ERROR_SURFACE_LOST_KHR`.
 - the Honey-backed workflows are now capability-gated, but the canonical repo is still not claiming an always-on hardware runner surface by default
 
 Acceptance:

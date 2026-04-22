@@ -703,20 +703,33 @@ cmd_beyond_first_frame() {
     # 2. Verify non_desktop connector
     echo "[2/4] Checking DRM connectors..."
     local found_nd=false
+    local found_connected_dp=false
+    local connector_hint="${XRT_COMPOSITOR_WAYLAND_CONNECTOR:-DP-2}"
     for c in /sys/class/drm/card*-DP-*/; do
         [ -d "$c" ] || continue
         local n s nd
         n=$(basename "$c")
-        s=$(cat "$c/status" 2>/dev/null)
-        nd=$(cat "$c/non_desktop" 2>/dev/null)
+        s=$(cat "$c/status" 2>/dev/null || echo "unknown")
+        nd=$(cat "$c/non_desktop" 2>/dev/null || echo "?")
         echo "  $n: status=$s non_desktop=$nd"
-        if [ "$s" = "connected" ] && [ "$nd" = "1" ]; then
-            found_nd=true
+        if [ "$s" = "connected" ]; then
+            if [ "$nd" = "1" ]; then
+                found_nd=true
+            fi
+            if [ "$connector_hint" = "auto" ] || [ "$n" = "$connector_hint" ] || [ "$n" = "card0-$connector_hint" ]; then
+                found_connected_dp=true
+            fi
         fi
     done
     if ! $found_nd; then
-        echo "  ERROR: No non_desktop connector found. Check kernel EDID quirk."
-        exit 1
+        if $found_connected_dp; then
+            echo "  WARNING: No non_desktop=1 connector found; continuing because $connector_hint is connected."
+            echo "           Current kernel/driver may not expose non_desktop on this host."
+        else
+            echo "  ERROR: No non_desktop=1 connector found and no connected DisplayPort fallback matched $connector_hint."
+            echo "  Check kernel EDID quirk, connector selection, and headset power."
+            exit 1
+        fi
     fi
     echo
 
@@ -730,6 +743,12 @@ cmd_beyond_first_frame() {
         export XRT_COMPOSITOR_FORCE_WAYLAND=1
         export STEAMVR_LH_ENABLE=1
     fi
+    export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    if [ ! -d "$XDG_RUNTIME_DIR" ]; then
+        echo "  ERROR: XDG_RUNTIME_DIR does not exist: $XDG_RUNTIME_DIR"
+        exit 1
+    fi
+    echo "  XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
 
     # Kill any existing monado-service
     pkill -f monado-service 2>/dev/null || true
@@ -770,6 +789,7 @@ cmd_beyond_first_frame() {
     echo "  Running: $hello_xr -G Vulkan2 (30s timeout)"
     # Pipe sleep to stdin: hello_xr reads stdin for key events and exits on
     # EOF, which happens immediately over SSH without a proper terminal.
+    XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
     XR_RUNTIME_JSON="${XR_RUNTIME_JSON:-/usr/local/share/openxr/1/openxr_monado.json}" \
         timeout 30 bash -c "sleep 30 | $hello_xr -G Vulkan2" 2>&1 | tail -20
     local rc=$?

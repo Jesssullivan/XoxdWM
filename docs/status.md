@@ -8,11 +8,14 @@ Snapshot date: 2026-04-22
 - `v0.5.1` is publicly released and publishes the repaired Rocky compositor RPM and the DEB artifact.
 - The base Rocky RPM gate is complete: the public package now installs on Rocky 10 without the earlier bare-`wayland` metadata or `/nix/store` runtime-linking problems.
 - The release lane now treats Monado integration, SELinux hardening, and the BrainFlow BCI virtualenv as separate opt-in package paths so the base Rocky compositor package can stay shippable.
-- `honey` is not currently running a deployed XoxdWM stack.
+- `honey` is not currently a stable deployed XoxdWM VR stack.
 - `honey` now has a proven `linux-xr` kernel default and a one-time verified PREEMPT_RT boot, but the VR userspace is still incomplete.
-- `honey` has partial XR prereqs only: `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `/usr/local/bin/monado-service`, and `/usr/local/share/openxr/1/openxr_monado.json`.
+- `honey` now has refreshed `exwm-vr-0.5.4-1.el10`, `exwm-vr-compositor-0.5.4-1.el10`, and `exwm-vr-elisp-0.5.4-1.el10` installed from branch-scoped RPMs.
+- `honey` has XR prereqs plus explicit runtime activation: `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `/usr/local/bin/monado-service`, `/usr/local/share/openxr/1/openxr_monado.json`, and `/etc/xdg/openxr/1/active_runtime.json`.
 - `honey` does not currently expose `openxr-info`, `xrgears`, or `xoxdwm`.
-- Recent live host investigation on `honey` showed a stable Dell HDMI management path and a `DP-2` display path on recovered boots, but that is still host-level evidence, not a deployed XoxdWM VR smoke path.
+- `honey` now has a bounded named-host XoxdWM compositor startup: `exwm-vr.target`, `exwm-vr-compositor.service`, and `exwm-vr-emacs.service` all reached `active`, `DP-2` came up at `5088x2544@75Hz`, `HDMI-A-2` came up at `1920x1080@60Hz`, IPC initialized, and Emacs reached `ewwm: initialized`; see [honey-substrate-proof-2026-04-22.md](honey-substrate-proof-2026-04-22.md).
+- `honey` now has a partial client-tool proof too: with `XDG_RUNTIME_DIR=/run/user/1000`, `hello_xr` reaches `xrCreateInstance`, `xrGetSystem`, Monado runtime selection, Bigscreen Beyond selection, and Vulkan device creation.
+- The active blocker on `honey` is now precise: `monado-service` crashes during `xrCreateSession` with `VK_ERROR_SURFACE_LOST_KHR`, so the VR session is still not working.
 - `yoga` now has `exwm-vr-0.5.4-1.el10`, `exwm-vr-compositor-0.5.4-1.el10`, and `exwm-vr-elisp-0.5.4-1.el10` installed.
 - `yoga` validated the earlier named-host package line: the compositor binary links cleanly, a bounded runtime succeeds with `seatd`, and Wayland/DRM/libinput startup is confirmed.
 - The branch-scoped `0.5.4-1.el10` session payload from GitHub Actions run `24768509226` now has both a staged proof and a real installed-package proof on `yoga`; the installed units reached `active` / `active` / `active`, `ewwm-compositor v0.5.4 starting`, `backend: drm`, `ewwm-ipc: connected`, and `ewwm: initialized` without the old ambient dotfile contamination.
@@ -48,21 +51,22 @@ Snapshot date: 2026-04-22
 - carrying the userspace side of Rocky 10 / Wayland / VR integration work
 - serving as the research and implementation repo for the `honey` and `yoga` MVP paths now that both hosts have validated kernel lanes
 - carrying a real public Rocky compositor package that has been validated on `yoga`
+- carrying a named-host `honey` compositor proof and a concrete Monado session-creation crash to debug
 
 ## What This Repo Is Not Claiming Right Now
 
 - daily-driver VR on `honey`
 - a complete turnkey Rocky 10 VR deployment
 - a polished, repeatedly exercised local login/session lane on `yoga`
-- a working named-host XoxdWM compositor install on `honey`
+- a working named-host VR session on `honey`
 - proven eye tracking, hand tracking, or BCI support on current named lab hosts
 - macOS as a real runtime target for XoxdWM
 - Darwin as the authoritative build or validation surface
 
 ## Immediate Priorities
 
-1. Put a real XoxdWM/Monado/OpenXR client-tool install path on `honey`, not just a bare Monado runtime manifest.
-2. Produce the first named-host compositor startup on `honey`.
+1. Debug the `honey` Monado `VK_ERROR_SURFACE_LOST_KHR` plus coredump that currently blocks `hello_xr` at `xrCreateSession`.
+2. Decide whether the current `honey` bridge should remain Monado direct-to-Wayland or move through a more explicit Sway/wlroots lane.
 3. Keep the Rocky base package lane green while leaving Monado, SELinux, and BCI as separate follow-on concerns.
 4. Preserve the now-proven `yoga` package/session lane as the 2D reference host while packaging continues to evolve.
 5. Record a manual SDDM session selection on `yoga` only if we want operator-polish evidence beyond the successful `sddm-autologin` proof.

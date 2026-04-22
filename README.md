@@ -13,7 +13,8 @@ As of 2026-04-22:
 | Release artifacts | Smoke | `v0.5.1` publishes RPM and DEB artifacts. The Rocky base compositor RPM is public and host-installable, and branch-scoped `0.5.4-1.el10` RPMs from Actions run `24768509226` are now installed and revalidated on `yoga`. |
 | Headless compositor path | Smoke | Build and test surfaces exist, but not re-validated in this pass. |
 | Rocky 10 package install | Smoke | `yoga` now has refreshed installed `0.5.4-1.el10` `exwm-vr-*` RPMs from the current branch, the real installed units pass a named-host bounded proof, and a controlled SDDM autologin run reached a real `EXWM-VR` Wayland user session on `seat0`. The packaged `SuccessExitStatus=15` stop-path fix is now on-host; the remaining follow-on is repeatability and operator polish, not package repair. |
-| `honey` VR session | Design | `honey` has partial Monado/OpenXR prereqs, but no deployed XoxdWM stack or working OpenXR client-tool path. |
+| `honey` compositor/substrate path | Smoke | `honey` now has installed branch-scoped `exwm-vr-0.5.4-1.el10` packages and a bounded named-host `exwm-vr.target` startup with `DP-2` plus `HDMI-A-2` configured. |
+| `honey` VR session | Design | Monado can now identify the Bigscreen Beyond and `hello_xr` reaches OpenXR runtime and HMD selection, but `xrCreateSession` currently fails because `monado-service` crashes with `VK_ERROR_SURFACE_LOST_KHR`; see [Honey Substrate Proof](docs/honey-substrate-proof-2026-04-22.md). |
 | `yoga` desktop/dev target | Smoke | `yoga` now has an installed `0.5.4` session proof with explicit `drm` backend and dedicated Emacs bootstrap, plus a one-time SDDM greeter-path proof via `sddm-autologin` on `seat0`. The remaining work is repeatability and session polish, not basic launch viability or packaged stop-path repair. |
 | Eye tracking / hand tracking / BCI | Design | Documented and partially implemented, but not currently claimed as proven on named lab hosts. |
 
@@ -26,6 +27,7 @@ As of 2026-04-22:
 - [Reality-Driven Development Arc](docs/reality-driven-development-arc-2026-q2.md)
 - [Grounded Milestone Plan](docs/grounded-milestone-plan-2026-q2.md)
 - [Yoga Session Proof](docs/yoga-session-proof-2026-04-22.md)
+- [Honey Substrate Proof](docs/honey-substrate-proof-2026-04-22.md)
 - [Status](docs/status.md)
 - [Q2 2026 Roadmap](docs/roadmap-2026-q2.md)
 - [Installation Quickstart](docs/installation-quickstart.md)

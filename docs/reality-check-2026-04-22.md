@@ -20,7 +20,8 @@ That means the repo contains more implementation and documentation surface than 
   - current repo docs claim `v0.5.1` is the public repaired Rocky compositor RPM
   - current repo docs claim `yoga` validated package install, clean runtime linking, and a bounded compositor start with `seatd`
 - `honey` is not currently running a deployed XoxdWM stack.
-  - there is still no current named-host claim for a working XoxdWM + Monado + OpenXR client-tool path on `honey`
+  - there is now a bounded named-host XoxdWM compositor claim on `honey`
+  - there is still no current named-host claim for a working XoxdWM + Monado + OpenXR client-tool session path on `honey`
 - `yoga` is not yet a polished local desktop/session target.
   - the host now has an active SDDM greeter lane in addition to the installed
     `exwm-vr.desktop` session entry and user-unit stack
@@ -37,8 +38,8 @@ That means the repo contains more implementation and documentation surface than 
 
 - A lot of the repo is research or inventory, not support promise.
 - The current `honey` hardware investigation shows partial host reality, not product reality.
-  - current live host evidence shows a Dell HDMI management path and a Bigscreen-connected `DP-2` path can both appear after hard reset
-  - that does not equal a deployed XoxdWM VR smoke path
+  - current live host evidence now includes a bounded named-host XoxdWM compositor startup plus a Monado/`hello_xr` path that reaches runtime and HMD selection
+  - that still does not equal a working deployed XoxdWM VR smoke path because the current blocker is a Monado compositor crash
 - `neo` is not a product target.
   - XoxdWM is not expected to run on macOS as a desktop or VR environment.
   - the authoritative build and runtime surface should remain Rocky / Linux remote lanes

@@ -118,6 +118,17 @@ Evidence required:
 - one documented client-tool check such as `openxr-info`, `hello_xr`, or equivalent
 - platform blockers tracked separately from compositor claims
 
+Current state on `2026-04-22`:
+
+- `honey` now has a bounded named-host XoxdWM compositor startup with
+  `exwm-vr.target`, `exwm-vr-compositor.service`, and `exwm-vr-emacs.service`
+  all active
+- `honey` now has an explicit active OpenXR runtime file on-host
+- `hello_xr` now reaches Monado runtime selection, Bigscreen Beyond selection,
+  and Vulkan device creation on `honey`
+- the active blocker is no longer "nothing starts"; it is the Monado
+  `VK_ERROR_SURFACE_LOST_KHR` plus coredump during `xrCreateSession`
+
 ### Milestone 3: `honey` First XoxdWM Smoke On True Substrate
 
 Goal: run XoxdWM once on the real `honey` substrate and record the result with
