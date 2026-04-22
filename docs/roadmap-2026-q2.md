@@ -63,7 +63,7 @@ Current reality:
 - `honey` has a proven generic `linux-xr` default and a one-time verified RT lane.
 - `honey` now has branch-scoped `exwm-vr-0.5.4-1.el10` packages installed and a bounded named-host XoxdWM compositor startup.
 - `honey` now has an explicit active OpenXR runtime file plus a host-local Monado service override for the Beyond / `DP-2` path.
-- `honey` now has a one-shot direct-mode proof: a staged `ewwm-compositor` binary from packaging run `24776900393` initialized `wp_drm_lease_v1`, granted a real `DP-2` lease to Monado, and `hello_xr -g Vulkan` reached `READY` plus eye swapchain creation. The remaining gap is turning that proof into a repeatable installed lane without the literal IPC shim used by the current local `hello_xr` build.
+- `honey` now has a one-shot direct-mode proof from the installed compositor package surface, plus a staged `monado-beyond` companion RPM proof from run `24804821792` that reached active Monado plus eye swapchain creation. The remaining gap is turning that into a repeatable installed operator lane without staged extraction, stale-socket cleanup, or the current literal IPC shim used by the local `hello_xr` build.
 - the Honey-backed workflows are now capability-gated, but the canonical repo is still not claiming an always-on hardware runner surface by default
 
 Acceptance:

@@ -18,6 +18,8 @@ Read this together with [status.md](status.md),
 - Installed package baseline: branch-scoped `exwm-vr-0.5.4-1.el10`
 - Direct-mode proof artifact: GitHub Actions packaging run `24776900393`
 - Direct-mode proof commit: `3cae58e`
+- Monado companion RPM proof artifact: GitHub Actions run `24804821792`
+- Monado companion RPM proof commit: `dd9f717`
 
 ## Host Prerequisites and Reset Context
 
@@ -295,6 +297,66 @@ That is a real direct-mode session bootstrap on `honey` from the installed
 compositor package surface, even though it is not yet the final zero-override
 operator path.
 
+## Monado Companion RPM Follow-Up
+
+A later follow-up on the same day carried the Monado side one step closer to a
+real Rocky lane by using the successful Monado companion RPM artifact from run
+`24804821792` for commit `dd9f717`.
+
+The staged layout on `honey` was:
+
+- `/home/jess/monado-stage-dd9f717/root/usr/bin/monado-service`
+- `/home/jess/monado-stage-dd9f717/root/usr/share/openxr/1/openxr_monado.json`
+- `/home/jess/monado-stage-dd9f717/root/usr/lib64`
+
+The first staged run failed immediately with:
+
+- `error while loading shared libraries: libhidapi-libusb.so.0`
+
+That was not a Monado logic failure. It was a dependency-resolution gap caused
+by raw RPM extraction instead of a real package install. Staging
+`hidapi-0.15.0-2.el10_1.x86_64` into the same tree fixed that first failure.
+
+The next blocker was also host hygiene, not compositor logic:
+
+- stale socket file:
+  - `/run/user/1000/monado_comp_ipc`
+- source of the stale path:
+  - the older local `/usr/local` Monado lane had left the IPC socket behind
+  - `monado.socket` itself was inactive, but the socket path still existed
+
+Clearing that stale socket before start let the staged companion runtime boot.
+
+The current local `hello_xr` build on `honey` still has one more quirk:
+
+- it still looks for the literal path `~/.cache/monado_comp_ipc`
+- for this staged proof, the temporary shim had to be restored:
+  - `/home/jess/~/.cache/monado_comp_ipc -> /run/user/1000/monado_comp_ipc`
+
+With staged `monado-beyond`, staged `hidapi`, stale-socket cleanup, and that
+temporary client shim in place, the live proof reached:
+
+- service state during proof:
+  - `exwm-vr-compositor.service`: `active`
+  - `exwm-vr-monado.service`: `active`
+- compositor:
+  - `granting DRM lease request`
+  - `new DRM lease became active`
+- Monado:
+  - staged service binary:
+    - `/home/jess/monado-stage-dd9f717/root/usr/bin/monado-service`
+  - client connected
+  - eye color/depth swapchain creation
+- `hello_xr -g Vulkan`:
+  - `xrCreateInstance`
+  - `xrGetSystem`
+  - `Head: 'Bigscreen Beyond'`
+  - runtime `Monado(XRT) by Collabora et al 'GIT-NOTFOUND'`
+  - two eye swapchains at `3561x3561`
+
+That is a real `honey` direct-mode proof from the staged Monado companion RPM
+tree, not from the older `/usr/local/bin/monado-service` binary.
+
 ## What This Proves
 
 - `honey` now has a named-host `exwm-vr` package install on the current branch
@@ -307,14 +369,18 @@ operator path.
   `honey` in the true Wayland direct path
 - the installed `/usr/bin/ewwm-compositor` now matches the lease-capable proof
   binary from packaging run `24776900393`
+- the repo-owned `exwm-vr-monado.service` can also drive a staged Rocky
+  `monado-beyond` runtime tree on `honey` without Monado service drop-ins
 
 ## What This Does Not Yet Prove
 
 - a repeated installed operator lane on `honey`
 - a successful first-frame or long-running XR session path
-- that the current proof works without the local `/usr/local/bin/monado-service`
-  contract on `honey`
-- that SSH-invoked client tooling always inherits the correct runtime env by default
+- that `monado-beyond` is installed as a real host package on `honey`
+- that stale Monado IPC sockets from the older local lane are handled
+  automatically
+- that the current local `hello_xr` build works without the temporary literal
+  `~/.cache/monado_comp_ipc` shim
 - that XoxdWM itself is ready to be called a stable trusted XR bridge on `honey`
 
 ## Next Gate
@@ -324,9 +390,13 @@ operator path.
   supported host configuration surface for `honey`
 - keep the Monado-side `~/.config/exwm-vr/monado.env` path as the supported
   host configuration surface for `honey`
-- make `XDG_RUNTIME_DIR=/run/user/1000` explicit in remote client-tool
-  automation and operator docs
-- decide whether `MONADO_SERVICE_BIN=/usr/local/bin/monado-service` is a
-  temporary bridge or the real operator contract for `honey`
+- install `monado-beyond` on `honey` with normal package-manager dependency
+  resolution instead of staged extraction
+- remove the remaining `MONADO_SERVICE_BIN` host override once the installed
+  `monado-beyond` service binary is present on-host
+- make stale `/run/user/1000/monado_comp_ipc` cleanup or prevention explicit in
+  operator automation
+- either fix the current local `hello_xr` build on `honey` or document the
+  literal IPC shim as an intentional temporary bridge
 - keep the older fallback `VK_ERROR_SURFACE_LOST_KHR` crash categorized as a
   separate Monado window-path problem, not the whole bridge story
