@@ -72,8 +72,9 @@ Current state on `2026-04-22`:
   [yoga-session-proof-2026-04-22.md](yoga-session-proof-2026-04-22.md)
 - that closes the ambient-bootstrap question and the "is the real package lane
   installable on the host" question
-- the remaining gap is local login/session closure and cleaner stop-path
-  ergonomics, not package installation authority
+- the stop-path issue is understood and validated with an in-tree unit fix
+- the remaining gap is local login/session closure plus packaging that stop-path
+  fix into the next installed host update, not package installation authority
 
 ### Milestone 2: `honey` XR Substrate Proof
 

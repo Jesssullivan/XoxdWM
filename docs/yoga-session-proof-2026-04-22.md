@@ -117,12 +117,38 @@ This run used the real installed `exwm-vr-*` units from
 ## What This Does Not Yet Prove
 
 - a display-manager-driven local login flow is still not claimed as complete
-- a controlled stop still leaves `exwm-vr-emacs.service` in `failed` state after
-  the target is stopped, so the stop-path ergonomics are not yet fully clean
+- the current installed `0.5.4-1.el10` RPM set on `yoga` does not yet carry the
+  follow-up stop-path fix described below
+
+## Stop-Path Follow-Up
+
+After the installed-package proof, a follow-up host check captured that
+stopping `exwm-vr.target` left `exwm-vr-emacs.service` in `failed` state even
+though the stop was operator-initiated and bounded. `systemd --user status`
+showed `status=15`, which is the expected SIGTERM exit from the foreground Emacs
+daemon on controlled shutdown.
+
+The repo-side fix is to declare `SuccessExitStatus=15` in
+`packaging/systemd/exwm-vr-emacs.service`.
+
+That exact unit file was copied onto `yoga` as a temporary user override and the
+same installed-unit proof was rerun. With the override in place:
+
+- startup still reached `active` / `active` / `active`
+- the same compositor and Emacs initialization markers appeared
+- a controlled stop ended with:
+  - `exwm-vr.target`: `inactive`
+  - `exwm-vr-compositor.service`: `deactivating` during teardown
+  - `exwm-vr-emacs.service`: `inactive`
+- `systemd` reported `Stopped exwm-vr-emacs.service` instead of marking the unit
+  failed
+
+This means the stop-path issue is understood and the in-tree unit fix is
+validated on `yoga`, but the installed host RPMs still need a follow-up package
+build and upgrade to carry that fix without a user override.
 
 ## Next Gate
 
 - keep the real installed `0.5.4-1.el10` host as the authoritative `yoga` lane
 - move from ssh-driven bounded proof to a documented local login/session path
-- understand or normalize the `exwm-vr-emacs.service` failed state after
-  controlled stop
+- package and install the validated `SuccessExitStatus=15` fix on `yoga`

@@ -207,6 +207,8 @@
         (insert-file-contents service)
         (should (search-forward "Environment=WAYLAND_DISPLAY=wayland-0" nil t))
         (goto-char (point-min))
+        (should (search-forward "SuccessExitStatus=15" nil t))
+        (goto-char (point-min))
         (should (search-forward "--quick --load /usr/share/exwm-vr/exwm-vr-session-init.el" nil t))))))
 
 (ert-deftest phase2p/packaged-session-init-enables-ewwm ()
