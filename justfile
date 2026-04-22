@@ -531,6 +531,7 @@ remote-proof-surface:
     @echo "  cache-warm.yml         scheduled cache and cross-target warming"
     @echo "  rocky-test.yml         bounded Rocky container smoke"
     @echo "  packaging.yml          release artifact lane, not named-host support truth"
+    @echo "  monado-companion.yml   companion Monado RPM lane, not host proof"
     @echo "  vr-hardware.yml        honey hardware and VR smoke, opt-in only"
     @echo ""
     @echo "Docs:"
@@ -552,6 +553,7 @@ remote-proof-runs limit="5":
         cache-warm.yml
         rocky-test.yml
         packaging.yml
+        monado-companion.yml
         vr-hardware.yml
     )
     for workflow in "${workflows[@]}"; do
@@ -584,6 +586,11 @@ remote-vr-smoke suite="smoke":
 [group('ci')]
 remote-package version:
     gh workflow run packaging.yml -R "{{xoxdwm_repo}}" -f version="{{version}}"
+    @echo "Triggered. Watch with: just remote-proof-runs"
+
+[group('ci')]
+remote-monado-package:
+    gh workflow run monado-companion.yml -R "{{xoxdwm_repo}}"
     @echo "Triggered. Watch with: just remote-proof-runs"
 
 # ── nix ────────────────────────────────────────────────

@@ -33,6 +33,7 @@ Not every remote workflow is authoritative in the same way.
 | Nix build and cache | [.github/workflows/nix-cache.yml](../.github/workflows/nix-cache.yml), [.github/workflows/cache-warm.yml](../.github/workflows/cache-warm.yml) | `xoxdwm-nix` | key Nix outputs still realize on the repo-owned remote lane | named-host runtime truth |
 | Rocky userspace smoke | [.github/workflows/rocky-test.yml](../.github/workflows/rocky-test.yml) | `ubuntu-latest` with `rockylinux:10` container | bounded Rocky userspace and headless build smoke | `yoga`, `honey`, or custom Rockies build authority |
 | Release packaging | [.github/workflows/packaging.yml](../.github/workflows/packaging.yml) | mixed: `xoxdwm-nix` and hosted Rocky container jobs | release artifact production and bounded RPM metadata validation | deployed host truth or full VR package integration |
+| Monado companion packaging | [.github/workflows/monado-companion.yml](../.github/workflows/monado-companion.yml) | hosted Rocky container job | bounded Rocky RPM production for the companion Monado runtime lane | named-host proof or proof that the base compositor RPM now bundles Monado |
 | Honey VR hardware | [.github/workflows/vr-hardware.yml](../.github/workflows/vr-hardware.yml) and `fast-vr` in [.github/workflows/self-hosted-fast.yml](../.github/workflows/self-hosted-fast.yml) | `[self-hosted, honey]` | GPU, DRM, Monado, and bounded VR smoke when hardware lanes are explicitly enabled | stable deployed XoxdWM VR desktop on `honey` |
 | External Rocky control plane | sibling repos [rockies](</Users/jess/git/rockies>), [linux-xr](</Users/jess/git/linux-xr>), and [GloriousFlywheel](</Users/jess/git/GloriousFlywheel>) | external | Rocky composition policy, kernel packaging, and runner/cache substrate | XoxdWM implementation truth by themselves |
 
@@ -46,6 +47,7 @@ Not every remote workflow is authoritative in the same way.
 4. Dispatch bounded remote checks when needed:
    - `just remote-runner-health`
    - `just remote-cache-warm`
+   - `just remote-monado-package`
    - `just remote-vr-smoke smoke`
 5. Treat `yoga` and `honey` host evidence as the only basis for support-matrix
    or status promotion.
@@ -68,6 +70,8 @@ and the
 - `rocky-test.yml` is useful, but it is still a containerized Rocky smoke lane,
   not a replacement for host truth.
 - `packaging.yml` is a release lane, not a support claim.
+- `monado-companion.yml` is the Rocky companion-runtime packaging lane. A green
+  run there means the Monado RPM is buildable, not that `honey` is done.
 - `vr-hardware.yml` should stay opt-in and capability-gated. A green run there
   is strong evidence, but it is still not the same thing as a repeatable named-host
   user session.

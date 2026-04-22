@@ -122,6 +122,7 @@
                         "cache-warm.yml"
                         "rocky-test.yml"
                         "packaging.yml"
+                        "monado-companion.yml"
                         "vr-hardware.yml"))
       (should (string-match-p (regexp-quote workflow) doc))
       (should (file-exists-p
@@ -131,6 +132,7 @@
                       "remote-proof-runs"
                       "remote-runner-health"
                       "remote-cache-warm"
+                      "remote-monado-package"
                       "remote-vr-smoke"
                       "remote-package"))
       (should (string-match-p
