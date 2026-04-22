@@ -3,6 +3,9 @@
 This document is the execution-side counterpart to the repo truth surface.
 For the full audit-to-execution model, also read
 [reality-driven-development-arc-2026-q2.md](reality-driven-development-arc-2026-q2.md).
+For the milestone and iteration split that separates `yoga` 2D closure from
+`honey` substrate work and the later XoxdWM smoke, also read
+[grounded-milestone-plan-2026-q2.md](grounded-milestone-plan-2026-q2.md).
 
 ## Epic 1: Reality Audit And Support Surface
 
@@ -47,9 +50,10 @@ Acceptance:
 - rollback path is documented if package install fails
 - SELinux hardening is tracked as a follow-on package path rather than a gate on the first named-host compositor RPM
 
-## Epic 4: `honey` VR Smoke Path
+## Epic 4: `honey` XR Substrate And XoxdWM Smoke
 
-Goal: prove a minimal VR lifecycle on the current kernel host.
+Goal: prove the XR substrate on the current kernel host, then record the first
+honest XoxdWM smoke on that substrate.
 
 Current reality:
 
@@ -60,8 +64,11 @@ Current reality:
 
 Acceptance:
 
-- Monado and required userspace are installed and documented
-- an OpenXR client tool path exists and is documented on-host
-- HMD enumeration is observed as expected, or the lack of attached VR hardware is explicitly recorded as the blocker
-- compositor starts on the target host
-- one smoke path for DRM lease / OpenXR startup is recorded in repo docs
+- substrate acceptance:
+  - Monado and required userspace are installed and documented
+  - an OpenXR client tool path exists and is documented on-host
+  - HMD enumeration is observed as expected, or the lack of attached VR hardware is explicitly recorded as the blocker
+  - the trusted bridge path on `honey` is explicit
+- smoke acceptance:
+  - compositor starts on the target host
+  - one smoke path for DRM lease / OpenXR startup is recorded in repo docs

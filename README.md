@@ -24,6 +24,7 @@ As of 2026-04-22:
 - [Remote Proof Lanes](docs/remote-proof-lanes.md)
 - [Reality Check](docs/reality-check-2026-04-22.md)
 - [Reality-Driven Development Arc](docs/reality-driven-development-arc-2026-q2.md)
+- [Grounded Milestone Plan](docs/grounded-milestone-plan-2026-q2.md)
 - [Status](docs/status.md)
 - [Q2 2026 Roadmap](docs/roadmap-2026-q2.md)
 - [Installation Quickstart](docs/installation-quickstart.md)
@@ -63,9 +64,10 @@ These artifacts currently package the compositor path. They do not, by themselve
 
 ## Near-Term Goal
 
-The next 12 weeks are aimed at one honest MVP:
+The next 12 weeks are aimed at one honest, ordered MVP:
 
-- `yoga`: reproducible Rocky 10 desktop/dev install
-- `honey`: VR smoke path with Monado, non-desktop HMD detection, and compositor launch
+- `yoga`: reproducible Rocky 10 desktop/dev install with a real local session path
+- `honey` substrate: stable XR bridge path with kernel, connector, runtime, and client-tool truth
+- `honey` smoke: first XoxdWM launch on the true substrate
 
-Everything else remains secondary until those two named-host outcomes are green.
+Everything else remains secondary until those three named outcomes are green.

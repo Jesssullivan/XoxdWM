@@ -200,15 +200,17 @@ Required outcomes:
 - clear rollback and operator path
 - package lane stays green while VR extras remain optional
 
-### Track 5: `honey` VR Smoke MVP
+### Track 5: `honey` XR Substrate Plus First XoxdWM Smoke
 
-Goal: produce the first honest named-host XoxdWM VR smoke result.
+Goal: prove the host substrate that the goggles product depends on, then
+produce the first honest named-host XoxdWM smoke result on top of it.
 
 Required outcomes:
 
-- deployed XoxdWM build or package on host
+- stable enough host substrate facts for connector, runtime, and bridge path
 - active OpenXR runtime selection
 - working client-tool path such as `openxr-info`
+- deployed XoxdWM build or package on host
 - one recorded compositor launch or failure mode with evidence
 - host instability issues recorded separately from compositor claims
 
