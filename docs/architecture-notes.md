@@ -1,5 +1,10 @@
 # Per-Architecture Build Notes and Optimization
 
+This file is an architecture reference, not a support promise. Treat the build
+examples below as Linux-target or CI-oriented examples rather than the default
+authority path from `neo`. For the current authority split, read
+[remote-build-authority.md](remote-build-authority.md).
+
 ## Overview
 
 EXWM-VR targets three primary architectures: x86_64, aarch64, and s390x.

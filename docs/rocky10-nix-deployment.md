@@ -4,6 +4,11 @@ Deploy EXWM-VR (XoxdWM) on Rocky Linux 10 with Nix managing the compositor,
 Emacs, and user configuration. Rocky provides the stable kernel, drivers, and
 SELinux policy; Nix manages reproducible packages and systemd user services.
 
+This guide is for Rocky / Linux target hosts. It is not the default authority
+path from `neo`. For the repo-wide authority split and current remote proof
+lanes, read [remote-build-authority.md](remote-build-authority.md) and
+[remote-proof-lanes.md](remote-proof-lanes.md) first.
+
 ## Prerequisites
 
 ### Tier 1: Headless (s390x, CI, containers)
@@ -176,7 +181,7 @@ Nix option keys use `snake_case` and are converted to Elisp `kebab-case`:
 
 Any `snake_case` key in `programs.exwm-vr.config` is automatically converted.
 
-## 5. Build packages manually
+## 5. Build packages manually on a Linux target
 
 If not using systemd services, build packages directly:
 

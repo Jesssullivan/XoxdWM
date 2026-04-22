@@ -99,7 +99,15 @@
 (ert-deftest truth-surface/public-guides-link-remote-authority-surface ()
   "Public guides should route readers to the remote authority docs."
   (dolist (relative '("docs/installation-quickstart.md"
-                      "docs/user-guide.md"))
+                      "docs/user-guide.md"
+                      "docs/bci-quickstart.md"))
+    (let ((content (truth-surface-test--read-file relative)))
+      (should (string-match-p "remote-build-authority\\.md" content)))))
+
+(ert-deftest truth-surface/secondary-linux-guides-link-remote-authority-surface ()
+  "Secondary Linux-oriented guides should still route readers to authority docs."
+  (dolist (relative '("docs/rocky10-nix-deployment.md"
+                      "docs/qemu-testing.md"))
     (let ((content (truth-surface-test--read-file relative)))
       (should (string-match-p "remote-build-authority\\.md" content))
       (should (string-match-p "remote-proof-lanes\\.md" content)))))

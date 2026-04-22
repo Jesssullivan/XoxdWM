@@ -1,10 +1,15 @@
-# BCI Quick-Start Guide for EXWM-VR
+# BCI Quick-Start Guide for XoxdWM
 
 ## Overview
 
 This guide walks you through setting up brain-computer interface (BCI)
-hardware and software for use with EXWM-VR. By the end, you will have
+hardware and software for use with XoxdWM. By the end, you will have
 a working EEG stream feeding attention state into your VR window manager.
+
+This is a subsystem quickstart, not a named-host support promise. For current
+support claims and the Linux-target / remote-lane build boundary, read
+[support-matrix.md](support-matrix.md), [status.md](status.md), and
+[remote-build-authority.md](remote-build-authority.md) first.
 
 **Time required**: ~1 hour for first setup, ~5 minutes for daily use.
 
@@ -209,6 +214,7 @@ The Rust compositor links BrainFlow via the `brainflow` crate (compiled
 automatically with the `bci` feature flag):
 
 ```bash
+# Build on a Linux target or remote Linux lane
 cargo build --features bci
 ```
 
