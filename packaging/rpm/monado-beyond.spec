@@ -28,7 +28,6 @@ BuildRequires:  mesa-libEGL-devel
 BuildRequires:  mesa-libGL-devel
 BuildRequires:  mesa-vulkan-drivers
 BuildRequires:  libusb1-devel
-BuildRequires:  libuvc-devel
 BuildRequires:  hidapi-devel
 BuildRequires:  libXrandr-devel
 BuildRequires:  libxkbcommon-devel
@@ -51,6 +50,9 @@ headset on AMD GPUs under Wayland (DRM lease via Sway).
 %build
 %cmake -G Ninja \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DXRT_HAVE_LIBUVC=OFF \
+    -DXRT_BUILD_DRIVER_UVC=OFF \
+    -DXRT_BUILD_DRIVER_RIFT_SENSOR=OFF \
     -DXRT_BUILD_DRIVER_STEAMVR_LIGHTHOUSE=ON \
     -DXRT_FEATURE_STEAMVR_PLUGIN=ON
 %cmake_build

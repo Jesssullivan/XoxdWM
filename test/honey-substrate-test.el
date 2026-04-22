@@ -8,6 +8,14 @@
   (expand-file-name "packaging/scripts/exwm-vr-setup"
                     (expand-file-name ".." (file-name-directory load-file-name))))
 
+(defconst honey-substrate--monado-spec
+  (expand-file-name "packaging/rpm/monado-beyond.spec"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
+(defconst honey-substrate--monado-workflow
+  (expand-file-name ".github/workflows/monado-companion.yml"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
 (ert-deftest honey-substrate/beyond-first-frame-sets-runtime-dir ()
   "beyond-first-frame uses a real runtime dir for remote OpenXR client tools."
   (with-temp-buffer
@@ -34,5 +42,20 @@
       (should (string-match-p "MONADO_SERVICE_BIN=/usr/local/bin/monado-service" script))
       (should (string-match-p "XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1" script))
       (should (string-match-p "EWWM_DRM_LEASE_CONNECTORS=DP-2" script)))))
+
+(ert-deftest honey-substrate/monado-companion-lane-keeps-rocky-deps-honest ()
+  "The Monado companion RPM lane should not depend on unavailable Rocky libuvc packaging."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--monado-spec)
+    (let ((spec (buffer-string)))
+      (should-not (string-match-p "libuvc-devel" spec))
+      (should (string-match-p "XRT_HAVE_LIBUVC=OFF" spec))
+      (should (string-match-p "XRT_BUILD_DRIVER_UVC=OFF" spec))
+      (should (string-match-p "XRT_BUILD_DRIVER_RIFT_SENSOR=OFF" spec))))
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--monado-workflow)
+    (let ((workflow (buffer-string)))
+      (should (string-match-p "packaging/rpm/monado-beyond\\.spec" workflow))
+      (should-not (string-match-p "libuvc-devel" workflow)))))
 
 ;;; honey-substrate-test.el ends here

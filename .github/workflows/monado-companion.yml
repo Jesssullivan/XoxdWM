@@ -34,7 +34,7 @@ jobs:
             vulkan-headers vulkan-loader-devel \
             wayland-devel wayland-protocols-devel libdrm-devel \
             mesa-libEGL-devel mesa-libGL-devel mesa-vulkan-drivers \
-            libusb1-devel libuvc-devel hidapi-devel libXrandr-devel \
+            libusb1-devel hidapi-devel libXrandr-devel \
             libxkbcommon-devel libudev-devel pkg-config
 
       - name: Set up rpmbuild tree
