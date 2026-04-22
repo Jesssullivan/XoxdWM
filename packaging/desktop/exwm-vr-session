@@ -10,6 +10,12 @@ export XDG_CURRENT_DESKTOP=EXWM-VR
 export XDG_SESSION_DESKTOP=EXWM-VR
 export XDG_SESSION_TYPE=wayland
 
+# ── Session-owned compositor surface ─────────────────────────────────
+# Keep the display-manager session on a deterministic DRM-backed Wayland
+# socket instead of inheriting an ambient nested display from the greeter.
+export EXWM_VR_COMPOSITOR_BACKEND="${EXWM_VR_COMPOSITOR_BACKEND:-drm}"
+export EXWM_VR_WAYLAND_SOCKET="${EXWM_VR_WAYLAND_SOCKET:-wayland-0}"
+
 # ── Wayland toolkit hints ────────────────────────────────────────────
 # These ensure apps use Wayland natively instead of XWayland fallback.
 export QT_QPA_PLATFORM=wayland
@@ -67,8 +73,9 @@ if command -v systemctl >/dev/null 2>&1 && systemctl --user list-unit-files exwm
     # the launcher.
     systemctl --user import-environment \
         DBUS_SESSION_BUS_ADDRESS \
+        EXWM_VR_COMPOSITOR_BACKEND \
+        EXWM_VR_WAYLAND_SOCKET \
         LIBSEAT_BACKEND \
-        WAYLAND_DISPLAY \
         XDG_CURRENT_DESKTOP \
         XDG_DESKTOP_PORTAL_DIR \
         XDG_RUNTIME_DIR \
@@ -124,15 +131,20 @@ cleanup() {
     if [ -n "${EMACS_PID:-}" ] && kill -0 "$EMACS_PID" 2>/dev/null; then
         kill "$EMACS_PID"
     fi
+    if [ -n "${COMPOSITOR_PID:-}" ] && kill -0 "$COMPOSITOR_PID" 2>/dev/null; then
+        kill "$COMPOSITOR_PID"
+    fi
 }
 trap cleanup EXIT
 
 # Start the compositor in the background.
-/usr/bin/ewwm-compositor &
+/usr/bin/ewwm-compositor \
+    --backend "${EXWM_VR_COMPOSITOR_BACKEND}" \
+    --wayland-socket "${EXWM_VR_WAYLAND_SOCKET}" &
 COMPOSITOR_PID=$!
 
 # Wait for the Wayland socket to appear (up to 5 seconds).
-WAYLAND_SOCKET="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/wayland-1"
+WAYLAND_SOCKET="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/${EXWM_VR_WAYLAND_SOCKET}"
 for _ in $(seq 1 50); do
     if [ -S "$WAYLAND_SOCKET" ]; then
         break
@@ -143,7 +155,7 @@ if [ ! -S "$WAYLAND_SOCKET" ]; then
     echo "ERROR: Wayland socket did not appear at $WAYLAND_SOCKET" >&2
     exit 1
 fi
-export WAYLAND_DISPLAY=wayland-1
+export WAYLAND_DISPLAY="${EXWM_VR_WAYLAND_SOCKET}"
 
 # Start Emacs as a foreground daemon.
 /usr/bin/emacs --fg-daemon=exwm-vr -l ewwm &

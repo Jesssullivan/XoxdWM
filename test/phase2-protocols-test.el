@@ -139,6 +139,23 @@
         (goto-char (point-min))
         (should-not (re-search-forward "^sleep 1$" nil t))))))
 
+(ert-deftest phase2p/session-wrapper-uses-drm-backend-and-wayland-0 ()
+  "Session wrapper should force the packaged Rocky session onto DRM + wayland-0."
+  (let* ((root phase2p-test--project-root)
+         (wrapper (expand-file-name "packaging/desktop/exwm-vr-session" root)))
+    (when (file-exists-p wrapper)
+      (with-temp-buffer
+        (insert-file-contents wrapper)
+        (should (search-forward "EXWM_VR_COMPOSITOR_BACKEND" nil t))
+        (goto-char (point-min))
+        (should (search-forward "EXWM_VR_WAYLAND_SOCKET" nil t))
+        (goto-char (point-min))
+        (should (search-forward "--backend \"${EXWM_VR_COMPOSITOR_BACKEND}\"" nil t))
+        (goto-char (point-min))
+        (should (search-forward "--wayland-socket \"${EXWM_VR_WAYLAND_SOCKET}\"" nil t))
+        (goto-char (point-min))
+        (should-not (search-forward "wayland-1" nil t))))))
+
 (ert-deftest phase2p/desktop-file-has-tryexec ()
   "Desktop file includes TryExec."
   (let* ((root phase2p-test--project-root)
@@ -158,6 +175,24 @@
         (should (search-forward "Type=simple" nil t))
         (goto-char (point-min))
         (should-not (search-forward "Type=notify" nil t))))))
+
+(ert-deftest phase2p/compositor-service-uses-drm-backend-and-wayland-0 ()
+  "Packaged compositor service should keep the Rocky session on DRM + wayland-0."
+  (let* ((root phase2p-test--project-root)
+         (service (expand-file-name "packaging/systemd/exwm-vr-compositor.service" root)))
+    (when (file-exists-p service)
+      (with-temp-buffer
+        (insert-file-contents service)
+        (should (search-forward "ExecStart=/usr/bin/ewwm-compositor --backend drm --wayland-socket wayland-0" nil t))))))
+
+(ert-deftest phase2p/emacs-service-uses-wayland-0 ()
+  "Packaged Emacs service should target the compositor's fixed Wayland socket."
+  (let* ((root phase2p-test--project-root)
+         (service (expand-file-name "packaging/systemd/exwm-vr-emacs.service" root)))
+    (when (file-exists-p service)
+      (with-temp-buffer
+        (insert-file-contents service)
+        (should (search-forward "Environment=WAYLAND_DISPLAY=wayland-0" nil t))))))
 
 (ert-deftest phase2p/session-idle-no-swaymsg ()
   "ewwm-session idle args do not reference swaymsg."

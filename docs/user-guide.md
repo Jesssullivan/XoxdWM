@@ -189,24 +189,24 @@ sudo semodule -l | grep exwm
 
 ### systemd Services
 
-XoxdWM uses user-level systemd units:
+The RPM-packaged Rocky session uses user-level `exwm-vr-*` systemd units:
 
 ```bash
 # Enable and start the compositor
-systemctl --user enable ewwm-compositor.service
-systemctl --user start ewwm-compositor.service
+systemctl --user enable exwm-vr-compositor.service
+systemctl --user start exwm-vr-compositor.service
 
 # Enable VR (if applicable)
 systemctl --user enable monado.service
 systemctl --user start monado.service
 
 # Start the full stack
-systemctl --user start ewwm.target
+systemctl --user start exwm-vr.target
 ```
 
 ### Desktop Session
 
-Select "EWWM" from your display manager (GDM, SDDM) session list. The
+Select "EXWM-VR" from your display manager (GDM, SDDM) session list. The
 session wrapper at `/usr/share/wayland-sessions/exwm-vr.desktop` handles
 environment setup, compositor launch, and Emacs startup.
 
@@ -214,15 +214,17 @@ environment setup, compositor launch, and Emacs startup.
 
 ## First Boot Walkthrough
 
-1. **Log in** via display manager selecting the EWWM session
+1. **Log in** via display manager selecting the EXWM-VR session
 2. **Compositor starts**: the Smithay compositor launches and creates the
-   Wayland display socket at `$XDG_RUNTIME_DIR/ewwm-ipc.sock`
-3. **Emacs connects**: Emacs (pgtk) starts and `ewwm-ipc.el` connects
-   to the compositor via the Unix domain socket
-4. **Hello handshake**: Emacs sends `(:type :hello :version 1 :client "ewwm.el")`
+   Wayland display socket at `$XDG_RUNTIME_DIR/wayland-0`
+3. **IPC socket appears**: the compositor also binds its control socket at
+   `$XDG_RUNTIME_DIR/ewwm-ipc.sock`
+4. **Emacs connects**: Emacs (pgtk) starts with `WAYLAND_DISPLAY=wayland-0`
+   and `ewwm-ipc.el` connects to the compositor via the Unix domain socket
+5. **Hello handshake**: Emacs sends `(:type :hello :version 1 :client "ewwm.el")`
    and receives feature flags (VR, XWayland status)
-5. **Workspace ready**: 4 workspaces are initialized; workspace 0 is active
-6. **Launch applications**: `s-r` opens `ewwm-launch`, type an application name
+6. **Workspace ready**: 4 workspaces are initialized; workspace 0 is active
+7. **Launch applications**: `s-r` opens `ewwm-launch`, type an application name
 
 ### Verify the Connection
 
@@ -587,7 +589,7 @@ Then log out and back in.
 Check compositor logs:
 
 ```bash
-journalctl --user -u ewwm-compositor -n 50
+journalctl --user -u exwm-vr-compositor.service -n 50
 ```
 
 Common causes: missing GPU driver, wrong `WLR_RENDERER` setting, or

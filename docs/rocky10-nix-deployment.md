@@ -162,6 +162,9 @@ home-manager switch
 This generates:
 - `~/.config/exwm-vr/config.el` — Elisp configuration
 - `~/.config/qutebrowser/exwm-vr-theme.py` — Qutebrowser theme
+
+When `programs.exwm-vr.systemd.enable = true`, the current Home Manager module
+still generates legacy `ewwm-*` user units:
 - `~/.config/systemd/user/ewwm-compositor.service` (if systemd.enable)
 - `~/.config/systemd/user/ewwm-emacs.service` (if systemd.enable)
 - `~/.config/systemd/user/ewwm-session.target` (if systemd.enable)
@@ -281,19 +284,20 @@ systemctl --user enable ewwm-session.target
 
 ### Without home-manager
 
-Copy the packaged service files:
+Copy the packaged display-manager service files and keep their `exwm-vr-*`
+names:
 
 ```bash
 mkdir -p ~/.config/systemd/user
-cp packaging/systemd/exwm-vr-compositor.service ~/.config/systemd/user/ewwm-compositor.service
-cp packaging/systemd/exwm-vr-emacs.service ~/.config/systemd/user/ewwm-emacs.service
-cp packaging/systemd/exwm-vr.target ~/.config/systemd/user/ewwm-session.target
+cp packaging/systemd/exwm-vr-compositor.service ~/.config/systemd/user/exwm-vr-compositor.service
+cp packaging/systemd/exwm-vr-emacs.service ~/.config/systemd/user/exwm-vr-emacs.service
+cp packaging/systemd/exwm-vr.target ~/.config/systemd/user/exwm-vr.target
 
 # Edit ExecStart paths to point to Nix store results
-vim ~/.config/systemd/user/ewwm-compositor.service
+vim ~/.config/systemd/user/exwm-vr-compositor.service
 
 systemctl --user daemon-reload
-systemctl --user start ewwm-session.target
+systemctl --user start exwm-vr.target
 ```
 
 ## 8. Headless server deployment
