@@ -204,6 +204,32 @@ systemctl --user start monado.service
 systemctl --user start exwm-vr.target
 ```
 
+On the packaged Rocky lane, host-specific direct-mode settings now have a
+supported user-scoped config surface instead of requiring arbitrary unit edits:
+
+```bash
+mkdir -p ~/.config/exwm-vr
+
+cat > ~/.config/exwm-vr/compositor.env <<'EOF'
+EWWM_DRM_LEASE_CONNECTORS=DP-2
+EOF
+
+cat > ~/.config/exwm-vr/monado.env <<'EOF'
+XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1
+XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2
+WAYLAND_DISPLAY=wayland-0
+STEAMVR_LH_ENABLE=1
+XRT_COMPOSITOR_COMPUTE=1
+LH_OVERRIDE_IPD_MM=64
+EOF
+
+systemctl --user daemon-reload
+```
+
+The packaged `exwm-vr-compositor.service` reads
+`~/.config/exwm-vr/compositor.env`, and the packaged
+`exwm-vr-monado.service` reads `~/.config/exwm-vr/monado.env`.
+
 ### Desktop Session
 
 Select "EXWM-VR" from your display manager (GDM, SDDM) session list. The

@@ -14,10 +14,10 @@ Snapshot date: 2026-04-22
 - `honey` has XR prereqs plus explicit runtime activation: `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `/usr/local/bin/monado-service`, `/usr/local/share/openxr/1/openxr_monado.json`, and `/etc/xdg/openxr/1/active_runtime.json`.
 - `honey` does not currently expose `openxr-info`, `xrgears`, or `xoxdwm`.
 - `honey` now has a bounded named-host XoxdWM compositor startup: `exwm-vr.target`, `exwm-vr-compositor.service`, and `exwm-vr-emacs.service` all reached `active`, `DP-2` came up at `5088x2544@75Hz`, `HDMI-A-2` came up at `1920x1080@60Hz`, IPC initialized, and Emacs reached `ewwm: initialized`; see [honey-substrate-proof-2026-04-22.md](honey-substrate-proof-2026-04-22.md).
-- `honey` now has a one-shot direct-mode client proof from the installed package surface too: after reinstalling `exwm-vr-compositor-0.5.4-1.el10` from packaging run `24776900393`, `/usr/bin/ewwm-compositor` initialized `wp_drm_lease_v1`, reserved `DP-2` out of the desktop output map via an explicit host-side lease override, and granted a real DRM lease to Monado.
+- `honey` now has a one-shot direct-mode client proof from the installed package surface too: after reinstalling `exwm-vr-compositor-0.5.4-1.el10` from packaging run `24776900393`, `/usr/bin/ewwm-compositor` initialized `wp_drm_lease_v1`, read `EWWM_DRM_LEASE_CONNECTORS=DP-2` from `~/.config/exwm-vr/compositor.env`, kept `DP-2` out of the desktop output map, and granted a real DRM lease to Monado.
 - `hello_xr -g Vulkan` on `honey` now reaches `xrCreateInstance`, `xrGetSystem`, `Bigscreen Beyond`, `READY`, and two eye swapchains at `3561x3561`.
 - The active blockers on `honey` are now productization and repeatability, not missing lease support:
-  - the current proof still depends on explicit user-unit overrides for direct-mode host configuration, especially `EWWM_DRM_LEASE_CONNECTORS=DP-2`
+  - compositor-side `DP-2` designation now has a supported host config surface, but the Monado direct-mode path still depends on host-specific service overrides
   - the SSH shell must export `XDG_RUNTIME_DIR=/run/user/1000` for the local `hello_xr` client path to align with Monado IPC
   - the proof has been captured once, not yet as a repeated operator lane
 - `yoga` now has `exwm-vr-0.5.4-1.el10`, `exwm-vr-compositor-0.5.4-1.el10`, and `exwm-vr-elisp-0.5.4-1.el10` installed.
@@ -69,7 +69,7 @@ Snapshot date: 2026-04-22
 
 ## Immediate Priorities
 
-1. Fold the `DP-2` lease designation into the supported host configuration surface so `honey` does not depend on an ad hoc compositor user-unit override.
+1. Standardize the direct-mode Monado environment on the real Rocky host path instead of the current host-local override stack.
 2. Make the `hello_xr` client environment explicit in docs and automation so the proof always carries `XDG_RUNTIME_DIR=/run/user/1000` over SSH.
 3. Re-run the `honey` direct-mode proof from the installed package surface and record whether it remains stable across repeated launches.
 4. Keep the Rocky base package lane green while leaving Monado, SELinux, and BCI as separate follow-on concerns.

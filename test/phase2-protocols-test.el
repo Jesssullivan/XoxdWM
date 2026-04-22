@@ -196,7 +196,20 @@
     (when (file-exists-p service)
       (with-temp-buffer
         (insert-file-contents service)
-        (should (search-forward "ExecStart=/usr/bin/ewwm-compositor --backend drm --wayland-socket wayland-0" nil t))))))
+        (should (search-forward "ExecStart=/usr/bin/ewwm-compositor --backend drm --wayland-socket wayland-0" nil t))
+        (goto-char (point-min))
+        (should (search-forward "EnvironmentFile=-%h/.config/exwm-vr/compositor.env" nil t))))))
+
+(ert-deftest phase2p/monado-service-supports-user-env ()
+  "Packaged Monado service should support user-scoped EXWM-VR env overrides."
+  (let* ((root phase2p-test--project-root)
+         (service (expand-file-name "packaging/systemd/exwm-vr-monado.service" root)))
+    (when (file-exists-p service)
+      (with-temp-buffer
+        (insert-file-contents service)
+        (should (search-forward "Environment=WAYLAND_DISPLAY=wayland-0" nil t))
+        (goto-char (point-min))
+        (should (search-forward "EnvironmentFile=-%h/.config/exwm-vr/monado.env" nil t))))))
 
 (ert-deftest phase2p/emacs-service-uses-wayland-0 ()
   "Packaged Emacs service should target the compositor's fixed Wayland socket."

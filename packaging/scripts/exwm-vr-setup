@@ -639,37 +639,56 @@ cmd_monado_setup() {
     fi
     echo
 
-    # Install Monado environment config
-    echo "[4/4] Installing Monado configuration..."
+    # Install EXWM-VR host environment config
+    echo "[4/4] Installing EXWM-VR host environment configuration..."
+    local exwm_cfg="/home/$user/.config/exwm-vr"
     local monado_cfg="/home/$user/.config/monado"
-    mkdir -p "$monado_cfg"
-    cat > "$monado_cfg/env" << 'ENVEOF'
-# Monado environment for Bigscreen Beyond under Sway
-# Source this before running monado-service or monado-cli.
+    mkdir -p "$exwm_cfg" "$monado_cfg"
 
-# Temporary Wayland window fallback while DRM lease direct mode is not yet wired
-export XRT_COMPOSITOR_FORCE_WAYLAND=1
+    cat > "$exwm_cfg/compositor.env" << 'ENVEOF'
+# EXWM-VR compositor host overrides for Beyond direct mode.
+# This file is read by exwm-vr-compositor.service via EnvironmentFile=.
 
-# Target the Beyond connector for Monado's Wayland paths
-export XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2
-
-# Enable SteamVR Lighthouse driver (for Beyond tracking)
-export STEAMVR_LH_ENABLE=1
-
-# Compute compositor (required for some AMD configurations)
-export XRT_COMPOSITOR_COMPUTE=1
-
-# IPD override (Beyond 2e has mechanical IPD, but Monado needs a hint)
-export LH_OVERRIDE_IPD_MM=64
+# Reserve the Beyond connector for DRM lease instead of mapping it as a
+# desktop output.
+EWWM_DRM_LEASE_CONNECTORS=DP-2
 ENVEOF
-    chown -R "$user:$user" "$monado_cfg"
-    echo "  Installed: $monado_cfg/env"
-    echo "  Usage: source ~/.config/monado/env && monado-service"
+
+    cat > "$exwm_cfg/monado.env" << 'ENVEOF'
+# EXWM-VR Monado environment for Bigscreen Beyond direct mode.
+# This file can be sourced manually and is also read by exwm-vr-monado.service.
+
+# Run Monado in direct Wayland lease mode against the compositor socket.
+XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1
+XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2
+WAYLAND_DISPLAY=wayland-0
+
+# Enable SteamVR Lighthouse driver (for Beyond tracking).
+STEAMVR_LH_ENABLE=1
+
+# Compute compositor (required for some AMD configurations).
+XRT_COMPOSITOR_COMPUTE=1
+
+# IPD override (Beyond 2e has mechanical IPD, but Monado needs a hint).
+LH_OVERRIDE_IPD_MM=64
+ENVEOF
+
+    cat > "$monado_cfg/env" << 'ENVEOF'
+# Legacy compatibility wrapper for older docs and shell workflows.
+# Prefer ~/.config/exwm-vr/monado.env for new setups.
+source "$HOME/.config/exwm-vr/monado.env"
+ENVEOF
+
+    chown -R "$user:$user" "$exwm_cfg" "$monado_cfg"
+    echo "  Installed: ~/.config/exwm-vr/compositor.env"
+    echo "  Installed: ~/.config/exwm-vr/monado.env"
+    echo "  Legacy compatibility: ~/.config/monado/env"
+    echo "  Usage: source ~/.config/exwm-vr/monado.env && monado-service"
     echo
 
     echo "=== Monado setup complete ==="
     echo "  Probe: monado-cli probe"
-    echo "  Service: source ~/.config/monado/env && monado-service"
+    echo "  Service: source ~/.config/exwm-vr/monado.env && monado-service"
 }
 
 cmd_beyond_power_on() {
@@ -735,13 +754,20 @@ cmd_beyond_first_frame() {
 
     # 3. Start monado-service in background
     echo "[3/4] Starting monado-service..."
-    local monado_env="$HOME/.config/monado/env"
+    local monado_env="$HOME/.config/exwm-vr/monado.env"
+    local legacy_monado_env="$HOME/.config/monado/env"
     if [ -f "$monado_env" ]; then
         set -a; source "$monado_env"; set +a
+    elif [ -f "$legacy_monado_env" ]; then
+        set -a; source "$legacy_monado_env"; set +a
     else
         echo "  WARNING: $monado_env not found, using defaults"
-        export XRT_COMPOSITOR_FORCE_WAYLAND=1
+        export XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1
+        export XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2
+        export WAYLAND_DISPLAY=wayland-0
         export STEAMVR_LH_ENABLE=1
+        export XRT_COMPOSITOR_COMPUTE=1
+        export LH_OVERRIDE_IPD_MM=64
     fi
     export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
     if [ ! -d "$XDG_RUNTIME_DIR" ]; then
@@ -968,9 +994,12 @@ cmd_beyond_oobe() {
 
     # Step 3: Start Monado
     echo "[3/5] Starting Monado..."
-    local monado_env="$HOME/.config/monado/env"
+    local monado_env="$HOME/.config/exwm-vr/monado.env"
+    local legacy_monado_env="$HOME/.config/monado/env"
     if [ -f "$monado_env" ]; then
         set -a; source "$monado_env"; set +a
+    elif [ -f "$legacy_monado_env" ]; then
+        set -a; source "$legacy_monado_env"; set +a
     fi
     pkill -f monado-service 2>/dev/null || true
     sleep 1

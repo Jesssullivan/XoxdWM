@@ -175,14 +175,21 @@ That clean run immediately exposed the next real gap:
   - `HMD manager: 4 total connectors, 0 HMD connectors`
   - `output configured name=DP-2 mode=5088x2544@75Hz`
 
-Adding only a minimal installed-service override restored the direct path
-without bringing back the staged binary:
+That host proof established that the remaining compositor-side gap was only the
+connector designation. A later follow-up on the same day moved that designation
+onto the supported package surface:
 
-- `~/.config/systemd/user/exwm-vr-compositor.service.d/20-honey-dp2-lease.conf`
-- contents:
-  - `Environment=EWWM_DRM_LEASE_CONNECTORS=DP-2`
+- installed the updated packaged unit at
+  `/usr/lib/systemd/user/exwm-vr-compositor.service`
+- removed the compositor user drop-in:
+  - `~/.config/systemd/user/exwm-vr-compositor.service.d/20-honey-dp2-lease.conf`
+- wrote the supported host config file:
+  - `~/.config/exwm-vr/compositor.env`
+  - contents:
+    - `EWWM_DRM_LEASE_CONNECTORS=DP-2`
 
-With that override in place, the installed `/usr/bin/ewwm-compositor` produced:
+With that supported surface in place, the installed `/usr/bin/ewwm-compositor`
+produced:
 
 - `using explicit DRM lease connector overrides overrides={"DP-2"}`
 - `treating connector as a DRM lease candidate via explicit override connector=DP-2`
@@ -190,8 +197,22 @@ With that override in place, the installed `/usr/bin/ewwm-compositor` produced:
 - `granting DRM lease request`
 - `new DRM lease became active`
 
-This matters because it proves the binary/package transition is done. The
-remaining dependency is host-side connector designation, not a staged binary.
+The live host evidence for that run was:
+
+- compositor unit fragment:
+  - `/usr/lib/systemd/user/exwm-vr-compositor.service`
+- compositor drop-ins:
+  - none
+- service state during proof:
+  - `active active active`
+    - `exwm-vr.target`
+    - `exwm-vr-compositor.service`
+    - `monado.service`
+
+This matters because it proves the binary/package transition is done and the
+compositor-side connector designation no longer depends on an ad hoc user-unit
+override. The remaining dependency is the host-specific Monado direct-mode
+configuration, not the compositor package surface.
 
 ## Current Blocker
 
@@ -199,10 +220,10 @@ The direct-mode substrate blocker is no longer "compositor missing drm-lease
 support." That gap is now closed by named-host evidence. The remaining blockers
 are productization and repeatability:
 
-1. The direct-mode proof still depends on explicit user-unit overrides for host
+1. The direct-mode proof still depends on host-specific Monado service
    configuration:
-   - `EWWM_DRM_LEASE_CONNECTORS=DP-2`
    - `XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1`
+   - `XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2`
 2. SSH-launched clients still need `XDG_RUNTIME_DIR=/run/user/1000` so the
    local `hello_xr` process targets the active Monado IPC socket.
 3. The run was captured once and then intentionally torn down; it is not yet a
@@ -245,17 +266,18 @@ operator path.
 
 - a repeated installed operator lane on `honey`
 - a successful first-frame or long-running XR session path
-- that the current proof works without host-side user-unit overrides
+- that the current proof works without host-side Monado overrides
 - that SSH-invoked client tooling always inherits the correct runtime env by default
 - that XoxdWM itself is ready to be called a stable trusted XR bridge on `honey`
 
 ## Next Gate
 
 - keep the `exwm-vr` package surface installed on `honey`
-- fold `EWWM_DRM_LEASE_CONNECTORS=DP-2` into the supported host configuration
-  surface for `honey`
+- keep the compositor-side `~/.config/exwm-vr/compositor.env` path as the
+  supported host configuration surface for `honey`
 - make `XDG_RUNTIME_DIR=/run/user/1000` explicit in remote client-tool
   automation and operator docs
-- repeat the direct-mode proof without any user-unit overrides
+- standardize the Monado direct-mode path so the proof no longer depends on
+  host-specific service overrides
 - keep the older fallback `VK_ERROR_SURFACE_LOST_KHR` crash categorized as a
   separate Monado window-path problem, not the whole bridge story

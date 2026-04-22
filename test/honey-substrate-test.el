@@ -24,12 +24,14 @@
       (should (string-match-p "No non_desktop=1 connector found; continuing because" script))
       (should (string-match-p "no connected DisplayPort fallback matched" script)))))
 
-(ert-deftest honey-substrate/monado-env-docs-mark-wayland-fallback-honestly ()
-  "The setup helper should describe forced Wayland as a fallback, not lease mode."
+(ert-deftest honey-substrate/monado-env-docs-point-to-supported-config-surface ()
+  "The setup helper should install direct-mode env files under ~/.config/exwm-vr."
   (with-temp-buffer
     (insert-file-contents honey-substrate--setup-script)
     (let ((script (buffer-string)))
-      (should (string-match-p "Wayland window fallback" script))
-      (should-not (string-match-p "Force Wayland DRM lease target" script)))))
+      (should (string-match-p "\\.config/exwm-vr/compositor\\.env" script))
+      (should (string-match-p "\\.config/exwm-vr/monado\\.env" script))
+      (should (string-match-p "XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1" script))
+      (should (string-match-p "EWWM_DRM_LEASE_CONNECTORS=DP-2" script)))))
 
 ;;; honey-substrate-test.el ends here
