@@ -50,6 +50,17 @@ Not every remote workflow is authoritative in the same way.
 5. Treat `yoga` and `honey` host evidence as the only basis for support-matrix
    or status promotion.
 
+## Hardware Authority for `honey`
+
+The `honey` host platform (Dell Precision 7810) has its own measurement,
+validation, and design work in
+[`Jesssullivan/Dell-7810`](https://github.com/Jesssullivan/Dell-7810). Before
+interpreting `honey` test results as XR software proofs, verify the host is
+healthy using the
+[reset matrix](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/research/honey-reset-matrix-2026-04-22.md)
+and the
+[platform validation scripts](https://github.com/Jesssullivan/Dell-7810/tree/main/scripts/platform).
+
 ## Operator Notes
 
 - The `gh`-driven helper commands in [justfile](../justfile) are intentionally

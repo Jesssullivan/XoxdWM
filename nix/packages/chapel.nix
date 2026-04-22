@@ -1,5 +1,10 @@
 # Chapel 2.8.0 — parallel programming language for productive HPC
 #
+# Deployment fallback. The canonical Chapel 2.8.0 package for T7810 NUMA
+# characterization lives in Dell-7810/nix/packages/chapel.nix.
+# This copy is kept for XoxdWM operational convenience but should not
+# diverge from the Dell-7810 version without updating both.
+#
 # Build configuration targets the Dell T7810 dual-socket Xeon (NUMA):
 #   CHPL_TASKS=qthreads    — required for NUMA sublocale support
 #   CHPL_LOCALE_MODEL=flat — single-locale default (numa available at runtime)

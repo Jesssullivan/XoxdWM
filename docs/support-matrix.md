@@ -14,9 +14,15 @@ Date baseline: 2026-04-22.
 
 ## Named Hosts
 
+Hardware setup, reset behavior, BIOS/SMI characterization, and kernel baseline
+validation for `honey` (Dell Precision 7810) are documented in the companion
+[`Dell-7810`](https://github.com/Jesssullivan/Dell-7810) repository. See the
+[authority map](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/platform/authority-map.md)
+for which surfaces each repo owns.
+
 | Target | Status | Notes |
 | --- | --- | --- |
-| `honey` kernel generic lane | Proven | Running `6.19.5-7.xr.el10`; this is the persistent default. |
+| `honey` kernel generic lane | Proven | Running `6.19.5-7.xr.el10`; this is the persistent default. Baseline validated in [`Dell-7810/docs/platform/host-kernel-baseline.md`](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/platform/host-kernel-baseline.md). |
 | `honey` kernel RT lane | Smoke | One-time boot into `6.19.5-rt1-8.xr.el10` succeeded and live `PREEMPT_RT` was verified, but RT is not the default lane. |
 | `honey` XoxdWM compositor install | Smoke | `honey` now has branch-scoped `exwm-vr-0.5.4-1.el10` packages installed, and `systemctl --user start exwm-vr.target` reached a bounded named-host startup with active compositor plus Emacs, `DP-2` at `5088x2544@75Hz`, `HDMI-A-2` at `1920x1080@60Hz`, and `ewwm: initialized`; see [honey-substrate-proof-2026-04-22.md](honey-substrate-proof-2026-04-22.md). This is a compositor smoke path, not yet a lease-backed HMD handoff proof. |
 | `honey` OpenXR userspace prereqs | Smoke | `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `monado-service`, `/usr/local/share/openxr/1/openxr_monado.json`, and `/etc/xdg/openxr/1/active_runtime.json` are present. `monado-cli probe` can now identify the Bigscreen Beyond when the host uses the explicit `DP-2`/SteamVR environment. |

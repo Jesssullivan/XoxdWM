@@ -78,6 +78,18 @@ XoxdWM does not need a bigger vision statement right now. It needs an honest MVP
 3. repo truth surface: docs that clearly separate validated support from research and speculation
 4. primary developer surface: keep `neo` usable as an orchestration machine while making Rocky / Linux remote build authority explicit
 
+## Hardware and platform claims
+
+Hardware recovery evidence and platform-specific claims about `honey` (Dell
+Precision 7810) are authoritative in the companion
+[`Dell-7810`](https://github.com/Jesssullivan/Dell-7810) repository.
+
+XoxdWM proves that software works on a prepared host. Dell-7810 proves the host
+is prepared. See
+[`narrative-lanes.md`](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/publication/narrative-lanes.md)
+for the distinction between hardware research claims (Lanes A and B) and XR
+software claims (Lane C).
+
 ## Decision rule
 
 Until the repo is reconciled, treat claims this way:

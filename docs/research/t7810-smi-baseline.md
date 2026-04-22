@@ -1,5 +1,10 @@
 # Dell T7810 SMI Latency Baseline — BIOS A02
 
+> **Note (2026-04-22)**: This is the original detailed baseline. The canonical
+> copy has been imported to
+> [`Dell-7810/docs/platform/t7810-smi-baseline.md`](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/platform/t7810-smi-baseline.md).
+> Future SMI measurements on `honey` should be recorded in Dell-7810, not here.
+
 **Date**: 2026-03-15
 **System**: Dell Precision Tower 7810 (0GWHMW)
 **BIOS**: A02 (2014-09-05) — factory original, 32 revisions behind current A34

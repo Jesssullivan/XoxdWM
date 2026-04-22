@@ -15,6 +15,16 @@ Read this together with [status.md](status.md),
 - Branch under test: `codex/reality-authority-surface`
 - RPM payload source: GitHub Actions packaging run `24771056471`
 
+## Host Prerequisites and Reset Context
+
+The `honey` host platform is documented in the companion
+[`Dell-7810`](https://github.com/Jesssullivan/Dell-7810) repository. The reset,
+power, and display recovery that preceded this proof is recorded in
+[`honey-reset-matrix-2026-04-22.md`](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/research/honey-reset-matrix-2026-04-22.md).
+Hardware setup, BIOS, SMI, and kernel baseline validation are owned by that repo;
+see the
+[boundary audit](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/platform/xoxdwm-boundary-audit.md).
+
 ## Host Normalization
 
 The host started in a half-migrated state:

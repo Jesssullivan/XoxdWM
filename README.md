@@ -51,6 +51,23 @@ proof; see [Remote Build Authority](docs/remote-build-authority.md) and
 
 Shared self-hosted CI now runs from this canonical repo. Honey-backed hardware lanes remain explicit opt-in via `USE_VR_HARDWARE` rather than implicit fork-only behavior.
 
+## Related repositories
+
+Platform-specific work for the Dell Precision 7810 (`honey` host) lives in
+[`Jesssullivan/Dell-7810`](https://github.com/Jesssullivan/Dell-7810):
+
+- Hardware design, reset behavior, power paths, BIOS/SMI characterization:
+  [`Dell-7810/docs/platform/`](https://github.com/Jesssullivan/Dell-7810/tree/main/docs/platform)
+- `honey` reset matrix and power characterization:
+  [`Dell-7810/docs/research/`](https://github.com/Jesssullivan/Dell-7810/tree/main/docs/research)
+- Ownership boundary between repos:
+  [`Dell-7810/docs/platform/xoxdwm-boundary-audit.md`](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/platform/xoxdwm-boundary-audit.md)
+- Chapel/NUMA host characterization and property-based testing:
+  [`Dell-7810/analysis/`](https://github.com/Jesssullivan/Dell-7810/tree/main/analysis)
+
+XoxdWM proves that software works on a prepared host. Dell-7810 proves the
+host is prepared.
+
 ## Releases
 
 Latest public release:

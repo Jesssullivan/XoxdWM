@@ -90,9 +90,11 @@ the host can sustain the bridge architecture at all.
 Acceptance:
 
 - the chosen kernel lane is explicit and repeatable on `honey`
-- warm reboot versus hard-reset behavior is recorded and understood well enough
-  to keep development honest
-- Dell management display and HMD display behavior are both documented
+- warm reboot versus hard-reset behavior is recorded in
+  [`Dell-7810/docs/research/honey-reset-matrix-2026-04-22.md`](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/research/honey-reset-matrix-2026-04-22.md)
+- Dell management display and HMD display behavior are documented in the
+  reset matrix and in
+  [`Dell-7810/docs/research/honey-management-display-and-recovery-path-2026-04-22.md`](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/research/honey-management-display-and-recovery-path-2026-04-22.md)
 - `non_desktop`, EDID, and DRM lease preconditions are observed and recorded
 - active OpenXR runtime selection is explicit
 - OpenXR client tools exist on-host and are documented
