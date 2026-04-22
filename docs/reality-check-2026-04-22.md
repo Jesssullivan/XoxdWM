@@ -22,9 +22,10 @@ That means the repo contains more implementation and documentation surface than 
 - `honey` is not currently running a deployed XoxdWM stack.
   - there is still no current named-host claim for a working XoxdWM + Monado + OpenXR client-tool path on `honey`
 - `yoga` is not yet a polished local desktop/session target.
-  - the remaining work is not just ergonomics: `yoga` currently has no
-    display-manager package or `display-manager.service`, even though the
-    `exwm-vr.desktop` session entry and user-unit stack are installed
+  - the host now has an active SDDM greeter lane in addition to the installed
+    `exwm-vr.desktop` session entry and user-unit stack
+  - the remaining named-host gap is a physical `EXWM-VR` login proof from that
+    greeter path
 - The Emacs-side test surface is substantial and currently passes locally on this checkout.
   - `just test` passed: `1891/1891`
 - The repo contains real compositor, Elisp, Nix, packaging, and CI work, not just ideas.
