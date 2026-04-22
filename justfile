@@ -5,6 +5,7 @@ set dotenv-load
 
 project_root := justfile_directory()
 xoxdwm_repo := "Jesssullivan/XoxdWM"
+remote_repo_path := "/home/jess/XoxdWM"
 core_el := `find lisp/core -name '*.el' -not -name '*-pkg.el' -not -name '*-autoloads.el' 2>/dev/null | sort | paste -sd ' ' -`
 vr_el := `find lisp/vr -name '*.el' 2>/dev/null | sort | paste -sd ' ' -`
 ext_el := `find lisp/ext -name '*.el' 2>/dev/null | sort | paste -sd ' ' -`
@@ -592,6 +593,45 @@ remote-package version:
 remote-monado-package:
     gh workflow run monado-companion.yml -R "{{xoxdwm_repo}}"
     @echo "Triggered. Watch with: just remote-proof-runs"
+
+[group('ci')]
+honey-shell host="honey":
+    @echo "Opening shell on {{host}} in {{remote_repo_path}}..."
+    ssh -t jess@{{host}} "cd {{remote_repo_path}} && exec \${SHELL:-bash} -l"
+
+[group('ci')]
+honey-devshell host="honey":
+    @echo "Opening nix dev shell on {{host}} in {{remote_repo_path}}..."
+    ssh -t jess@{{host}} "cd {{remote_repo_path}} && export XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-/run/user/\$(id -u)} && exec nix develop"
+
+[group('ci')]
+honey-run host="honey" *args="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cmd='{{args}}'
+    cmd="${cmd#-- }"
+    cmd="${cmd#--}"
+    if [[ -z "${cmd}" ]]; then
+        echo "Usage: just honey-run {{host}} -- <command...>"
+        exit 1
+    fi
+    ssh jess@{{host}} "cd {{remote_repo_path}} && export XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-/run/user/\$(id -u)} && exec nix develop --command ${cmd}"
+
+[group('ci')]
+honey-proof-env host="honey":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh jess@{{host}} bash -s <<'REMOTE'
+    set -euo pipefail
+    cd "{{remote_repo_path}}"
+    export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    echo "repo=$(pwd)"
+    echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
+    test -S "$XDG_RUNTIME_DIR/wayland-0" && echo "wayland_socket=present" || echo "wayland_socket=missing"
+    test -S "$XDG_RUNTIME_DIR/ewwm-ipc.sock" && echo "ewwm_ipc=present" || echo "ewwm_ipc=missing"
+    test -S "$XDG_RUNTIME_DIR/monado_comp_ipc" && echo "monado_ipc=present" || echo "monado_ipc=missing"
+    systemctl --user is-active exwm-vr-compositor.service exwm-vr-monado.service 2>/dev/null || true
+    REMOTE
 
 # ── nix ────────────────────────────────────────────────
 

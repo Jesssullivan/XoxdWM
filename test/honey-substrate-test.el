@@ -16,6 +16,14 @@
   (expand-file-name ".github/workflows/monado-companion.yml"
                     (expand-file-name ".." (file-name-directory load-file-name))))
 
+(defconst honey-substrate--justfile
+  (expand-file-name "justfile"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
+(defconst honey-substrate--remote-authority-doc
+  (expand-file-name "docs/remote-build-authority.md"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
 (ert-deftest honey-substrate/beyond-first-frame-sets-runtime-dir ()
   "beyond-first-frame uses a real runtime dir for remote OpenXR client tools."
   (with-temp-buffer
@@ -64,5 +72,31 @@
       (should (string-match-p "packaging/rpm/monado-beyond\\.spec" workflow))
       (should (string-match-p "epel-release-latest-10\\.noarch\\.rpm" workflow))
       (should-not (string-match-p "libuvc-devel" workflow)))))
+
+(ert-deftest honey-substrate/justfile-exposes-remote-honey-dev-lane ()
+  "The task runner should expose thin remote operator helpers for `neo` -> `honey`."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--justfile)
+    (let ((justfile (buffer-string)))
+      (should (string-match-p "^honey-shell host=\"honey\"" justfile))
+      (should (string-match-p "^honey-devshell host=\"honey\"" justfile))
+      (should (string-match-p "^honey-run host=\"honey\"" justfile))
+      (should (string-match-p "^honey-proof-env host=\"honey\"" justfile))
+      (should (string-match-p "remote_repo_path := \"/home/jess/XoxdWM\"" justfile))
+      (should (string-match-p "cd {{remote_repo_path}}" justfile))
+      (should (string-match-p "nix develop --command" justfile))
+      (should (string-match-p "XDG_RUNTIME_DIR=.*run/user/" justfile)))))
+
+(ert-deftest honey-substrate/remote-authority-doc-separates-direnv-honey-and-bazel ()
+  "Remote authority docs should keep local direnv, `honey` devshells, and `rockies` Bazel distinct."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--remote-authority-doc)
+    (let ((doc (buffer-string)))
+      (should (string-match-p "use flake" doc))
+      (should (string-match-p "direnv" doc))
+      (should (string-match-p "just honey-devshell" doc))
+      (should (string-match-p "just honey-run honey -- <command" doc))
+      (should (string-match-p "rockies" doc))
+      (should (string-match-p "Bazel" doc)))))
 
 ;;; honey-substrate-test.el ends here

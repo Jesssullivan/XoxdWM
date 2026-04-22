@@ -42,15 +42,47 @@ Not every remote workflow is authoritative in the same way.
 1. Edit code and docs here.
 2. Run cheap local sanity only: `just truth-lint`, `just test`, and optionally
    `nix flake check --no-build`.
-3. Inspect the live remote surface with `just remote-proof-surface` and
+3. Use the explicit remote host lane when the task is really about `honey`:
+   - `just honey-shell`
+   - `just honey-devshell`
+   - `just honey-run honey -- <command...>`
+   - `just honey-proof-env`
+4. Inspect the live remote surface with `just remote-proof-surface` and
    `just remote-proof-runs`.
-4. Dispatch bounded remote checks when needed:
+5. Dispatch bounded remote checks when needed:
    - `just remote-runner-health`
    - `just remote-cache-warm`
    - `just remote-monado-package`
    - `just remote-vr-smoke smoke`
-5. Treat `yoga` and `honey` host evidence as the only basis for support-matrix
+6. Treat `yoga` and `honey` host evidence as the only basis for support-matrix
    or status promotion.
+
+## `neo` To `honey` Operator Lane
+
+The repo now has a thin explicit remote-dev/operator lane for working from
+`neo` against the live `honey` host.
+
+- `just honey-shell`
+  - open a plain login shell on `honey` in `~/XoxdWM`
+- `just honey-devshell`
+  - open `nix develop` directly on `honey` in `~/XoxdWM`
+- `just honey-run honey -- <command...>`
+  - run one command through the remote `nix develop` lane
+  - this also defaults `XDG_RUNTIME_DIR` to `/run/user/$(id -u)` on the host
+- `just honey-proof-env`
+  - print the remote repo path, runtime dir, key IPC sockets, and current
+    user-service activity
+
+This lane is for live host work such as:
+
+- Monado and OpenXR probing
+- systemd unit inspection
+- DRM, Wayland, and IPC debugging
+- running repo commands on the real Linux host from `neo`
+
+It is not a replacement for the external Bazel control plane in `rockies`.
+Use `rockies` when the work is really Rocky graph/orchestration policy rather
+than direct `honey` host runtime proof.
 
 ## Hardware Authority for `honey`
 

@@ -115,6 +115,7 @@
 (ert-deftest truth-surface/remote-proof-doc-tracks-live-workflows-and-recipes ()
   "Remote proof doc should track the named workflow and operator surface."
   (let ((doc (truth-surface-test--read-file "docs/remote-proof-lanes.md"))
+        (authority (truth-surface-test--read-file "docs/remote-build-authority.md"))
         (justfile (truth-surface-test--read-file "justfile")))
     (dolist (workflow '("runner-health.yml"
                         "self-hosted-fast.yml"
@@ -127,17 +128,30 @@
       (should (string-match-p (regexp-quote workflow) doc))
       (should (file-exists-p
                (expand-file-name (concat ".github/workflows/" workflow)
-                                 truth-surface-test--root))))
+                                truth-surface-test--root))))
     (dolist (recipe '("remote-proof-surface"
                       "remote-proof-runs"
                       "remote-runner-health"
                       "remote-cache-warm"
                       "remote-monado-package"
                       "remote-vr-smoke"
-                      "remote-package"))
+                      "remote-package"
+                      "honey-shell"
+                      "honey-devshell"
+                      "honey-run"
+                      "honey-proof-env"))
       (should (string-match-p
                (format "^%s\\b" (regexp-quote recipe))
-               justfile)))))
+               justfile)))
+    (should (string-match-p "direnv" authority))
+    (should (string-match-p "use flake" authority))
+    (should (string-match-p "just honey-devshell" authority))
+    (should (string-match-p "just honey-run honey -- <command" authority))
+    (should (string-match-p "rockies" authority))
+    (should (string-match-p "Bazel" authority))
+    (should (string-match-p "neo.*honey" doc))
+    (should (string-match-p "just honey-devshell" doc))
+    (should (string-match-p "just honey-proof-env" doc))))
 
 (ert-deftest truth-surface/developer-guide-keeps-neo-checks-cheap ()
   "The `neo` section should stay on cheap control-plane checks."

@@ -25,6 +25,42 @@ Local work on `neo` is still useful for:
 If you need the live repo-owned workflow map, read
 [remote-proof-lanes.md](remote-proof-lanes.md).
 
+## Direnv, Remote Devshells, And Bazel
+
+The shell layers now have an explicit split:
+
+- local `.envrc` in this repo is intentionally minimal:
+  - `use flake`
+- on `neo`, `direnv` is a control-plane convenience for editing, docs, and
+  cheap repo checks
+- `ssh honey` does not inherit that local shell contract
+- for live host work on `honey`, prefer explicit remote `nix develop`
+  entrypoints over assuming `direnv` is installed or allowed there
+- if you need a remote host shell or command lane from `neo`, use the repo
+  operator helpers:
+  - `just honey-shell`
+  - `just honey-devshell`
+  - `just honey-run honey -- <command...>`
+  - `just honey-proof-env`
+
+This keeps the contract honest:
+
+- `direnv` is local convenience
+- remote `nix develop` is the live `neo -> honey` devshell/operator lane
+- Bazel remains the external Rocky control-plane concern in `rockies`
+
+Do not turn `honey` into the Bazel control plane by default. Use `honey` for:
+
+- live XR/runtime proof
+- package install and host validation
+- systemd, OpenXR, Monado, DRM, and connector debugging
+
+Use `rockies` Bazel surfaces for:
+
+- Rocky graph validation
+- manifest-to-artifact orchestration
+- control-plane helpers around Rocky-compatible handoff artifacts
+
 ## Authority Surfaces
 
 ### `Jesssullivan/XoxdWM`
@@ -97,9 +133,14 @@ From `neo`, the correct default sequence is:
 2. Run cheap local sanity only.
 3. Use the repo-owned remote proof lanes in [remote-proof-lanes.md](remote-proof-lanes.md)
    when you need live workflow evidence.
-4. Hand build/package/runtime proof to the external Rocky / Linux remote lanes
-   and named hosts.
-5. Reflect the remote result back into [status.md](status.md) and
+4. Use the explicit remote host lane for live `honey` work:
+   - `just honey-devshell`
+   - `just honey-run honey -- <command...>`
+   - `just honey-proof-env`
+5. Hand Bazel/control-plane build and package proof to the external Rocky /
+   Linux lanes in `rockies`, `linux-xr`, and `GloriousFlywheel`.
+6. Hand runtime proof to named hosts.
+7. Reflect the remote result back into [status.md](status.md) and
    [support-matrix.md](support-matrix.md).
 
 ## What Is Still Missing
