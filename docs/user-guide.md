@@ -67,7 +67,7 @@ read [remote-build-authority.md](remote-build-authority.md) and
 
 ### Flake-based Installation
 
-Add EXWM-VR to your flake inputs:
+Add XoxdWM to your flake inputs:
 
 ```nix
 {
@@ -189,7 +189,7 @@ sudo semodule -l | grep exwm
 
 ### systemd Services
 
-EXWM-VR uses user-level systemd units:
+XoxdWM uses user-level systemd units:
 
 ```bash
 # Enable and start the compositor
@@ -531,7 +531,7 @@ Generate filter list configurations via `ewwm-qutebrowser-adblock.el`.
 
 ## Headless Mode
 
-EXWM-VR supports headless operation for s390x, CI pipelines, and remote
+XoxdWM supports headless operation for s390x, CI pipelines, and remote
 sessions.
 
 ### Enabling Headless Mode

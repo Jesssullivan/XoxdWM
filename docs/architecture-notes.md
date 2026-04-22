@@ -7,7 +7,7 @@ authority path from `neo`. For the current authority split, read
 
 ## Overview
 
-EXWM-VR targets three primary architectures: x86_64, aarch64, and s390x.
+XoxdWM targets three primary architectures: x86_64, aarch64, and s390x.
 RISC-V (riscv64) is tracked as an experimental/aspirational target. Each
 architecture has different capabilities for GPU rendering, SIMD-accelerated
 signal processing, hardware cryptography, and VR support.

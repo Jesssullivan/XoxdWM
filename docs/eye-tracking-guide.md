@@ -453,7 +453,7 @@ timestamp,blink_rate,saccade_amplitude,tracking_quality,fatigue_level
 
 ## Privacy Considerations
 
-EWWM-VR eye tracking is designed with privacy as a core principle:
+XoxdWM eye tracking is designed with privacy as a core principle:
 
 ### Local-Only Processing
 

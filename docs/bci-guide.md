@@ -30,7 +30,7 @@ and [status.md](status.md). For the build/control-plane boundary, read
 
 ## Overview
 
-EWWM-VR integrates EEG-based brain-computer interface (BCI) input alongside
+XoxdWM integrates EEG-based brain-computer interface (BCI) input alongside
 gaze tracking and hand gestures. The BCI pipeline uses BrainFlow for hardware
 abstraction, with a daemon process bridging the C++ BrainFlow library to the
 Rust compositor via shared memory.

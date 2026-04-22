@@ -366,7 +366,7 @@ Notes:
 | ewwm-secrets-totp | TOTP integration for EWWM secrets management | 14 |
 | ewwm-secrets-passkey | WebAuthn/FIDO2 passkey support for EWWM via KeePassXC | 14 |
 | ewwm-vr-secure-input | Secure input mode for EWWM | 14 |
-| ewwm-environment | Environment validation for EXWM-VR | 15 |
+| ewwm-environment | Environment validation for XoxdWM | 15 |
 | ewwm-headless | Headless mode for EWWM | 16 |
 | ewwm-qutebrowser | Qutebrowser integration for EWWM | 17 |
 | ewwm-qutebrowser-ipc | Qutebrowser IPC layer for EWWM | 17 |
