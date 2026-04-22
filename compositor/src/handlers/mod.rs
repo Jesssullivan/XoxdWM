@@ -4,6 +4,8 @@ pub mod compositor;
 pub mod data_control;
 pub mod dmabuf;
 pub mod dpms;
+#[cfg(feature = "full-backend")]
+pub mod drm_lease;
 pub mod foreign_toplevel;
 pub mod idle;
 pub mod layer_shell;

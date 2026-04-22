@@ -37,6 +37,11 @@ use smithay::{
         xdg_activation::XdgActivationState,
     },
 };
+#[cfg(feature = "full-backend")]
+use smithay::{
+    backend::drm::DrmNode,
+    wayland::drm_lease::{DrmLease, DrmLeaseState},
+};
 #[cfg(feature = "xwayland")]
 use smithay::{
     wayland::xwayland_shell::XWaylandShellState,
@@ -219,6 +224,12 @@ pub struct EwwmState {
     // Pointer constraints (pointer-constraints-unstable-v1)
     pub pointer_constraints_state: PointerConstraintsState,
 
+    // DRM lease protocol (wp_drm_lease_v1)
+    #[cfg(feature = "full-backend")]
+    pub drm_lease_state: Option<DrmLeaseState>,
+    #[cfg(feature = "full-backend")]
+    pub active_drm_leases: Vec<DrmLease>,
+
     // Focus tracking
     pub focused_surface: Option<u64>,
 
@@ -354,6 +365,10 @@ impl EwwmState {
             screencopy_state: ScreencopyState::new(),
             output_management_state: OutputManagementState::new(),
             pointer_constraints_state,
+            #[cfg(feature = "full-backend")]
+            drm_lease_state: None,
+            #[cfg(feature = "full-backend")]
+            active_drm_leases: Vec::new(),
             focused_surface: None,
             cursor_status: CursorImageStatus::Default,
             running: true,
@@ -363,6 +378,23 @@ impl EwwmState {
 }
 
 impl EwwmState {
+    #[cfg(feature = "full-backend")]
+    pub fn ensure_drm_lease_state(&mut self, node: DrmNode) {
+        if self.drm_lease_state.is_some() {
+            return;
+        }
+
+        match DrmLeaseState::new::<Self>(&self.display_handle, &node) {
+            Ok(state) => {
+                info!(?node, "initialized wp_drm_lease_v1 global");
+                self.drm_lease_state = Some(state);
+            }
+            Err(err) => {
+                info!(?node, ?err, "wp_drm_lease_v1 unavailable on this DRM node");
+            }
+        }
+    }
+
     /// Look up a Window by its surface_id.
     pub fn find_window(&self, surface_id: u64) -> Option<&Window> {
         self.surface_to_window.get(&surface_id)
