@@ -60,8 +60,10 @@ use smithay::{
 };
 
 use std::collections::{HashMap, HashSet};
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
@@ -134,8 +136,10 @@ impl ConnectorScan {
 
 /// State for a single DRM GPU device.
 struct GpuDevice {
+    /// DRM node for this GPU.
+    node: DrmNode,
     /// The DRM device handle.
-    drm: DrmDevice,
+    drm: Rc<RefCell<DrmDevice>>,
     /// GBM device for buffer allocation.
     gbm: GbmDevice<DrmDeviceFd>,
     /// EGL display for this GPU.
@@ -204,6 +208,7 @@ fn device_added(
     // Create DRM device (disable_connectors=true so we start clean).
     let (drm, drm_notifier) = DrmDevice::new(drm_fd.clone(), true)
         .map_err(|e| anyhow::anyhow!("DrmDevice::new failed: {}", e))?;
+    let drm = Rc::new(RefCell::new(drm));
 
     // Create GBM device on the same fd.
     let gbm = GbmDevice::new(drm_fd.clone())
@@ -241,6 +246,7 @@ fn device_added(
         .map_err(|e| anyhow::anyhow!("failed to register DRM source: {}", e))?;
 
     let mut gpu = GpuDevice {
+        node,
         drm,
         gbm,
         _egl_display: egl_display,
@@ -257,6 +263,9 @@ fn device_added(
         #[cfg(feature = "full-backend")]
         state.ensure_drm_lease_state(node);
     }
+
+    #[cfg(feature = "full-backend")]
+    state.register_drm_lease_device(node, gpu.drm.clone());
 
     // Scan and configure connected outputs.
     scan_connectors(&mut gpu, &renderer_formats, state);
@@ -324,7 +333,7 @@ fn scan_connectors(
     renderer_formats: &FormatSet,
     state: &mut EwwmState,
 ) {
-    let res = match gpu.drm.resource_handles() {
+    let res = match gpu.drm.borrow().resource_handles() {
         Ok(r) => r,
         Err(e) => {
             error!("failed to get DRM resource handles: {}", e);
@@ -340,32 +349,35 @@ fn scan_connectors(
         );
     }
 
-    let connectors: Vec<ConnectorScan> = res
-        .connectors()
-        .iter()
-        .filter_map(|handle| gpu.drm.get_connector(*handle, false).ok())
-        .map(|conn| {
-            let name = connector_display_name(&conn);
-            let actual_non_desktop = is_non_desktop_connector(&gpu.drm, &conn);
-            let override_match = lease_overrides.contains(&name);
-            let connected = conn.state() == connector::State::Connected;
+    let connectors: Vec<ConnectorScan> = {
+        let drm = gpu.drm.borrow();
 
-            if override_match && !actual_non_desktop {
-                info!(
-                    connector = %name,
-                    "treating connector as a DRM lease candidate via explicit override"
-                );
-            }
+        res.connectors()
+            .iter()
+            .filter_map(|handle| drm.get_connector(*handle, false).ok())
+            .map(|conn| {
+                let name = connector_display_name(&conn);
+                let actual_non_desktop = is_non_desktop_connector(&drm, &conn);
+                let override_match = lease_overrides.contains(&name);
+                let connected = conn.state() == connector::State::Connected;
 
-            ConnectorScan {
-                info: conn,
-                name,
-                connected,
-                actual_non_desktop,
-                override_match,
-            }
-        })
-        .collect();
+                if override_match && !actual_non_desktop {
+                    info!(
+                        connector = %name,
+                        "treating connector as a DRM lease candidate via explicit override"
+                    );
+                }
+
+                ConnectorScan {
+                    info: conn,
+                    name,
+                    connected,
+                    actual_non_desktop,
+                    override_match,
+                }
+            })
+            .collect()
+    };
 
     let _crtcs = res.crtcs();
     let mut used_crtcs = std::collections::HashSet::new();
@@ -471,13 +483,16 @@ fn scan_connectors(
 
         // Find an available CRTC for this connector.
         // Use ResourceHandles::filter_crtcs to get compatible CRTCs.
-        let crtc = connector
-            .info
-            .encoders()
-            .iter()
-            .filter_map(|enc_handle| gpu.drm.get_encoder(*enc_handle).ok())
-            .flat_map(|enc| res.filter_crtcs(enc.possible_crtcs()))
-            .find(|crtc| !used_crtcs.contains(crtc));
+        let crtc = {
+            let drm = gpu.drm.borrow();
+            connector
+                .info
+                .encoders()
+                .iter()
+                .filter_map(|enc_handle| drm.get_encoder(*enc_handle).ok())
+                .flat_map(|enc| res.filter_crtcs(enc.possible_crtcs()))
+                .find(|crtc| !used_crtcs.contains(crtc))
+        };
 
         let crtc = match crtc {
             Some(c) => c,
@@ -492,19 +507,18 @@ fn scan_connectors(
         used_crtcs.insert(crtc);
 
         // Create DRM surface for this connector + CRTC + mode.
-        let drm_surface = match gpu.drm.create_surface(
-            crtc,
-            drm_mode,
-            &[connector.info.handle()],
-        ) {
-            Ok(s) => s,
-            Err(e) => {
-                error!(
-                    connector = ?connector.info.handle(),
-                    crtc = ?crtc,
-                    "failed to create DRM surface: {}", e
-                );
-                continue;
+        let drm_surface = {
+            let mut drm = gpu.drm.borrow_mut();
+            match drm.create_surface(crtc, drm_mode, &[connector.info.handle()]) {
+                Ok(s) => s,
+                Err(e) => {
+                    error!(
+                        connector = ?connector.info.handle(),
+                        crtc = ?crtc,
+                        "failed to create DRM surface: {}", e
+                    );
+                    continue;
+                }
             }
         };
 
@@ -604,6 +618,9 @@ fn scan_connectors(
             },
         );
     }
+
+    #[cfg(feature = "full-backend")]
+    state.set_drm_output_crtcs(gpu.node, used_crtcs.iter().copied());
 }
 
 /// Human-readable connector type name.
@@ -652,6 +669,9 @@ fn device_removed(
                 warn!("no GPU devices remaining");
             }
         }
+
+        #[cfg(feature = "full-backend")]
+        state.unregister_drm_lease_device(node);
     }
 }
 
@@ -790,7 +810,7 @@ fn session_paused(backend: &mut DrmBackendData, state: &mut EwwmState) {
     }
 
     for (_node, gpu) in backend.devices.iter_mut() {
-        gpu.drm.pause();
+        gpu.drm.borrow_mut().pause();
         for (_crtc, output_state) in gpu.outputs.iter_mut() {
             output_state.pending_frame = false;
             output_state.render_scheduled = false;
@@ -803,7 +823,7 @@ fn session_activated(backend: &mut DrmBackendData, state: &mut EwwmState) {
     info!("session activated (VT switch back)");
     for (_node, gpu) in backend.devices.iter_mut() {
         // Re-activate the DRM device (preserve connector state).
-        if let Err(e) = gpu.drm.activate(false) {
+        if let Err(e) = gpu.drm.borrow_mut().activate(false) {
             error!("failed to reactivate DRM device: {}", e);
             continue;
         }

@@ -39,7 +39,8 @@ use smithay::{
 };
 #[cfg(feature = "full-backend")]
 use smithay::{
-    backend::drm::DrmNode,
+    backend::drm::{DrmDevice, DrmNode},
+    reexports::drm::control::crtc,
     wayland::drm_lease::{DrmLease, DrmLeaseState},
 };
 #[cfg(feature = "xwayland")]
@@ -51,6 +52,8 @@ use std::{
     collections::{HashMap, HashSet},
     sync::{atomic::{AtomicU64, Ordering}, Arc},
 };
+#[cfg(feature = "full-backend")]
+use std::{cell::RefCell, rc::Rc};
 use tracing::info;
 
 use crate::autotype::AutoTypeManager;
@@ -229,6 +232,10 @@ pub struct EwwmState {
     pub drm_lease_state: Option<DrmLeaseState>,
     #[cfg(feature = "full-backend")]
     pub active_drm_leases: Vec<DrmLease>,
+    #[cfg(feature = "full-backend")]
+    pub drm_lease_devices: HashMap<DrmNode, Rc<RefCell<DrmDevice>>>,
+    #[cfg(feature = "full-backend")]
+    pub drm_output_crtcs: HashMap<DrmNode, HashSet<crtc::Handle>>,
 
     // Focus tracking
     pub focused_surface: Option<u64>,
@@ -369,6 +376,10 @@ impl EwwmState {
             drm_lease_state: None,
             #[cfg(feature = "full-backend")]
             active_drm_leases: Vec::new(),
+            #[cfg(feature = "full-backend")]
+            drm_lease_devices: HashMap::new(),
+            #[cfg(feature = "full-backend")]
+            drm_output_crtcs: HashMap::new(),
             focused_surface: None,
             cursor_status: CursorImageStatus::Default,
             running: true,
@@ -393,6 +404,30 @@ impl EwwmState {
                 info!(?node, ?err, "wp_drm_lease_v1 unavailable on this DRM node");
             }
         }
+    }
+
+    #[cfg(feature = "full-backend")]
+    pub fn register_drm_lease_device(
+        &mut self,
+        node: DrmNode,
+        drm: Rc<RefCell<DrmDevice>>,
+    ) {
+        self.drm_lease_devices.insert(node, drm);
+    }
+
+    #[cfg(feature = "full-backend")]
+    pub fn unregister_drm_lease_device(&mut self, node: DrmNode) {
+        self.drm_lease_devices.remove(&node);
+        self.drm_output_crtcs.remove(&node);
+    }
+
+    #[cfg(feature = "full-backend")]
+    pub fn set_drm_output_crtcs<I>(&mut self, node: DrmNode, crtcs: I)
+    where
+        I: IntoIterator<Item = crtc::Handle>,
+    {
+        self.drm_output_crtcs
+            .insert(node, crtcs.into_iter().collect());
     }
 
     /// Look up a Window by its surface_id.

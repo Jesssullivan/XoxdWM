@@ -190,6 +190,10 @@
       (insert-file-contents file)
       (should (search-forward "pub drm_lease_state: Option<DrmLeaseState>" nil t))
       (should (search-forward "pub active_drm_leases: Vec<DrmLease>" nil t))
+      (should (search-forward "pub drm_lease_devices: HashMap<DrmNode, Rc<RefCell<DrmDevice>>>" nil t))
+      (should (search-forward "pub drm_output_crtcs: HashMap<DrmNode, HashSet<crtc::Handle>>" nil t))
+      (should (search-forward "pub fn register_drm_lease_device(" nil t))
+      (should (search-forward "pub fn set_drm_output_crtcs<I>(&mut self, node: DrmNode, crtcs: I)" nil t))
       (should (search-forward "pub fn ensure_drm_lease_state(&mut self, node: DrmNode)" nil t)))))
 
 (ert-deftest week9/backend-initializes-drm-lease-state ()
@@ -198,7 +202,22 @@
          (file (expand-file-name "compositor/src/backend/drm.rs" root)))
     (with-temp-buffer
       (insert-file-contents file)
-      (should (search-forward "state.ensure_drm_lease_state(node);" nil t)))))
+      (should (search-forward "state.ensure_drm_lease_state(node);" nil t))
+      (should (search-forward "state.register_drm_lease_device(node, gpu.drm.clone());" nil t))
+      (should (search-forward "state.set_drm_output_crtcs(gpu.node, used_crtcs.iter().copied());" nil t)))))
+
+(ert-deftest week9/lease-handler-builds-real-leases ()
+  "Lease handler uses the live DRM backend to build real leases."
+  (let* ((root (locate-dominating-file default-directory ".git"))
+         (file (expand-file-name "compositor/src/handlers/drm_lease.rs" root)))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (should (search-forward "self.drm_lease_devices.get(&node).cloned()" nil t))
+      (should (search-forward "self.drm_output_crtcs" nil t))
+      (should (search-forward "let mut builder = DrmLeaseBuilder::new(&drm);" nil t))
+      (should (search-forward "builder.add_crtc(crtc);" nil t))
+      (should (search-forward "builder.add_plane(primary_plane, claim);" nil t))
+      (should (search-forward "\"granting DRM lease request\"" nil t)))))
 
 (ert-deftest week9/backend-recognizes-lease-connector-overrides ()
   "DRM backend recognizes explicit connector override env vars."
