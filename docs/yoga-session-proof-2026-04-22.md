@@ -131,21 +131,27 @@ daemon on controlled shutdown.
 The repo-side fix is to declare `SuccessExitStatus=15` in
 `packaging/systemd/exwm-vr-emacs.service`.
 
-That exact unit file was copied onto `yoga` as a temporary user override and the
-same installed-unit proof was rerun. With the override in place:
+The first host validation used a temporary user override to prove the fix. That
+was later cleaned up into a proper host-level drop-in at
+`/etc/systemd/user/exwm-vr-emacs.service.d/10-success-exit.conf`, after which
+the per-user full-unit override was removed.
+
+With that cleaned-up override path in place:
 
 - startup still reached `active` / `active` / `active`
 - the same compositor and Emacs initialization markers appeared
 - a controlled stop ended with:
   - `exwm-vr.target`: `inactive`
-  - `exwm-vr-compositor.service`: `deactivating` during teardown
+  - `exwm-vr-compositor.service`: `inactive`
   - `exwm-vr-emacs.service`: `inactive`
 - `systemd` reported `Stopped exwm-vr-emacs.service` instead of marking the unit
   failed
+- `systemctl --user cat exwm-vr-emacs.service` showed the packaged unit from
+  `/usr/lib/systemd/user/` plus the host drop-in from `/etc/systemd/user/`
 
 This means the stop-path issue is understood and the in-tree unit fix is
 validated on `yoga`, but the installed host RPMs still need a follow-up package
-build and upgrade to carry that fix without a user override.
+build and upgrade to carry that fix without a host-side drop-in.
 
 ## Display-Manager Follow-Up
 
@@ -163,6 +169,9 @@ The next host pass established the real display-manager lane:
 - `loginctl` shows an active greeter session on `seat0`
 - `/usr/share/wayland-sessions/exwm-vr.desktop` remains present and points to
   `/usr/share/exwm-vr/exwm-vr-session`
+- `/var/lib/sddm/state.conf` now preselects:
+  - `User=jsullivan2`
+  - `Session=exwm-vr.desktop`
 
 Observed follow-up notes:
 
@@ -172,8 +181,9 @@ Observed follow-up notes:
 
 This closes the "no greeter exists on the host" gap. The remaining local-login
 question is now narrower: a physical `yoga` login still needs to select
-`EXWM-VR` from the SDDM session list and confirm the installed session wrapper
-works from the greeter path, not just over SSH-driven bounded proof.
+`EXWM-VR` from the SDDM greeter path and confirm the installed session wrapper
+works from the console, not just over SSH-driven bounded proof. The preselected
+user/session state should shorten that pass, but it does not replace the proof.
 
 ## Next Gate
 
