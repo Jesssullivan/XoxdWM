@@ -56,6 +56,7 @@
     (insert-file-contents honey-substrate--monado-workflow)
     (let ((workflow (buffer-string)))
       (should (string-match-p "packaging/rpm/monado-beyond\\.spec" workflow))
+      (should (string-match-p "epel-release-latest-10\\.noarch\\.rpm" workflow))
       (should-not (string-match-p "libuvc-devel" workflow)))))
 
 ;;; honey-substrate-test.el ends here
