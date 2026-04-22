@@ -1150,6 +1150,8 @@ boot-validate:
     echo "=== Dhall validation ==="
     PASS=0; TOTAL=0
     for f in \
+        packaging/dhall/HostFacts.dhall \
+        packaging/dhall/HostTiming.dhall \
         packaging/dhall/Platform.dhall \
         packaging/dhall/KernelConfig.dhall \
         packaging/dhall/BootParams.dhall \

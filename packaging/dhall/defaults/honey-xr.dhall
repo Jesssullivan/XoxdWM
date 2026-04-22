@@ -10,29 +10,22 @@ let GrubDefaults = (../types/GrubDefaults.dhall).GrubDefaults
 let DracutConfig = (../types/DracutConfig.dhall).DracutConfig
 let FstabEntry = (../types/FstabEntry.dhall).FstabEntry
 let BootGeneration = (../types/BootGeneration.dhall).BootGeneration
+let Platform = ../Platform.dhall
+let BootParams = ../BootParams.dhall
 
 let stock = ./honey-stock.dhall
 
 -- Swap UUID (same as stock — from blkid)
 let swapUUID = "6e9a97e2-44b0-4a14-922b-26ced14feed6"
 
--- Boot parameters: stock base + SMI mitigation + CPU isolation
--- Note: the existing XR BLS entry has a minimal set; this adds full
--- isolation params that the tuned profile also sets via [bootloader].
+-- Boot parameters: stock base + reusable host timing posture + XR runtime
+-- isolation extras. The Dell timing posture now comes from BootParams /
+-- HostTiming instead of being handwritten inline here.
 let xrOptions =
         "ro crashkernel=2G-64G:256M,64G-:512M"
     ++  " resume=UUID=${swapUUID}"
     ++  " rd.lvm.lv=rl00/root rd.lvm.lv=rl00/swap"
-    -- SMI mitigation (from firmware RE of T7810 BIOS A34)
-    ++  " tsc=nowatchdog clocksource=tsc nosoftlockup"
-    ++  " intel_pstate=disable processor.max_cstate=1 intel_idle.max_cstate=0"
-    ++  " nmi_watchdog=0 mce=ignore_ce"
-    -- CPU isolation (BCI workload: cores 2-7 isolated)
-    ++  " isolcpus=managed_irq,domain,2-7 nohz_full=2-7 rcu_nocbs=2-7"
-    ++  " irqaffinity=0-1 idle=poll skew_tick=1 rcu_nocb_poll"
-    ++  " nowatchdog kthread_cpus=0-1"
-    -- GPU
-    ++  " amdgpu.modeset=1 amdgpu.dc=1 amdgpu.dcdebugmask=0x10"
+    ++  " ${BootParams.xrText Platform.dellT7810 BootParams.bciWorkload}"
 
 let config
     : BootGeneration
