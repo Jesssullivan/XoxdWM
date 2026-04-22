@@ -152,22 +152,65 @@ missing earlier:
 This was the first named-host proof that the running XoxdWM compositor on
 `honey` could actually hand off `DP-2` to Monado via Wayland direct mode.
 
+## Installed-Package Follow-Up
+
+A later follow-up on the same day carried the direct-mode proof onto the real
+installed package surface on `honey`.
+
+The important host changes were:
+
+- reinstalled `/usr/bin/ewwm-compositor` from the same `24776900393` RPM artifact
+  with `rpm -Uvh --replacepkgs`
+- removed the staged binary override:
+  - `~/.config/systemd/user/exwm-vr-compositor.service.d/10-stage-binary.conf`
+- removed the earlier literal IPC shim:
+  - `/home/jess/~/.cache/monado_comp_ipc`
+
+That clean run immediately exposed the next real gap:
+
+- the installed compositor binary was now correct
+- but without any host-side lease designation, `DP-2` returned as a normal
+  desktop output
+- the compositor log showed:
+  - `HMD manager: 4 total connectors, 0 HMD connectors`
+  - `output configured name=DP-2 mode=5088x2544@75Hz`
+
+Adding only a minimal installed-service override restored the direct path
+without bringing back the staged binary:
+
+- `~/.config/systemd/user/exwm-vr-compositor.service.d/20-honey-dp2-lease.conf`
+- contents:
+  - `Environment=EWWM_DRM_LEASE_CONNECTORS=DP-2`
+
+With that override in place, the installed `/usr/bin/ewwm-compositor` produced:
+
+- `using explicit DRM lease connector overrides overrides={"DP-2"}`
+- `treating connector as a DRM lease candidate via explicit override connector=DP-2`
+- `lease-designated connector, skipping desktop output connector=DP-2`
+- `granting DRM lease request`
+- `new DRM lease became active`
+
+This matters because it proves the binary/package transition is done. The
+remaining dependency is host-side connector designation, not a staged binary.
+
 ## Current Blocker
 
 The direct-mode substrate blocker is no longer "compositor missing drm-lease
 support." That gap is now closed by named-host evidence. The remaining blockers
 are productization and repeatability:
 
-1. The direct-mode proof used a staged compositor binary rather than the
-   installed package path.
-2. The local `hello_xr` build still used the literal IPC path string
-   `~/.cache/monado_comp_ipc`, so the proof needed a compatibility shim:
-   - `/home/jess/~/.cache/monado_comp_ipc -> /run/user/1000/monado_comp_ipc`
+1. The direct-mode proof still depends on explicit user-unit overrides for host
+   configuration:
+   - `EWWM_DRM_LEASE_CONNECTORS=DP-2`
+   - `XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1`
+2. SSH-launched clients still need `XDG_RUNTIME_DIR=/run/user/1000` so the
+   local `hello_xr` process targets the active Monado IPC socket.
 3. The run was captured once and then intentionally torn down; it is not yet a
    repeated operator lane.
 
-After the literal IPC shim was in place, the OpenXR client proof crossed a much
-stronger line than the earlier fallback run:
+With `XDG_RUNTIME_DIR=/run/user/1000` exported in the SSH shell, the local
+OpenXR client no longer needed the literal IPC shim and the proof crossed a
+much stronger line than the earlier fallback run:
 
 - `hello_xr -g Vulkan` reached:
   - `xrCreateInstance`
@@ -181,8 +224,9 @@ stronger line than the earlier fallback run:
   - swapchain creation for both eye color and depth chains
   - clean client disconnect
 
-That is a real direct-mode session bootstrap on `honey`, even though it is not
-yet the final installed operator path.
+That is a real direct-mode session bootstrap on `honey` from the installed
+compositor package surface, even though it is not yet the final zero-override
+operator path.
 
 ## What This Proves
 
@@ -194,22 +238,24 @@ yet the final installed operator path.
   grants a real DRM lease to Monado on `honey`
 - `hello_xr -g Vulkan` can now reach `READY` and create eye swapchains on
   `honey` in the true Wayland direct path
+- the installed `/usr/bin/ewwm-compositor` now matches the lease-capable proof
+  binary from packaging run `24776900393`
 
 ## What This Does Not Yet Prove
 
 - a repeated installed operator lane on `honey`
 - a successful first-frame or long-running XR session path
-- that the current proof works without staged user-unit overrides
-- that the local `hello_xr` build no longer needs the literal IPC shim
+- that the current proof works without host-side user-unit overrides
+- that SSH-invoked client tooling always inherits the correct runtime env by default
 - that XoxdWM itself is ready to be called a stable trusted XR bridge on `honey`
 
 ## Next Gate
 
 - keep the `exwm-vr` package surface installed on `honey`
-- carry the lease-capable compositor path into the installed Rocky lane on
-  `honey`
-- remove the literal `~/.cache/monado_comp_ipc` client-path shim from the
-  local OpenXR client proof
-- repeat the direct-mode proof without staged overrides
+- fold `EWWM_DRM_LEASE_CONNECTORS=DP-2` into the supported host configuration
+  surface for `honey`
+- make `XDG_RUNTIME_DIR=/run/user/1000` explicit in remote client-tool
+  automation and operator docs
+- repeat the direct-mode proof without any user-unit overrides
 - keep the older fallback `VK_ERROR_SURFACE_LOST_KHR` crash categorized as a
   separate Monado window-path problem, not the whole bridge story

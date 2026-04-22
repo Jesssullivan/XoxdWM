@@ -220,7 +220,8 @@
     (should (string-match-p "XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1" doc))
     (should (string-match-p "granting DRM lease request" doc))
     (should (string-match-p "READY" doc))
-    (should (string-match-p "literal IPC shim" doc))))
+    (should (string-match-p "installed package surface" doc))
+    (should (string-match-p "XDG_RUNTIME_DIR=/run/user/1000" doc))))
 
 (provide 'truth-surface-test)
 ;;; truth-surface-test.el ends here
