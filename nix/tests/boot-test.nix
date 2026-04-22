@@ -30,7 +30,7 @@ pkgs.testers.nixosTest {
     };
 
     # Override compositor service for test (headless VM has no graphical-session)
-    systemd.user.services.ewwm-compositor = {
+    systemd.user.services."exwm-vr-compositor" = {
       wantedBy = pkgs.lib.mkForce [ "default.target" ];
       serviceConfig = {
         ExecStart = pkgs.lib.mkForce
@@ -42,7 +42,7 @@ pkgs.testers.nixosTest {
     };
 
     # Disable Emacs service for boot-chain test (just test compositor)
-    systemd.user.services.ewwm-emacs.enable = false;
+    systemd.user.services."exwm-vr-emacs".enable = false;
 
     # Enable lingering so user services start without login
     users.users.testuser.linger = true;
@@ -68,16 +68,19 @@ pkgs.testers.nixosTest {
 
     # Debug: show compositor service status before asserting
     status = machine.execute(
-        "systemctl --user -M testuser@ status ewwm-compositor.service 2>&1 || true"
+        "systemctl --user -M testuser@ status exwm-vr-compositor.service 2>&1 || true"
     )
     machine.log(f"Compositor status: {status}")
     journal = machine.execute(
-        "journalctl --user -M testuser@ -u ewwm-compositor.service --no-pager -n 30 2>&1 || true"
+        "journalctl --user -M testuser@ -u exwm-vr-compositor.service --no-pager -n 30 2>&1 || true"
     )
     machine.log(f"Compositor journal: {journal}")
 
     # Wait for the compositor service to start
-    machine.wait_for_unit("ewwm-compositor.service", "testuser", timeout=30)
+    machine.wait_for_unit("exwm-vr-compositor.service", "testuser", timeout=30)
+    machine.succeed(
+        "systemctl --user -M testuser@ status ewwm-compositor.service >/dev/null"
+    )
 
     # Verify IPC socket exists
     machine.succeed(
@@ -99,7 +102,7 @@ pkgs.testers.nixosTest {
 
     # Clean shutdown
     machine.succeed(
-        "systemctl --user -M testuser@ stop ewwm-compositor.service"
+        "systemctl --user -M testuser@ stop exwm-vr-compositor.service"
     )
   '';
 }

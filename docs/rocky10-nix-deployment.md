@@ -163,11 +163,12 @@ This generates:
 - `~/.config/exwm-vr/config.el` — Elisp configuration
 - `~/.config/qutebrowser/exwm-vr-theme.py` — Qutebrowser theme
 
-When `programs.exwm-vr.systemd.enable = true`, the current Home Manager module
-still generates legacy `ewwm-*` user units:
-- `~/.config/systemd/user/ewwm-compositor.service` (if systemd.enable)
-- `~/.config/systemd/user/ewwm-emacs.service` (if systemd.enable)
-- `~/.config/systemd/user/ewwm-session.target` (if systemd.enable)
+When `programs.exwm-vr.systemd.enable = true`, the module generates
+`exwm-vr-*` user units and keeps compatibility aliases for the older
+`ewwm-*` names during the transition:
+- `~/.config/systemd/user/exwm-vr-compositor.service` (if systemd.enable)
+- `~/.config/systemd/user/exwm-vr-emacs.service` (if systemd.enable)
+- `~/.config/systemd/user/exwm-vr.target` (if systemd.enable)
 
 ## 4. Config variable mapping
 
@@ -265,21 +266,21 @@ After `home-manager switch` with `systemd.enable = true`:
 systemctl --user daemon-reload
 
 # Start the full session
-systemctl --user start ewwm-session.target
+systemctl --user start exwm-vr.target
 
 # Check status
-systemctl --user status ewwm-compositor.service
-systemctl --user status ewwm-emacs.service
+systemctl --user status exwm-vr-compositor.service
+systemctl --user status exwm-vr-emacs.service
 
 # View logs
-journalctl --user -u ewwm-compositor.service -f
-journalctl --user -u ewwm-emacs.service -f
+journalctl --user -u exwm-vr-compositor.service -f
+journalctl --user -u exwm-vr-emacs.service -f
 
 # Stop everything
-systemctl --user stop ewwm-session.target
+systemctl --user stop exwm-vr.target
 
 # Enable auto-start on login
-systemctl --user enable ewwm-session.target
+systemctl --user enable exwm-vr.target
 ```
 
 ### Without home-manager
@@ -346,7 +347,7 @@ nix flake update --flake ~/.config/home-manager
 home-manager switch
 
 # Restart services to pick up new binaries
-systemctl --user restart ewwm-session.target
+systemctl --user restart exwm-vr.target
 ```
 
 ### Pinning a version
@@ -419,7 +420,7 @@ sudo dnf install -y \
 
 ```bash
 # Check the journal for errors
-journalctl --user -u ewwm-compositor.service --no-pager -n 50
+journalctl --user -u exwm-vr-compositor.service --no-pager -n 50
 
 # Common issues:
 # 1. No DRM device access -> add user to video group

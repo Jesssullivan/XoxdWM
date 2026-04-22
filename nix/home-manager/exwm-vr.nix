@@ -286,9 +286,10 @@ in {
           }
         ];
 
-        systemd.user.services.ewwm-compositor = {
+        systemd.user.services."exwm-vr-compositor" = {
+          aliases = [ "ewwm-compositor.service" ];
           Unit = {
-            Description = "EWWM Wayland Compositor";
+            Description = "EXWM-VR Wayland Compositor";
             Documentation = "https://github.com/Jesssullivan/XoxdWM";
           };
           Service = {
@@ -300,16 +301,17 @@ in {
             ];
           };
           Install = {
-            WantedBy = [ "ewwm-session.target" ];
+            WantedBy = [ "exwm-vr.target" ];
           };
         };
 
-        systemd.user.services.ewwm-emacs = {
+        systemd.user.services."exwm-vr-emacs" = {
+          aliases = [ "ewwm-emacs.service" ];
           Unit = {
-            Description = "EWWM Emacs Daemon";
+            Description = "EXWM-VR Emacs Daemon";
             Documentation = "https://github.com/Jesssullivan/XoxdWM";
-            After = [ "ewwm-compositor.service" ];
-            Requires = [ "ewwm-compositor.service" ];
+            After = [ "exwm-vr-compositor.service" ];
+            Requires = [ "exwm-vr-compositor.service" ];
           };
           Service = {
             ExecStart = "${cfg.emacs.package}/bin/emacs --daemon ${emacsLoadFlags}"
@@ -323,15 +325,16 @@ in {
               "EMACSLOADPATH=${elispLoadPath}:";
           };
           Install = {
-            WantedBy = [ "ewwm-session.target" ];
+            WantedBy = [ "exwm-vr.target" ];
           };
         };
 
-        systemd.user.targets.ewwm-session = {
+        systemd.user.targets."exwm-vr" = {
+          aliases = [ "ewwm-session.target" ];
           Unit = {
-            Description = "EWWM Session";
+            Description = "EXWM-VR Session";
             Documentation = "https://github.com/Jesssullivan/XoxdWM";
-            Wants = [ "ewwm-compositor.service" "ewwm-emacs.service" ];
+            Wants = [ "exwm-vr-compositor.service" "exwm-vr-emacs.service" ];
           };
           Install = {
             WantedBy = [ "graphical-session.target" ];

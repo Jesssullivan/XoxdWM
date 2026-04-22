@@ -157,5 +157,13 @@
     (should (string-match-p "\\$XDG_RUNTIME_DIR/wayland-0" guide))
     (should (string-match-p "\\$XDG_RUNTIME_DIR/ewwm-ipc\\.sock" guide))))
 
+(ert-deftest truth-surface/rocky-guide-tracks-exwm-vr-unit-names ()
+  "The Rocky deployment guide should use canonical exwm-vr unit names."
+  (let ((guide (truth-surface-test--read-file "docs/rocky10-nix-deployment.md")))
+    (should (string-match-p "exwm-vr-compositor\\.service" guide))
+    (should (string-match-p "exwm-vr-emacs\\.service" guide))
+    (should (string-match-p "exwm-vr\\.target" guide))
+    (should (string-match-p "compatibility aliases" guide))))
+
 (provide 'truth-surface-test)
 ;;; truth-surface-test.el ends here
