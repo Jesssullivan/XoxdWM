@@ -8,7 +8,7 @@ use crate::state::EwwmState;
 use smithay::{
     backend::drm::DrmNode,
     delegate_drm_lease,
-    reexports::drm::control::connector as drm_connector,
+    reexports::drm::control::{connector as drm_connector, Device as _},
     wayland::drm_lease::{
         DrmLease, DrmLeaseBuilder, DrmLeaseHandler, DrmLeaseRequest, DrmLeaseState,
         LeaseRejected,
