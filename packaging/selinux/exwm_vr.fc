@@ -10,6 +10,7 @@
 # ---------------------------------------------------------------------------
 /usr/bin/monado-service                     --  gen_context(system_u:object_r:exwm_vr_monado_exec_t, s0)
 /usr/libexec/monado-service                 --  gen_context(system_u:object_r:exwm_vr_monado_exec_t, s0)
+/usr/libexec/exwm-vr/monado-launch          --  gen_context(system_u:object_r:exwm_vr_monado_exec_t, s0)
 
 # ---------------------------------------------------------------------------
 # BrainFlow BCI venv

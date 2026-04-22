@@ -196,9 +196,9 @@ The RPM-packaged Rocky session uses user-level `exwm-vr-*` systemd units:
 systemctl --user enable exwm-vr-compositor.service
 systemctl --user start exwm-vr-compositor.service
 
-# Enable VR (if applicable)
-systemctl --user enable monado.service
-systemctl --user start monado.service
+# Enable VR (if Monado integration is installed)
+systemctl --user enable exwm-vr-monado.service
+systemctl --user start exwm-vr-monado.service
 
 # Start the full stack
 systemctl --user start exwm-vr.target
@@ -215,6 +215,8 @@ EWWM_DRM_LEASE_CONNECTORS=DP-2
 EOF
 
 cat > ~/.config/exwm-vr/monado.env <<'EOF'
+# Optional for hosts that still use a local Monado build:
+# MONADO_SERVICE_BIN=/usr/local/bin/monado-service
 XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1
 XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2
 WAYLAND_DISPLAY=wayland-0
@@ -228,7 +230,10 @@ systemctl --user daemon-reload
 
 The packaged `exwm-vr-compositor.service` reads
 `~/.config/exwm-vr/compositor.env`, and the packaged
-`exwm-vr-monado.service` reads `~/.config/exwm-vr/monado.env`.
+`exwm-vr-monado.service` reads `~/.config/exwm-vr/monado.env`. Its launcher
+defaults to `/usr/bin/monado-service`, but `MONADO_SERVICE_BIN` can point the
+service at a local `/usr/local/bin/monado-service` build on hosts like
+`honey`.
 
 ### Desktop Session
 

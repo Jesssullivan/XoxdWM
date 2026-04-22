@@ -31,6 +31,7 @@
     (let ((script (buffer-string)))
       (should (string-match-p "\\.config/exwm-vr/compositor\\.env" script))
       (should (string-match-p "\\.config/exwm-vr/monado\\.env" script))
+      (should (string-match-p "MONADO_SERVICE_BIN=/usr/local/bin/monado-service" script))
       (should (string-match-p "XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1" script))
       (should (string-match-p "EWWM_DRM_LEASE_CONNECTORS=DP-2" script)))))
 

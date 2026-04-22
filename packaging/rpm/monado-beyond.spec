@@ -73,6 +73,8 @@ fi
 %doc README.md
 %{_bindir}/monado-service
 %{_bindir}/monado-cli
+%{_userunitdir}/monado.service
+%{_userunitdir}/monado.socket
 %{_libdir}/libopenxr_monado.so*
 %{_libdir}/libmonado*.so*
 %{_datadir}/openxr/1/openxr_monado.json

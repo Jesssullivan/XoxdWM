@@ -214,16 +214,62 @@ compositor-side connector designation no longer depends on an ad hoc user-unit
 override. The remaining dependency is the host-specific Monado direct-mode
 configuration, not the compositor package surface.
 
+## Repo-Owned Monado Service Follow-Up
+
+A later follow-up on the same day carried the Monado side onto the repo-owned
+service surface too.
+
+The host changes were:
+
+- installed the repo unit:
+  - `/usr/lib/systemd/user/exwm-vr-monado.service`
+- installed the repo launcher:
+  - `/usr/libexec/exwm-vr/monado-launch`
+- removed the stale EXWM-VR Monado drop-in:
+  - `/etc/systemd/user/exwm-vr-monado.service.d/10-local-path.conf`
+- kept host-specific Monado settings in the supported env file:
+  - `~/.config/exwm-vr/monado.env`
+  - including `MONADO_SERVICE_BIN=/usr/local/bin/monado-service`
+
+The corrected service shape mattered:
+
+- direct self-managed IPC instead of piggybacking on `monado.socket`
+- `XRT_NO_STDIN=TRUE`
+- `IPC_EXIT_ON_DISCONNECT=OFF`
+
+With that in place, the live host proof reached:
+
+- service fragments:
+  - compositor: `/usr/lib/systemd/user/exwm-vr-compositor.service`
+  - Monado: `/usr/lib/systemd/user/exwm-vr-monado.service`
+- drop-ins:
+  - compositor: none
+  - Monado: none
+- service state during proof:
+  - `active active active`
+    - `exwm-vr.target`
+    - `exwm-vr-compositor.service`
+    - `exwm-vr-monado.service`
+- `hello_xr -g Vulkan` timed out after a live run (`hello_rc=124`)
+- Monado logged:
+  - `Client 1 connected`
+  - application `HelloXR`
+  - eye color/depth swapchain creation
+  - clean client disconnect
+
+That means the direct-mode proof no longer depends on Monado service drop-ins.
+The remaining host-specific piece is just the local Monado binary path carried
+through `MONADO_SERVICE_BIN=/usr/local/bin/monado-service`.
+
 ## Current Blocker
 
 The direct-mode substrate blocker is no longer "compositor missing drm-lease
 support." That gap is now closed by named-host evidence. The remaining blockers
 are productization and repeatability:
 
-1. The direct-mode proof still depends on host-specific Monado service
-   configuration:
-   - `XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1`
-   - `XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2`
+1. The direct-mode proof still depends on a host-specific Monado binary path:
+   - `MONADO_SERVICE_BIN=/usr/local/bin/monado-service`
+   - the Monado runtime itself is still a local host install, not a Rocky RPM lane
 2. SSH-launched clients still need `XDG_RUNTIME_DIR=/run/user/1000` so the
    local `hello_xr` process targets the active Monado IPC socket.
 3. The run was captured once and then intentionally torn down; it is not yet a
@@ -266,7 +312,8 @@ operator path.
 
 - a repeated installed operator lane on `honey`
 - a successful first-frame or long-running XR session path
-- that the current proof works without host-side Monado overrides
+- that the current proof works without the local `/usr/local/bin/monado-service`
+  contract on `honey`
 - that SSH-invoked client tooling always inherits the correct runtime env by default
 - that XoxdWM itself is ready to be called a stable trusted XR bridge on `honey`
 
@@ -275,9 +322,11 @@ operator path.
 - keep the `exwm-vr` package surface installed on `honey`
 - keep the compositor-side `~/.config/exwm-vr/compositor.env` path as the
   supported host configuration surface for `honey`
+- keep the Monado-side `~/.config/exwm-vr/monado.env` path as the supported
+  host configuration surface for `honey`
 - make `XDG_RUNTIME_DIR=/run/user/1000` explicit in remote client-tool
   automation and operator docs
-- standardize the Monado direct-mode path so the proof no longer depends on
-  host-specific service overrides
+- decide whether `MONADO_SERVICE_BIN=/usr/local/bin/monado-service` is a
+  temporary bridge or the real operator contract for `honey`
 - keep the older fallback `VK_ERROR_SURFACE_LOST_KHR` crash categorized as a
   separate Monado window-path problem, not the whole bridge story

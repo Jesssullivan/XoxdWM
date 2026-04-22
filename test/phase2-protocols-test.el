@@ -207,6 +207,12 @@
     (when (file-exists-p service)
       (with-temp-buffer
         (insert-file-contents service)
+        (should (search-forward "ExecStart=/usr/libexec/exwm-vr/monado-launch" nil t))
+        (goto-char (point-min))
+        (should (search-forward "Environment=XRT_NO_STDIN=TRUE" nil t))
+        (goto-char (point-min))
+        (should (search-forward "Environment=IPC_EXIT_ON_DISCONNECT=OFF" nil t))
+        (goto-char (point-min))
         (should (search-forward "Environment=WAYLAND_DISPLAY=wayland-0" nil t))
         (goto-char (point-min))
         (should (search-forward "EnvironmentFile=-%h/.config/exwm-vr/monado.env" nil t))))))

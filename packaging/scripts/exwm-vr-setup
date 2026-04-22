@@ -40,6 +40,30 @@ _check_user() {
     echo "$user"
 }
 
+_resolve_monado_service_bin() {
+    if [ -n "${MONADO_SERVICE_BIN:-}" ] && [ -x "${MONADO_SERVICE_BIN}" ]; then
+        echo "${MONADO_SERVICE_BIN}"
+        return 0
+    fi
+
+    local candidate
+    for candidate in /usr/bin/monado-service /usr/local/bin/monado-service; do
+        if [ -x "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+
+    candidate="$(command -v monado-service 2>/dev/null || true)"
+    if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+        echo "$candidate"
+        return 0
+    fi
+
+    echo "ERROR: monado-service not found. Set MONADO_SERVICE_BIN or install Monado." >&2
+    return 1
+}
+
 # ── Commands ────────────────────────────────────────────
 
 cmd_prereqs() {
@@ -633,9 +657,10 @@ cmd_monado_setup() {
 
     # Set capabilities
     echo "[3/4] Setting capabilities..."
-    if [ -f /usr/local/bin/monado-service ]; then
-        setcap CAP_SYS_NICE=eip /usr/local/bin/monado-service
-        echo "  CAP_SYS_NICE set on monado-service"
+    local monado_bin=""
+    if monado_bin=$(_resolve_monado_service_bin 2>/dev/null); then
+        setcap CAP_SYS_NICE=eip "$monado_bin"
+        echo "  CAP_SYS_NICE set on $monado_bin"
     fi
     echo
 
@@ -659,6 +684,7 @@ ENVEOF
 # This file can be sourced manually and is also read by exwm-vr-monado.service.
 
 # Run Monado in direct Wayland lease mode against the compositor socket.
+MONADO_SERVICE_BIN=/usr/local/bin/monado-service
 XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1
 XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2
 WAYLAND_DISPLAY=wayland-0
@@ -683,12 +709,12 @@ ENVEOF
     echo "  Installed: ~/.config/exwm-vr/compositor.env"
     echo "  Installed: ~/.config/exwm-vr/monado.env"
     echo "  Legacy compatibility: ~/.config/monado/env"
-    echo "  Usage: source ~/.config/exwm-vr/monado.env && monado-service"
+    echo "  Usage: source ~/.config/exwm-vr/monado.env && \"\$MONADO_SERVICE_BIN\""
     echo
 
     echo "=== Monado setup complete ==="
     echo "  Probe: monado-cli probe"
-    echo "  Service: source ~/.config/exwm-vr/monado.env && monado-service"
+    echo "  Service: source ~/.config/exwm-vr/monado.env && \"\$MONADO_SERVICE_BIN\""
 }
 
 cmd_beyond_power_on() {
@@ -780,7 +806,9 @@ cmd_beyond_first_frame() {
     pkill -f monado-service 2>/dev/null || true
     sleep 1
 
-    monado-service &
+    local monado_bin=""
+    monado_bin=$(_resolve_monado_service_bin)
+    "$monado_bin" &
     local monado_pid=$!
     sleep 3
 
@@ -1003,7 +1031,9 @@ cmd_beyond_oobe() {
     fi
     pkill -f monado-service 2>/dev/null || true
     sleep 1
-    monado-service &
+    local monado_bin=""
+    monado_bin=$(_resolve_monado_service_bin)
+    "$monado_bin" &
     local monado_pid=$!
     sleep 3
     if ! kill -0 "$monado_pid" 2>/dev/null; then
@@ -1674,11 +1704,13 @@ cmd_beyond_dsc_sweep() {
         # Start Monado
         local user
         user=$(_check_user)
-        sudo -u "$user" bash -c "
+        local monado_bin
+        monado_bin=$(_resolve_monado_service_bin)
+        sudo -u "$user" env MONADO_SERVICE_BIN=\"$monado_bin\" bash -c "
             export XDG_RUNTIME_DIR=/run/user/1000
             export WAYLAND_DISPLAY=wayland-1
             export STEAMVR_LH_ENABLE=1
-            (while true; do sleep 86400; done) | /usr/local/bin/monado-service > /tmp/monado-sweep-$bpp.log 2>&1 &
+            (while true; do sleep 86400; done) | \"\$MONADO_SERVICE_BIN\" > /tmp/monado-sweep-$bpp.log 2>&1 &
         "
         sleep 5
 

@@ -1,0 +1,24 @@
+#!/bin/sh
+# Resolve the Monado runtime binary for EXWM-VR service launches.
+
+set -eu
+
+if [ -n "${MONADO_SERVICE_BIN:-}" ] && [ -x "${MONADO_SERVICE_BIN}" ]; then
+    exec "${MONADO_SERVICE_BIN}" "$@"
+fi
+
+for candidate in \
+    /usr/bin/monado-service \
+    /usr/local/bin/monado-service
+do
+    if [ -x "$candidate" ]; then
+        exec "$candidate" "$@"
+    fi
+done
+
+if command -v monado-service >/dev/null 2>&1; then
+    exec "$(command -v monado-service)" "$@"
+fi
+
+echo "ERROR: monado-service not found. Set MONADO_SERVICE_BIN in ~/.config/exwm-vr/monado.env." >&2
+exit 127
