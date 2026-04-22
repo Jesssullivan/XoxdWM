@@ -10,11 +10,11 @@ As of 2026-04-22:
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Release artifacts | Smoke | `v0.5.1` publishes RPM and DEB artifacts. The Rocky base compositor RPM is public and host-installable, and branch-scoped `0.5.4-1.el10` RPMs from Actions run `24768509226` now have a named-host staged proof on `yoga`. |
+| Release artifacts | Smoke | `v0.5.1` publishes RPM and DEB artifacts. The Rocky base compositor RPM is public and host-installable, and branch-scoped `0.5.4-1.el10` RPMs from Actions run `24768509226` are now installed and revalidated on `yoga`. |
 | Headless compositor path | Smoke | Build and test surfaces exist, but not re-validated in this pass. |
-| Rocky 10 package install | Smoke | `yoga` still has the public `0.5.3-1.el10` `exwm-vr-*` RPMs installed. A newer `0.5.4-1.el10` session payload was proved on-host via staged user units, but the real RPM upgrade is still blocked on host privilege. |
+| Rocky 10 package install | Smoke | `yoga` now has installed `0.5.4-1.el10` `exwm-vr-*` RPMs from the current branch, and the real installed units pass a named-host bounded proof. A polished local login/session path is still follow-on work. |
 | `honey` VR session | Design | `honey` has partial Monado/OpenXR prereqs, but no deployed XoxdWM stack or working OpenXR client-tool path. |
-| `yoga` desktop/dev target | Smoke | `yoga` now has a named-host staged `0.5.4` session proof with explicit `drm` backend and dedicated Emacs bootstrap. The privileged system package upgrade and a repeatable local login flow are still open. |
+| `yoga` desktop/dev target | Smoke | `yoga` now has an installed `0.5.4` session proof with explicit `drm` backend and dedicated Emacs bootstrap. The remaining gap is the repeatable local login/session path rather than package integrity. |
 | Eye tracking / hand tracking / BCI | Design | Documented and partially implemented, but not currently claimed as proven on named lab hosts. |
 
 ## Start Here

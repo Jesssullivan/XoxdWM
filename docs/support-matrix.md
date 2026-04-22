@@ -22,7 +22,7 @@ Date baseline: 2026-04-22.
 | `honey` OpenXR userspace prereqs | Smoke | `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `monado-service`, and `/usr/local/share/openxr/1/openxr_monado.json` are present. |
 | `honey` VR session | Design | Recent host recovery work has shown a stable Dell HDMI path and a `DP-2` display path, but there is still no deployed XoxdWM stack, no OpenXR client tools, and no recorded XoxdWM VR smoke path. |
 | `yoga` kernel-xr boot path | Smoke | One-time boot into `6.19.5-8.xr.el10` succeeded; normal reboot returned to the saved stock Rocky default. |
-| `yoga` XoxdWM install | Smoke | `yoga` still has `0.5.3-1.el10` `exwm-vr-*` RPMs installed. A branch-scoped `0.5.4-1.el10` payload from Actions run `24768509226` also passed a named-host staged proof with explicit `drm` backend and dedicated Emacs bootstrap. The real host RPM upgrade is still blocked on privilege; see [yoga-session-proof-2026-04-22.md](yoga-session-proof-2026-04-22.md). |
+| `yoga` XoxdWM install | Smoke | `yoga` now has installed `0.5.4-1.el10` `exwm-vr-*` RPMs from Actions run `24768509226`, and the real installed units pass a named-host proof with explicit `drm` backend and dedicated Emacs bootstrap. A polished local login/session path is still pending; see [yoga-session-proof-2026-04-22.md](yoga-session-proof-2026-04-22.md). |
 | `yoga` OpenXR userspace prereqs | Design | No Monado/OpenXR/wlroots runtime packages or runtime manifest were found. |
 | `petting-zoo-mini` | Out of scope | Not a current Linux XR validation target. |
 
@@ -31,7 +31,7 @@ Date baseline: 2026-04-22.
 | Surface | Status | Notes |
 | --- | --- | --- |
 | GitHub release RPM | Smoke | `v0.5.1` publishes the repaired native Rocky compositor RPM, and the base package lane is named-host validated on `yoga`. This does not imply full VR enablement or a polished local session path. |
-| Branch-scoped Rocky RPM | Smoke | GitHub Actions packaging run `24768509226` produced `0.5.4-1.el10` RPMs for `codex/reality-authority-surface`, and that payload passed a staged named-host proof on `yoga`. It is not yet claimed as a public release or a real installed host upgrade. |
+| Branch-scoped Rocky RPM | Smoke | GitHub Actions packaging run `24768509226` produced `0.5.4-1.el10` RPMs for `codex/reality-authority-surface`, and that payload is now both installed and named-host validated on `yoga`. It is still not claimed as a public release. |
 | GitHub release DEB | Smoke | Public release exists. |
 | Nix flake outputs | Smoke | Linux-oriented build surfaces exist. Local Darwin flake evaluation now works, but Darwin is still not the authoritative runtime or build target for this repo. |
 | Rocky 10 quickstart | Smoke | Valid for the base compositor package lane on `yoga`. Full VR/OpenXR enablement, SELinux hardening, and BrainFlow BCI packaging remain separate follow-on paths. |
@@ -42,7 +42,7 @@ Date baseline: 2026-04-22.
 | Area | Status | Notes |
 | --- | --- | --- |
 | Headless compositor | Smoke | Explicit build/test path exists. |
-| Desktop 2D compositor path | Smoke | Earlier bounded startup was proved on `yoga`, and a staged `0.5.4` session payload now reaches compositor plus Emacs initialization on the host. It is still not yet a polished local desktop/session lane. |
+| Desktop 2D compositor path | Smoke | Earlier bounded startup was proved on `yoga`, and the installed `0.5.4` user-unit path now reaches compositor plus Emacs initialization on the host. It is still not yet a polished local desktop/session lane. |
 | DRM backend on AMD | Smoke | Code exists and bounded named-host startup is recorded on `yoga`; full `honey` VR smoke remains pending. |
 | VR session lifecycle | Design | Not yet claimed as working on `honey`. |
 | DRM lease / HMD non-desktop handling | Design | Code exists; validation still pending. |

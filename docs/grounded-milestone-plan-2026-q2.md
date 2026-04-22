@@ -67,12 +67,13 @@ Evidence required:
 
 Current state on `2026-04-22`:
 
-- `yoga` now has a staged named-host proof for the branch-scoped `0.5.4-1.el10`
-  session payload; see [yoga-session-proof-2026-04-22.md](yoga-session-proof-2026-04-22.md)
-- that proof is good enough to close the ambient-bootstrap question
-- it is not yet good enough to claim a real installed host upgrade, because the
-  privilege path needed to replace the installed `0.5.3-1.el10` RPMs is still
-  missing
+- `yoga` now has both a staged named-host proof and a real installed-package
+  proof for the branch-scoped `0.5.4-1.el10` session payload; see
+  [yoga-session-proof-2026-04-22.md](yoga-session-proof-2026-04-22.md)
+- that closes the ambient-bootstrap question and the "is the real package lane
+  installable on the host" question
+- the remaining gap is local login/session closure and cleaner stop-path
+  ergonomics, not package installation authority
 
 ### Milestone 2: `honey` XR Substrate Proof
 

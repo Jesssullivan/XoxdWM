@@ -186,15 +186,17 @@
      (string-match-p "yoga-session-proof-2026-04-22\\.md"
                      (truth-surface-test--read-file relative)))))
 
-(ert-deftest truth-surface/yoga-run-note-keeps-the-staged-proof-boundary-explicit ()
-  "The `yoga` run note should record what was proved and what remains blocked."
+(ert-deftest truth-surface/yoga-run-note-keeps-the-installed-proof-boundary-explicit ()
+  "The `yoga` run note should record staged and installed proof boundaries."
   (let ((doc (truth-surface-test--read-file
               "docs/yoga-session-proof-2026-04-22.md")))
     (should (string-match-p "24768509226" doc))
     (should (string-match-p "0\\.5\\.4-1\\.el10" doc))
     (should (string-match-p "0\\.5\\.3-1\\.el10" doc))
     (should (string-match-p "staged" doc))
-    (should (string-match-p "privilege path" doc))))
+    (should (string-match-p "installed" doc))
+    (should (string-match-p "exwm-vr\\.target" doc))
+    (should (string-match-p "failed" doc))))
 
 (provide 'truth-surface-test)
 ;;; truth-surface-test.el ends here
