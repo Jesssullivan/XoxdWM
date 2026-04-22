@@ -684,7 +684,8 @@ ENVEOF
 # This file can be sourced manually and is also read by exwm-vr-monado.service.
 
 # Run Monado in direct Wayland lease mode against the compositor socket.
-MONADO_SERVICE_BIN=/usr/local/bin/monado-service
+# Optional for hosts that still use a local Monado build:
+# MONADO_SERVICE_BIN=/usr/local/bin/monado-service
 XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1
 XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2
 WAYLAND_DISPLAY=wayland-0
@@ -709,12 +710,12 @@ ENVEOF
     echo "  Installed: ~/.config/exwm-vr/compositor.env"
     echo "  Installed: ~/.config/exwm-vr/monado.env"
     echo "  Legacy compatibility: ~/.config/monado/env"
-    echo "  Usage: source ~/.config/exwm-vr/monado.env && \"\$MONADO_SERVICE_BIN\""
+    echo "  Usage: systemctl --user start exwm-vr-monado.service"
     echo
 
     echo "=== Monado setup complete ==="
     echo "  Probe: monado-cli probe"
-    echo "  Service: source ~/.config/exwm-vr/monado.env && \"\$MONADO_SERVICE_BIN\""
+    echo "  Service: systemctl --user start exwm-vr-monado.service"
 }
 
 cmd_beyond_power_on() {

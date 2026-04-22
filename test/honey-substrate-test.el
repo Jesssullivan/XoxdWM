@@ -47,9 +47,23 @@
     (let ((script (buffer-string)))
       (should (string-match-p "\\.config/exwm-vr/compositor\\.env" script))
       (should (string-match-p "\\.config/exwm-vr/monado\\.env" script))
-      (should (string-match-p "MONADO_SERVICE_BIN=/usr/local/bin/monado-service" script))
+      (should (string-match-p "# MONADO_SERVICE_BIN=/usr/local/bin/monado-service" script))
+      (should (string-match-p "systemctl --user start exwm-vr-monado.service" script))
       (should (string-match-p "XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1" script))
       (should (string-match-p "EWWM_DRM_LEASE_CONNECTORS=DP-2" script)))))
+
+(ert-deftest honey-substrate/monado-launch-cleans-stale-ipc-and-prefers-packaged-runtime ()
+  "The launcher should clear dead IPC sockets and prefer the packaged runtime."
+  (with-temp-buffer
+    (insert-file-contents
+     (expand-file-name "packaging/scripts/exwm-vr-monado-launch"
+                       (expand-file-name ".." (file-name-directory load-file-name))))
+    (let ((script (buffer-string)))
+      (should (string-match-p "monado_comp_ipc" script))
+      (should (string-match-p "pgrep -x monado-service" script))
+      (should (string-match-p "rm -f \"\\${socket_path}\"" script))
+      (should (string-match-p "/usr/bin/monado-service" script))
+      (should (string-match-p "/usr/local/bin/monado-service" script)))))
 
 (ert-deftest honey-substrate/monado-companion-lane-keeps-rocky-deps-honest ()
   "The Monado companion RPM lane should not depend on unavailable Rocky libuvc packaging."

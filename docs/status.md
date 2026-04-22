@@ -11,16 +11,16 @@ Snapshot date: 2026-04-22
 - `honey` is not currently a stable deployed XoxdWM VR stack.
 - `honey` now has a proven `linux-xr` kernel default and a one-time verified PREEMPT_RT boot, but the VR userspace is still incomplete.
 - `honey` now has refreshed `exwm-vr-0.5.4-1.el10`, `exwm-vr-compositor-0.5.4-1.el10`, and `exwm-vr-elisp-0.5.4-1.el10` installed from branch-scoped RPMs.
-- `honey` has XR prereqs plus explicit runtime activation: `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `/usr/local/bin/monado-service`, `/usr/local/share/openxr/1/openxr_monado.json`, and `/etc/xdg/openxr/1/active_runtime.json`.
+- `honey` has XR prereqs plus explicit runtime activation: `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `monado-beyond-0.0.1-1.20260310git.el10`, `/usr/bin/monado-service`, `/usr/share/openxr/1/openxr_monado.json`, and `/etc/xdg/openxr/1/active_runtime.json`.
 - `honey` does not currently expose `openxr-info`, `xrgears`, or `xoxdwm`.
 - `honey` now has a bounded named-host XoxdWM compositor startup: `exwm-vr.target`, `exwm-vr-compositor.service`, and `exwm-vr-emacs.service` all reached `active`, `DP-2` came up at `5088x2544@75Hz`, `HDMI-A-2` came up at `1920x1080@60Hz`, IPC initialized, and Emacs reached `ewwm: initialized`; see [honey-substrate-proof-2026-04-22.md](honey-substrate-proof-2026-04-22.md).
 - `honey` now has a one-shot direct-mode client proof from the installed package surface too: after reinstalling `exwm-vr-compositor-0.5.4-1.el10` from packaging run `24776900393`, `/usr/bin/ewwm-compositor` initialized `wp_drm_lease_v1`, read `EWWM_DRM_LEASE_CONNECTORS=DP-2` from `~/.config/exwm-vr/compositor.env`, kept `DP-2` out of the desktop output map, and granted a real DRM lease to Monado.
-- `honey` now also has a repo-owned Monado service proof on two runtime surfaces: `/usr/lib/systemd/user/exwm-vr-monado.service` plus `~/.config/exwm-vr/monado.env` reached direct-mode proof first with the older local `/usr/local/bin/monado-service` lane, and later with a staged `monado-beyond` companion RPM tree from GitHub Actions run `24804821792` after staging `hidapi` into the same tree.
+- `honey` now also has a repo-owned Monado service proof on three runtime surfaces: `/usr/lib/systemd/user/exwm-vr-monado.service` plus `~/.config/exwm-vr/monado.env` reached direct-mode proof first with the older local `/usr/local/bin/monado-service` lane, then with a staged `monado-beyond` companion RPM tree from GitHub Actions run `24804821792`, and now with an installed `monado-beyond` host package from run `24807084915`.
 - `hello_xr -g Vulkan` on `honey` now reaches `xrCreateInstance`, `xrGetSystem`, `Bigscreen Beyond`, `READY`, and two eye swapchains at `3561x3561`.
 - The active blockers on `honey` are now productization and repeatability, not missing lease support:
-  - compositor-side `DP-2` designation and Monado direct-mode settings now both have supported host config surfaces, but `monado-beyond` is not yet installed as a real host package on `honey`
-  - stale `/run/user/1000/monado_comp_ipc` from the older local Monado lane currently needs explicit cleanup before the staged companion runtime can start cleanly
-  - the current local `hello_xr` build on `honey` still expects the literal `~/.cache/monado_comp_ipc` shim
+  - compositor-side `DP-2` designation and Monado direct-mode settings now both have supported host config surfaces, and `monado-beyond` is installed as a real host package on `honey`
+  - the package-default `exwm-vr-monado.service` now runs `/usr/bin/monado-service` without `MONADO_SERVICE_BIN`, but stale `monado_comp_ipc` cleanup should still be explicit in launcher and operator docs
+  - the current client-tool proof still uses a local `/usr/local/bin/hello_xr` build rather than a packaged Rocky operator tool
   - the proof has been captured once, not yet as a repeated operator lane
 - `yoga` now has `exwm-vr-0.5.4-1.el10`, `exwm-vr-compositor-0.5.4-1.el10`, and `exwm-vr-elisp-0.5.4-1.el10` installed.
 - `yoga` validated the earlier named-host package line: the compositor binary links cleanly, a bounded runtime succeeds with `seatd`, and Wayland/DRM/libinput startup is confirmed.
@@ -71,8 +71,8 @@ Snapshot date: 2026-04-22
 
 ## Immediate Priorities
 
-1. Install `monado-beyond` on `honey` with normal dependency resolution so the host no longer needs a staged Monado companion tree.
-2. Make stale `monado_comp_ipc` cleanup or prevention explicit in docs and automation for the `honey` operator lane.
-3. Fix or replace the current local `hello_xr` build on `honey` so the proof no longer depends on the literal `~/.cache/monado_comp_ipc` shim.
+1. Make stale `monado_comp_ipc` cleanup or prevention explicit in launcher behavior and `honey` operator docs.
+2. Preserve the new installed `monado-beyond` host lane on `honey` and rerun it enough times to call it repeatable instead of one-shot.
+3. Replace the current local `/usr/local/bin/hello_xr` proof tool on `honey` with a packaged or otherwise durable Rocky-facing client-tool path.
 4. Keep the Rocky base package lane green while leaving Monado, SELinux, and BCI as separate follow-on concerns.
 5. Preserve the now-proven `yoga` package/session lane as the 2D reference host while packaging continues to evolve.

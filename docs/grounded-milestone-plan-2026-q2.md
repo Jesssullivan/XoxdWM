@@ -135,8 +135,9 @@ Current state on `2026-04-22`:
 - `hello_xr -g Vulkan` now reaches Monado runtime selection, Bigscreen Beyond
   selection, session `READY`, and eye swapchain creation on `honey`
 - the remaining gap is no longer missing lease support; it is converting this
-  installed proof into a repeated operator lane without staged `monado-beyond`
-  extraction, stale-socket cleanup, or the current literal `hello_xr` IPC shim
+  installed proof into a repeated operator lane with explicit stale-socket
+  handling and a more durable client-tool path than the current local
+  `/usr/local/bin/hello_xr` build
 
 ### Milestone 3: `honey` First XoxdWM Smoke On True Substrate
 
@@ -168,9 +169,9 @@ Current state on `2026-04-22`:
 - a later staged `monado-beyond` companion RPM proof from run `24804821792`
   also reached active direct-mode Monado plus eye swapchain creation on
   `honey`
-- the remaining work is to make that same path work from the installed package
-  surface without staged extraction, stale-socket cleanup, or the current
-  literal `hello_xr` IPC shim
+- the remaining work is to make that same path repeatable from the installed
+  package surface with explicit stale-socket handling and a more durable
+  client-tool path than the current local `/usr/local/bin/hello_xr` build
 
 Primary code surfaces:
 

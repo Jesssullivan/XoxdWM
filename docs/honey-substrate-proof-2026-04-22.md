@@ -260,10 +260,10 @@ With that in place, the live host proof reached:
   - clean client disconnect
 
 That means the direct-mode proof no longer depends on Monado service drop-ins.
-The remaining host-specific piece is just the local Monado binary path carried
-through `MONADO_SERVICE_BIN=/usr/local/bin/monado-service`.
+At that point, the remaining host-specific piece was just the local Monado
+binary path carried through `MONADO_SERVICE_BIN=/usr/local/bin/monado-service`.
 
-## Current Blocker
+## Current Blocker At That Point
 
 The direct-mode substrate blocker is no longer "compositor missing drm-lease
 support." That gap is now closed by named-host evidence. The remaining blockers
@@ -294,8 +294,8 @@ much stronger line than the earlier fallback run:
   - clean client disconnect
 
 That is a real direct-mode session bootstrap on `honey` from the installed
-compositor package surface, even though it is not yet the final zero-override
-operator path.
+compositor package surface, even though at that point it was not yet the final
+zero-override operator path.
 
 ## Monado Companion RPM Follow-Up
 
@@ -372,15 +372,68 @@ tree, not from the older `/usr/local/bin/monado-service` binary.
 - the repo-owned `exwm-vr-monado.service` can also drive a staged Rocky
   `monado-beyond` runtime tree on `honey` without Monado service drop-ins
 
+## Installed Monado Companion Host Follow-Up
+
+A later follow-up on the same day carried the Monado companion lane onto the
+real installed host surface using the successful artifact from GitHub Actions
+run `24807084915`.
+
+The host changes were:
+
+- installed with normal dependency resolution:
+  - `monado-beyond-0.0.1-1.20260310git.el10.x86_64`
+  - `hidapi-0.15.0-2.el10_1.x86_64`
+- switched:
+  - `/etc/xdg/openxr/1/active_runtime.json -> /usr/share/openxr/1/openxr_monado.json`
+- removed the host override from:
+  - `~/.config/exwm-vr/monado.env`
+  - deleted line:
+    - `MONADO_SERVICE_BIN=/usr/local/bin/monado-service`
+
+The live host evidence for that installed-package follow-up was:
+
+- `exwm-vr-compositor.service`: `active`
+- `exwm-vr-monado.service`: `active`
+- running Monado binary:
+  - `/usr/bin/monado-service`
+- runtime sockets present:
+  - `/run/user/1000/wayland-0`
+  - `/run/user/1000/ewwm-ipc.sock`
+  - `/run/user/1000/monado_comp_ipc`
+
+With the compositor active first, `exwm-vr-monado.service` reached direct-mode
+startup again from the installed package lane:
+
+- Monado log:
+  - `Raised priority of thread 'Multi Client Module'`
+  - `BEGIN_SESSION`
+- client tool:
+  - `/usr/local/bin/hello_xr`
+- `hello_xr -g Vulkan` reached:
+  - `xrCreateInstance`
+  - `xrGetSystem`
+  - `Head: 'Bigscreen Beyond'`
+  - two eye swapchains at `3561x3561`
+
+This run did not require restoring the older literal IPC shim under
+`/home/jess/~/.cache/monado_comp_ipc`.
+
+That means the installed host lane is now stronger than the staged proof in
+three ways:
+
+- Monado is installed as a real Rocky package on `honey`
+- the packaged launcher defaults cleanly to `/usr/bin/monado-service`
+- the current installed proof no longer needs `MONADO_SERVICE_BIN` or the
+  literal IPC shim
+
 ## What This Does Not Yet Prove
 
 - a repeated installed operator lane on `honey`
 - a successful first-frame or long-running XR session path
-- that `monado-beyond` is installed as a real host package on `honey`
 - that stale Monado IPC sockets from the older local lane are handled
-  automatically
-- that the current local `hello_xr` build works without the temporary literal
-  `~/.cache/monado_comp_ipc` shim
+  automatically in every operator path
+- that the proof uses a packaged Rocky client-tool lane instead of the current
+  local `/usr/local/bin/hello_xr` build
 - that XoxdWM itself is ready to be called a stable trusted XR bridge on `honey`
 
 ## Next Gate
@@ -390,13 +443,9 @@ tree, not from the older `/usr/local/bin/monado-service` binary.
   supported host configuration surface for `honey`
 - keep the Monado-side `~/.config/exwm-vr/monado.env` path as the supported
   host configuration surface for `honey`
-- install `monado-beyond` on `honey` with normal package-manager dependency
-  resolution instead of staged extraction
-- remove the remaining `MONADO_SERVICE_BIN` host override once the installed
-  `monado-beyond` service binary is present on-host
 - make stale `/run/user/1000/monado_comp_ipc` cleanup or prevention explicit in
   operator automation
-- either fix the current local `hello_xr` build on `honey` or document the
-  literal IPC shim as an intentional temporary bridge
+- either package the current `hello_xr` proof tool for Rocky or replace it
+  with another durable client-tool lane
 - keep the older fallback `VK_ERROR_SURFACE_LOST_KHR` crash categorized as a
   separate Monado window-path problem, not the whole bridge story

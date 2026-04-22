@@ -239,9 +239,11 @@
     (should (string-match-p "installed package surface" doc))
     (should (string-match-p "XDG_RUNTIME_DIR=/run/user/1000" doc))
     (should (string-match-p "24804821792" doc))
+    (should (string-match-p "24807084915" doc))
     (should (string-match-p "monado-beyond" doc))
     (should (string-match-p "libhidapi-libusb\\.so\\.0" doc))
-    (should (string-match-p "~/.cache/monado_comp_ipc" doc))))
+    (should (string-match-p "/usr/bin/monado-service" doc))
+    (should (string-match-p "/usr/share/openxr/1/openxr_monado\\.json" doc))))
 
 (provide 'truth-surface-test)
 ;;; truth-surface-test.el ends here

@@ -63,7 +63,7 @@ Current reality:
 - `honey` has a proven generic `linux-xr` default and a one-time verified RT lane.
 - `honey` now has branch-scoped `exwm-vr-0.5.4-1.el10` packages installed and a bounded named-host XoxdWM compositor startup.
 - `honey` now has an explicit active OpenXR runtime file plus a host-local Monado service override for the Beyond / `DP-2` path.
-- `honey` now has a one-shot direct-mode proof from the installed compositor package surface, plus a staged `monado-beyond` companion RPM proof from run `24804821792` that reached active Monado plus eye swapchain creation. The remaining gap is turning that into a repeatable installed operator lane without staged extraction, stale-socket cleanup, or the current literal IPC shim used by the local `hello_xr` build.
+- `honey` now has a one-shot direct-mode proof from the installed compositor package surface, a staged `monado-beyond` companion RPM proof from run `24804821792`, and an installed-host `monado-beyond` follow-up from run `24807084915` that reaches active `/usr/bin/monado-service` plus eye swapchain creation. The remaining gap is turning that into a repeatable operator lane with explicit stale-socket handling and a more durable client-tool path than the current local `/usr/local/bin/hello_xr` build.
 - the Honey-backed workflows are now capability-gated, but the canonical repo is still not claiming an always-on hardware runner surface by default
 
 Acceptance:
