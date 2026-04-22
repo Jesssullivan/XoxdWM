@@ -12,9 +12,9 @@ As of 2026-04-22:
 | --- | --- | --- |
 | Release artifacts | Smoke | `v0.5.1` publishes RPM and DEB artifacts. The Rocky base compositor RPM is public and host-installable, and branch-scoped `0.5.4-1.el10` RPMs from Actions run `24768509226` are now installed and revalidated on `yoga`. |
 | Headless compositor path | Smoke | Build and test surfaces exist, but not re-validated in this pass. |
-| Rocky 10 package install | Smoke | `yoga` now has installed `0.5.4-1.el10` `exwm-vr-*` RPMs from the current branch, and the real installed units pass a named-host bounded proof. A polished local login/session path is still follow-on work. |
+| Rocky 10 package install | Smoke | `yoga` now has installed `0.5.4-1.el10` `exwm-vr-*` RPMs from the current branch, and the real installed units pass a named-host bounded proof. The remaining local-login gap is structural: the host has the session entry, but no display-manager package or `display-manager.service`. |
 | `honey` VR session | Design | `honey` has partial Monado/OpenXR prereqs, but no deployed XoxdWM stack or working OpenXR client-tool path. |
-| `yoga` desktop/dev target | Smoke | `yoga` now has an installed `0.5.4` session proof with explicit `drm` backend and dedicated Emacs bootstrap. The remaining gap is the repeatable local login/session path rather than package integrity. |
+| `yoga` desktop/dev target | Smoke | `yoga` now has an installed `0.5.4` session proof with explicit `drm` backend and dedicated Emacs bootstrap. The remaining gap is choosing and installing the real display-manager lane, not package integrity. |
 | Eye tracking / hand tracking / BCI | Design | Documented and partially implemented, but not currently claimed as proven on named lab hosts. |
 
 ## Start Here
@@ -61,7 +61,7 @@ Current public install artifacts:
 - `exwm-vr-compositor-*.x86_64.rpm`
 - `ewwm-compositor_*_amd64.deb`
 
-These artifacts currently package the compositor path. They do not, by themselves, establish a proven full VR deployment on `honey`, and they do not yet mean `yoga` has a polished local login/session experience. SELinux hardening, Monado integration, and the BrainFlow BCI virtualenv remain separate follow-on package or host-integration paths instead of blocking the base Rocky compositor release.
+These artifacts currently package the compositor path. They do not, by themselves, establish a proven full VR deployment on `honey`, and they do not yet mean `yoga` has a complete local login/session lane. Right now `yoga` has the installed session entry and user units, but no display-manager package or `display-manager.service`. SELinux hardening, Monado integration, and the BrainFlow BCI virtualenv remain separate follow-on package or host-integration paths instead of blocking the base Rocky compositor release.
 
 ## Near-Term Goal
 

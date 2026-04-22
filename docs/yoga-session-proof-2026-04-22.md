@@ -117,6 +117,10 @@ This run used the real installed `exwm-vr-*` units from
 ## What This Does Not Yet Prove
 
 - a display-manager-driven local login flow is still not claimed as complete
+- `yoga` does not currently have a display-manager package or
+  `display-manager.service`; the package installs `/usr/share/wayland-sessions/exwm-vr.desktop`
+  and the session wrapper, but the host still lacks the login manager needed to
+  present and launch that entry locally
 - the current installed `0.5.4-1.el10` RPM set on `yoga` does not yet carry the
   follow-up stop-path fix described below
 
@@ -150,5 +154,7 @@ build and upgrade to carry that fix without a user override.
 ## Next Gate
 
 - keep the real installed `0.5.4-1.el10` host as the authoritative `yoga` lane
+- add or declare the real display-manager lane on `yoga` so the installed
+  `exwm-vr.desktop` entry can actually be selected locally
 - move from ssh-driven bounded proof to a documented local login/session path
 - package and install the validated `SuccessExitStatus=15` fix on `yoga`

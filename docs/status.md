@@ -17,7 +17,7 @@ Snapshot date: 2026-04-22
 - `yoga` validated the earlier named-host package line: the compositor binary links cleanly, a bounded runtime succeeds with `seatd`, and Wayland/DRM/libinput startup is confirmed.
 - The branch-scoped `0.5.4-1.el10` session payload from GitHub Actions run `24768509226` now has both a staged proof and a real installed-package proof on `yoga`; the installed units reached `active` / `active` / `active`, `ewwm-compositor v0.5.4 starting`, `backend: drm`, `ewwm-ipc: connected`, and `ewwm: initialized` without the old ambient dotfile contamination.
 - The exact evidence and boundary for that staged proof live in [yoga-session-proof-2026-04-22.md](yoga-session-proof-2026-04-22.md).
-- `yoga` still does not have a polished local login/session path. The originally observed `exwm-vr-emacs.service` stop-path failure is now understood, and the in-tree `SuccessExitStatus=15` fix has been validated on-host via a temporary user override; the next packaged RPM needs to carry that fix.
+- `yoga` still does not have a polished local login/session path. The host currently has the installed `exwm-vr.desktop` session entry and user-unit surface, but no display-manager package or `display-manager.service`, so the missing local-login lane is structurally incomplete rather than just untested. The originally observed `exwm-vr-emacs.service` stop-path failure is now understood, and the in-tree `SuccessExitStatus=15` fix has been validated on-host via a temporary user override; the next packaged RPM needs to carry that fix.
 - `neo` is useful as an orchestration and documentation machine, but it is not a product target.
   - XoxdWM is not expected to run as a macOS desktop or VR environment.
   - this repo does not vendor the external Bazel or remote-build definitions for the Rocky build authority
@@ -60,7 +60,7 @@ Snapshot date: 2026-04-22
 
 ## Immediate Priorities
 
-1. Finish the local login/session path on `yoga` now that the real installed `0.5.4-1.el10` units are proved and the stop-path fix is validated.
+1. Finish the local login/session path on `yoga` by choosing and installing the actual display-manager lane, now that the real installed `0.5.4-1.el10` units are proved and the stop-path fix is validated.
 2. Put a real XoxdWM/Monado/OpenXR client-tool install path on `honey`, not just a bare Monado runtime manifest.
 3. Produce the first named-host compositor startup on `honey`.
 4. Keep the Rocky base package lane green while leaving Monado, SELinux, and BCI as separate follow-on concerns.

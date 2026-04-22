@@ -75,6 +75,9 @@ Current state on `2026-04-22`:
 - the stop-path issue is understood and validated with an in-tree unit fix
 - the remaining gap is local login/session closure plus packaging that stop-path
   fix into the next installed host update, not package installation authority
+- `yoga` does not currently have a display-manager package or
+  `display-manager.service`, so this milestone still needs an explicit choice of
+  login-manager lane rather than assuming a greeter already exists
 
 ### Milestone 2: `honey` XR Substrate Proof
 
