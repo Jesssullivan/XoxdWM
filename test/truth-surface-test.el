@@ -165,5 +165,13 @@
     (should (string-match-p "exwm-vr\\.target" guide))
     (should (string-match-p "compatibility aliases" guide))))
 
+(ert-deftest truth-surface/packaging-workflow-copies-rocky-session-bootstrap ()
+  "The RPM packaging workflow should include the dedicated session bootstrap."
+  (let ((workflow (truth-surface-test--read-file ".github/workflows/packaging.yml")))
+    (should (string-match-p "packaging/emacs/exwm-vr-session-init\\.el" workflow))
+    (should (file-exists-p
+             (expand-file-name "packaging/emacs/exwm-vr-session-init.el"
+                               truth-surface-test--root)))))
+
 (provide 'truth-surface-test)
 ;;; truth-surface-test.el ends here
