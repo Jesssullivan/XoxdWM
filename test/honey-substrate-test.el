@@ -54,6 +54,8 @@
       (should (string-match-p (regexp-quote "XRT_BUILD_DRIVER_RIFT_SENSOR=OFF") spec))
       (should-not (string-match-p (regexp-quote "%{_libdir}/pkgconfig/monado*.pc") spec))
       (should-not (string-match-p (regexp-quote "%{_libdir}/cmake/monado*/") spec))
+      (should (string-match-p (regexp-quote "%{_bindir}/monado-ctl") spec))
+      (should (string-match-p (regexp-quote "%{_includedir}/monado/monado.h") spec))
       (should (string-match-p (regexp-quote "%{_datadir}/steamvr-monado/") spec))
       (should (string-match-p (regexp-quote "* Tue Mar 10 2026 EXWM-VR") spec))))
   (with-temp-buffer
