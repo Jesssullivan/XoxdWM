@@ -1,7 +1,9 @@
 # `honey` Substrate Proof - 2026-04-22
 
 This note records the first bounded named-host `honey` proof after the repo
-truth surface shifted from `yoga` closure back to the XR substrate.
+truth surface shifted from `yoga` closure back to the XR substrate, and the
+follow-up direct-mode proof that turned "missing lease support" into a solved
+substrate gate.
 
 Read this together with [status.md](status.md),
 [support-matrix.md](support-matrix.md), and
@@ -13,7 +15,9 @@ Read this together with [status.md](status.md),
 - Date: `2026-04-22`
 - Kernel: `6.19.5-7.xr.el10`
 - Branch under test: `codex/reality-authority-surface`
-- RPM payload source: GitHub Actions packaging run `24771056471`
+- Installed package baseline: branch-scoped `exwm-vr-0.5.4-1.el10`
+- Direct-mode proof artifact: GitHub Actions packaging run `24776900393`
+- Direct-mode proof commit: `3cae58e`
 
 ## Host Prerequisites and Reset Context
 
@@ -107,61 +111,78 @@ After that correction, `hello_xr` reached:
 - Vulkan instance creation
 - Vulkan device creation
 
-This partial proof is important, but it is still the fallback window path, not
-Monado's true Wayland direct mode.
+This partial proof was important because it moved the host from "runtime exists"
+to "runtime plus client tool sees the headset," but it was still the fallback
+window path, not Monado's true Wayland direct mode.
 
 ## Direct-Mode Follow-Up
 
-A follow-up probe forced Monado's direct Wayland target instead of the fallback
-window path:
+A later follow-up on the same day used the fresh packaging artifact from run
+`24776900393` for commit `3cae58e` to stage only a newer compositor binary on
+`honey` without disturbing the installed package baseline:
 
-- `XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1`
-- `XRT_COMPOSITOR_FORCE_WAYLAND` unset
-- `XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2`
+- staged binary:
+  - `/home/jess/xoxdwm-stage-3cae58e/root/usr/bin/ewwm-compositor`
+- staged compositor user-unit override:
+  - `~/.config/systemd/user/exwm-vr-compositor.service.d/10-stage-binary.conf`
+- direct-mode Monado user-unit override:
+  - `~/.config/systemd/user/monado.service.d/30-direct-lease-probe.conf`
+- explicit direct-mode environment:
+  - `XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1`
+  - `XRT_COMPOSITOR_FORCE_WAYLAND` unset
+  - `WAYLAND_DISPLAY=wayland-0`
+  - `EWWM_DRM_LEASE_CONNECTORS=DP-2`
 
-That changed the failure mode in a useful way:
+With those overrides in place, `systemctl --user start exwm-vr.target` and
+`systemctl --user start monado.service` produced the markers that had been
+missing earlier:
 
-- the earlier `VK_ERROR_SURFACE_LOST_KHR` path did not appear first
-- Monado instead logged:
-  - `ERROR [comp_window_direct_wayland_init] Compositor is missing drm-lease support`
-  - `ERROR [compositor_init_window_pre_vulkan] Failed to init Wayland Direct-Mode backend!`
-- `hello_xr` then failed earlier with `XR_ERROR_INSTANCE_LOST` because Monado
-  could not create a direct-mode system compositor
+- XoxdWM compositor:
+  - `initialized wp_drm_lease_v1 global`
+  - `using explicit lease connector override connector=DP-2`
+  - `skipping desktop output mapping for lease connector name=DP-2`
+  - `granting DRM lease request`
+  - `new DRM lease became active`
+- Monado:
+  - `Available DRM lease device: /dev/dri/card0`
+  - connector `DP-2`
+  - `Lease granted`
+  - direct mode selected at `5088x2544@75`
 
-This is the first named-host evidence that the current `honey` smoke path is
-not yet the real DRM-lease bridge. The current XoxdWM compositor startup is
-still treating `DP-2` as a normal output, not handing it off to Monado via
-Wayland direct mode.
+This was the first named-host proof that the running XoxdWM compositor on
+`honey` could actually hand off `DP-2` to Monado via Wayland direct mode.
 
 ## Current Blocker
 
-The VR client path still does not complete, but there are now two distinct
-blockers rather than one generic "Monado crash":
+The direct-mode substrate blocker is no longer "compositor missing drm-lease
+support." That gap is now closed by named-host evidence. The remaining blockers
+are productization and repeatability:
 
-1. In the current fallback window path, `hello_xr` fails during
-   `xrCreateSession`, and the running `monado.service` crashes:
+1. The direct-mode proof used a staged compositor binary rather than the
+   installed package path.
+2. The local `hello_xr` build still used the literal IPC path string
+   `~/.cache/monado_comp_ipc`, so the proof needed a compatibility shim:
+   - `/home/jess/~/.cache/monado_comp_ipc -> /run/user/1000/monado_comp_ipc`
+3. The run was captured once and then intentionally torn down; it is not yet a
+   repeated operator lane.
 
-- Monado log:
-  - `vkGetPhysicalDeviceSurfaceFormatsKHR failed: VK_ERROR_SURFACE_LOST_KHR`
-  - `vk_surface_info_fill_in: VK_ERROR_SURFACE_LOST_KHR`
-  - `comp_target_acquire: VK_ERROR_INITIALIZATION_FAILED`
-- `hello_xr`:
-  - `XR_ERROR_RUNTIME_FAILURE in xrCreateSession`
-- `systemd`:
-  - `monado.service: Main process exited, code=dumped, status=11/SEGV`
+After the literal IPC shim was in place, the OpenXR client proof crossed a much
+stronger line than the earlier fallback run:
 
-2. In the true Wayland direct path, Monado fails earlier because the running
-   compositor does not expose DRM lease support:
+- `hello_xr -g Vulkan` reached:
+  - `xrCreateInstance`
+  - `xrGetSystem`
+  - `Head: 'Bigscreen Beyond'`
+  - session `READY`
+  - two eye swapchains at `3561x3561`
+- Monado logged:
+  - `Client 1 connected`
+  - application `HelloXR`
+  - swapchain creation for both eye color and depth chains
+  - clean client disconnect
 
-- Monado log:
-  - `ERROR [comp_window_direct_wayland_init] Compositor is missing drm-lease support`
-  - `ERROR [compositor_init_window_pre_vulkan] Failed to init Wayland Direct-Mode backend!`
-- `hello_xr`:
-  - `XR_ERROR_INSTANCE_LOST in xrGetSystem`
-
-The coredump stack on the fallback pass lands in Monado's compositor path, not
-in the XoxdWM compositor. The direct-mode follow-up shows the deeper substrate
-gap more clearly: the true lease-backed path is not available yet.
+That is a real direct-mode session bootstrap on `honey`, even though it is not
+yet the final installed operator path.
 
 ## What This Proves
 
@@ -169,24 +190,26 @@ gap more clearly: the true lease-backed path is not available yet.
 - `honey` now has a bounded named-host XoxdWM compositor startup
 - `honey` now has an explicit active OpenXR runtime selection on-host
 - `monado-cli probe` can now identify the Bigscreen Beyond on `honey`
-- `hello_xr` can now reach real OpenXR runtime and HMD selection on `honey`
-- the current `honey` smoke path is still a fallback Wayland-window path, not
-  a true Wayland-direct DRM-lease handoff
+- `ewwm-compositor` now initializes `wp_drm_lease_v1`, reserves `DP-2`, and
+  grants a real DRM lease to Monado on `honey`
+- `hello_xr -g Vulkan` can now reach `READY` and create eye swapchains on
+  `honey` in the true Wayland direct path
 
 ## What This Does Not Yet Prove
 
-- a working VR session on `honey`
-- a successful `hello_xr` frame submission path
-- a stable Monado compositor path on the current AMD / kernel stack
-- that `ewwm-compositor` exposes usable DRM lease support to Monado on `honey`
-- that XoxdWM itself is the final trusted XR bridge on `honey`
+- a repeated installed operator lane on `honey`
+- a successful first-frame or long-running XR session path
+- that the current proof works without staged user-unit overrides
+- that the local `hello_xr` build no longer needs the literal IPC shim
+- that XoxdWM itself is ready to be called a stable trusted XR bridge on `honey`
 
 ## Next Gate
 
 - keep the `exwm-vr` package surface installed on `honey`
-- treat compositor-side DRM lease support plus HMD reservation as the next
-  substrate gate
-- keep the fallback `VK_ERROR_SURFACE_LOST_KHR` crash categorized as a separate
-  Monado window-path problem, not the whole bridge story
-- decide whether the next direct-mode proof should come from XoxdWM itself or
-  from an explicit Sway/wlroots bridge on `honey`
+- carry the lease-capable compositor path into the installed Rocky lane on
+  `honey`
+- remove the literal `~/.cache/monado_comp_ipc` client-path shim from the
+  local OpenXR client proof
+- repeat the direct-mode proof without staged overrides
+- keep the older fallback `VK_ERROR_SURFACE_LOST_KHR` crash categorized as a
+  separate Monado window-path problem, not the whole bridge story

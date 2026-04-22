@@ -211,15 +211,16 @@
     (should (string-match-p "exwm-vr\\.target" doc))
     (should (string-match-p "failed" doc))))
 
-(ert-deftest truth-surface/honey-run-note-keeps-fallback-vs-direct-boundary-explicit ()
-  "The `honey` note should distinguish fallback Wayland from true direct mode."
+(ert-deftest truth-surface/honey-run-note-keeps-proof-vs-product-boundary-explicit ()
+  "The `honey` note should record the direct proof without overstating stability."
   (let ((doc (truth-surface-test--read-file
               "docs/honey-substrate-proof-2026-04-22.md")))
     (should (string-match-p "XRT_COMPOSITOR_FORCE_WAYLAND=1" doc))
     (should (string-match-p "Wayland window fallback" doc))
     (should (string-match-p "XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1" doc))
-    (should (string-match-p "missing drm-lease support" doc))
-    (should (string-match-p "VK_ERROR_SURFACE_LOST_KHR" doc))))
+    (should (string-match-p "granting DRM lease request" doc))
+    (should (string-match-p "READY" doc))
+    (should (string-match-p "literal IPC shim" doc))))
 
 (provide 'truth-surface-test)
 ;;; truth-surface-test.el ends here

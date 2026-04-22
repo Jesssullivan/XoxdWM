@@ -128,13 +128,14 @@ Current state on `2026-04-22`:
 - the host evidence for this milestone is recorded in
   [honey-substrate-proof-2026-04-22.md](honey-substrate-proof-2026-04-22.md)
 - `honey` now has an explicit active OpenXR runtime file on-host
-- `hello_xr` now reaches Monado runtime selection, Bigscreen Beyond selection,
-  and Vulkan device creation on `honey` in the current fallback Wayland-window
-  path
-- a follow-up direct Wayland probe now makes the deeper blocker explicit:
-  `ewwm-compositor` does not yet expose DRM lease support to Monado
-- the remaining failure in the fallback path is still the Monado
-  `VK_ERROR_SURFACE_LOST_KHR` plus coredump during `xrCreateSession`
+- `honey` now has a one-shot direct-mode proof where a staged `ewwm-compositor`
+  binary initializes `wp_drm_lease_v1`, reserves `DP-2`, and grants a real DRM
+  lease to Monado
+- `hello_xr -g Vulkan` now reaches Monado runtime selection, Bigscreen Beyond
+  selection, session `READY`, and eye swapchain creation on `honey`
+- the remaining gap is no longer missing lease support; it is converting this
+  staged proof into a repeated installed operator lane without the literal IPC
+  shim needed by the current local `hello_xr` build
 
 ### Milestone 3: `honey` First XoxdWM Smoke On True Substrate
 
@@ -154,6 +155,16 @@ Acceptance:
   - packaging/deployment blocker
   - compositor/lease/runtime integration blocker
 - support docs update only after evidence is captured
+
+Current state on `2026-04-22`:
+
+- this milestone now has a one-shot named-host smoke proof
+- the proof used a staged compositor binary from packaging run `24776900393`
+  plus user-unit overrides on `honey`
+- Monado received a real `DP-2` DRM lease and `hello_xr -g Vulkan` reached
+  `READY` plus eye swapchain creation
+- the remaining work is to make that same path work from the installed package
+  surface without the literal IPC shim
 
 Primary code surfaces:
 

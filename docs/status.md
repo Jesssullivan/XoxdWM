@@ -14,8 +14,12 @@ Snapshot date: 2026-04-22
 - `honey` has XR prereqs plus explicit runtime activation: `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `/usr/local/bin/monado-service`, `/usr/local/share/openxr/1/openxr_monado.json`, and `/etc/xdg/openxr/1/active_runtime.json`.
 - `honey` does not currently expose `openxr-info`, `xrgears`, or `xoxdwm`.
 - `honey` now has a bounded named-host XoxdWM compositor startup: `exwm-vr.target`, `exwm-vr-compositor.service`, and `exwm-vr-emacs.service` all reached `active`, `DP-2` came up at `5088x2544@75Hz`, `HDMI-A-2` came up at `1920x1080@60Hz`, IPC initialized, and Emacs reached `ewwm: initialized`; see [honey-substrate-proof-2026-04-22.md](honey-substrate-proof-2026-04-22.md).
-- `honey` now has a partial client-tool proof too: with `XDG_RUNTIME_DIR=/run/user/1000`, `hello_xr` reaches `xrCreateInstance`, `xrGetSystem`, Monado runtime selection, Bigscreen Beyond selection, and Vulkan device creation in the current forced Wayland-window fallback path.
-- The active blocker on `honey` is now more precise than "Monado crashes": the fallback Wayland-window path still dies at `xrCreateSession` with `VK_ERROR_SURFACE_LOST_KHR`, while a direct Wayland probe with `XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1` fails earlier because `ewwm-compositor` does not expose DRM lease support to Monado.
+- `honey` now has a one-shot direct-mode client proof too: with a staged `ewwm-compositor` binary from packaging run `24776900393`, `exwm-vr.target` initialized `wp_drm_lease_v1`, reserved `DP-2` out of the desktop output map, and granted a real DRM lease to Monado.
+- `hello_xr -g Vulkan` on `honey` now reaches `xrCreateInstance`, `xrGetSystem`, `Bigscreen Beyond`, `READY`, and two eye swapchains at `3561x3561`.
+- The active blockers on `honey` are now productization and repeatability, not missing lease support:
+  - the current proof uses a staged user-unit override for the compositor rather than the installed Rocky package path
+  - the local `hello_xr` build still needed a literal `~/.cache/monado_comp_ipc` shim to align with the running Monado IPC socket
+  - the proof has been captured once, not yet as a repeated operator lane
 - `yoga` now has `exwm-vr-0.5.4-1.el10`, `exwm-vr-compositor-0.5.4-1.el10`, and `exwm-vr-elisp-0.5.4-1.el10` installed.
 - `yoga` validated the earlier named-host package line: the compositor binary links cleanly, a bounded runtime succeeds with `seatd`, and Wayland/DRM/libinput startup is confirmed.
 - The branch-scoped `0.5.4-1.el10` session payload from GitHub Actions run `24768509226` now has both a staged proof and a real installed-package proof on `yoga`; the installed units reached `active` / `active` / `active`, `ewwm-compositor v0.5.4 starting`, `backend: drm`, `ewwm-ipc: connected`, and `ewwm: initialized` without the old ambient dotfile contamination.
@@ -51,22 +55,22 @@ Snapshot date: 2026-04-22
 - carrying the userspace side of Rocky 10 / Wayland / VR integration work
 - serving as the research and implementation repo for the `honey` and `yoga` MVP paths now that both hosts have validated kernel lanes
 - carrying a real public Rocky compositor package that has been validated on `yoga`
-- carrying a named-host `honey` compositor proof and a concrete Monado session-creation crash to debug
+- carrying a named-host `honey` direct lease plus OpenXR session proof and the remaining productization gaps to close
 
 ## What This Repo Is Not Claiming Right Now
 
 - daily-driver VR on `honey`
 - a complete turnkey Rocky 10 VR deployment
 - a polished, repeatedly exercised local login/session lane on `yoga`
-- a working named-host VR session on `honey`
+- a repeatable installed named-host VR session on `honey`
 - proven eye tracking, hand tracking, or BCI support on current named lab hosts
 - macOS as a real runtime target for XoxdWM
 - Darwin as the authoritative build or validation surface
 
 ## Immediate Priorities
 
-1. Decide and implement the real `honey` bridge path: either expose compositor-side DRM lease support plus correct HMD reservation in XoxdWM, or move the lease stage back to an explicit Sway/wlroots bridge.
-2. Treat the current `XRT_COMPOSITOR_FORCE_WAYLAND=1` path as a fallback smoke surface only, not as proof of the true HMD direct-mode topology.
-3. Revisit the remaining Monado `VK_ERROR_SURFACE_LOST_KHR` crash only after the lease/direct-mode story is explicit.
+1. Carry the lease-capable compositor path from staged proof into the installed Rocky lane on `honey` so the host no longer depends on a user-unit override.
+2. Fix the local `hello_xr` / Monado IPC path mismatch so the client-tool proof no longer needs a literal `~/.cache/monado_comp_ipc` shim.
+3. Re-run the `honey` direct-mode proof from the installed package surface and record whether it remains stable across repeated launches.
 4. Keep the Rocky base package lane green while leaving Monado, SELinux, and BCI as separate follow-on concerns.
 5. Preserve the now-proven `yoga` package/session lane as the 2D reference host while packaging continues to evolve.

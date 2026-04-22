@@ -13,8 +13,8 @@ As of 2026-04-22:
 | Release artifacts | Smoke | `v0.5.1` publishes RPM and DEB artifacts. The Rocky base compositor RPM is public and host-installable, and branch-scoped `0.5.4-1.el10` RPMs from Actions run `24768509226` are now installed and revalidated on `yoga`. |
 | Headless compositor path | Smoke | Build and test surfaces exist, but not re-validated in this pass. |
 | Rocky 10 package install | Smoke | `yoga` now has refreshed installed `0.5.4-1.el10` `exwm-vr-*` RPMs from the current branch, the real installed units pass a named-host bounded proof, and a controlled SDDM autologin run reached a real `EXWM-VR` Wayland user session on `seat0`. The packaged `SuccessExitStatus=15` stop-path fix is now on-host; the remaining follow-on is repeatability and operator polish, not package repair. |
-| `honey` compositor/substrate path | Smoke | `honey` now has installed branch-scoped `exwm-vr-0.5.4-1.el10` packages and a bounded named-host `exwm-vr.target` startup with `DP-2` plus `HDMI-A-2` configured. |
-| `honey` VR session | Design | Monado can now identify the Bigscreen Beyond and `hello_xr` reaches OpenXR runtime and HMD selection in the current forced Wayland-window fallback. The true Wayland-direct probe currently fails because `ewwm-compositor` does not expose DRM lease support to Monado, and the fallback path still crashes at `xrCreateSession` with `VK_ERROR_SURFACE_LOST_KHR`; see [Honey Substrate Proof](docs/honey-substrate-proof-2026-04-22.md). |
+| `honey` compositor/substrate path | Smoke | `honey` now has installed branch-scoped `exwm-vr-0.5.4-1.el10` packages, a bounded named-host `exwm-vr.target` startup, and a one-shot staged direct-mode lease proof from packaging run `24776900393` for commit `3cae58e`. |
+| `honey` VR session | Smoke | On `2026-04-22`, a staged `ewwm-compositor` binary on `honey` initialized `wp_drm_lease_v1`, granted a real `DP-2` DRM lease to Monado, and `hello_xr -g Vulkan` reached `READY` plus eye swapchain creation. This is still a manually staged and shimmed proof, not yet a repeatable installed operator lane; see [Honey Substrate Proof](docs/honey-substrate-proof-2026-04-22.md). |
 | `yoga` desktop/dev target | Smoke | `yoga` now has an installed `0.5.4` session proof with explicit `drm` backend and dedicated Emacs bootstrap, plus a one-time SDDM greeter-path proof via `sddm-autologin` on `seat0`. The remaining work is repeatability and session polish, not basic launch viability or packaged stop-path repair. |
 | Eye tracking / hand tracking / BCI | Design | Documented and partially implemented, but not currently claimed as proven on named lab hosts. |
 
@@ -88,6 +88,6 @@ The next 12 weeks are aimed at one honest, ordered MVP:
 
 - `yoga`: reproducible Rocky 10 desktop/dev install with a real local session path
 - `honey` substrate: stable XR bridge path with kernel, connector, runtime, and client-tool truth
-- `honey` smoke: first XoxdWM launch on the true substrate
+- `honey` smoke: convert the one-shot direct-mode proof into a repeatable installed lane
 
 Everything else remains secondary until those three named outcomes are green.
