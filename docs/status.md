@@ -17,7 +17,7 @@ Snapshot date: 2026-04-22
 - `yoga` validated the earlier named-host package line: the compositor binary links cleanly, a bounded runtime succeeds with `seatd`, and Wayland/DRM/libinput startup is confirmed.
 - The branch-scoped `0.5.4-1.el10` session payload from GitHub Actions run `24768509226` now has both a staged proof and a real installed-package proof on `yoga`; the installed units reached `active` / `active` / `active`, `ewwm-compositor v0.5.4 starting`, `backend: drm`, `ewwm-ipc: connected`, and `ewwm: initialized` without the old ambient dotfile contamination.
 - The exact evidence and boundary for that staged proof live in [yoga-session-proof-2026-04-22.md](yoga-session-proof-2026-04-22.md).
-- `yoga` still does not have a fully proved local login/session path. The host now has the installed `exwm-vr.desktop` session entry, user-unit surface, and an active SDDM greeter on `seat0`, with `jsullivan2` plus `EXWM-VR` preselected in `state.conf`, so the remaining gap is a physical local-login proof rather than host setup. The originally observed `exwm-vr-emacs.service` stop-path failure is now understood, and the in-tree `SuccessExitStatus=15` fix is active on-host via `/etc/systemd/user/exwm-vr-emacs.service.d/10-success-exit.conf`; the next packaged RPM needs to carry that fix.
+- `yoga` now has a one-time greeter-path local session proof. A controlled SDDM autologin run created a real `wayland` user session on `seat0` with `Service=sddm-autologin`, launched `/usr/share/exwm-vr/exwm-vr-session`, and kept `exwm-vr.target`, `exwm-vr-compositor.service`, and `exwm-vr-emacs.service` active with the same bounded proof markers seen over SSH. The in-tree `SuccessExitStatus=15` fix is active on-host via `/etc/systemd/user/exwm-vr-emacs.service.d/10-success-exit.conf`; the next packaged RPM needs to carry that fix.
 - `neo` is useful as an orchestration and documentation machine, but it is not a product target.
   - XoxdWM is not expected to run as a macOS desktop or VR environment.
   - this repo does not vendor the external Bazel or remote-build definitions for the Rocky build authority
@@ -60,8 +60,8 @@ Snapshot date: 2026-04-22
 
 ## Immediate Priorities
 
-1. Finish the local login/session path on `yoga` by selecting `EXWM-VR` through the active SDDM greeter and recording the first physical local-login proof, now that the real installed `0.5.4-1.el10` units are proved and the stop-path fix is validated.
+1. Carry the validated `SuccessExitStatus=15` fix into the next packaged RPM refresh on `yoga` so the host no longer needs the `/etc/systemd/user` drop-in.
 2. Put a real XoxdWM/Monado/OpenXR client-tool install path on `honey`, not just a bare Monado runtime manifest.
 3. Produce the first named-host compositor startup on `honey`.
 4. Keep the Rocky base package lane green while leaving Monado, SELinux, and BCI as separate follow-on concerns.
-5. Make the repo explicit that `neo` is orchestration-only and Rocky / Linux remote lanes are the authoritative build and runtime surface.
+5. Record a manual SDDM session selection on `yoga` if we want operator-polish evidence beyond the successful `sddm-autologin` proof.

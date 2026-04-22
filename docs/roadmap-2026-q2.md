@@ -39,8 +39,9 @@ Current reality:
 
 - `yoga` has a validated one-time `kernel-xr` boot path.
 - `yoga` now has the public Rocky packages installed and a bounded compositor startup path with `seatd`.
-- `yoga` now has an active SDDM greeter lane, but the first physical
-  `EXWM-VR` session selection and local-login proof are still pending.
+- `yoga` now has a one-time SDDM greeter-path proof via `sddm-autologin` on
+  `seat0`; the remaining follow-on is packaging the stop-path fix into the next
+  host update and, if desired, recording a manual session selection pass.
 - Monado/OpenXR userspace on `yoga` is not the current gate for the desktop/dev MVP.
 
 Acceptance:

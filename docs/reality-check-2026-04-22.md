@@ -24,8 +24,10 @@ That means the repo contains more implementation and documentation surface than 
 - `yoga` is not yet a polished local desktop/session target.
   - the host now has an active SDDM greeter lane in addition to the installed
     `exwm-vr.desktop` session entry and user-unit stack
-  - the remaining named-host gap is a physical `EXWM-VR` login proof from that
-    greeter path
+  - a one-time `sddm-autologin` run has now proved the real greeter path can
+    launch `EXWM-VR` on `seat0`
+  - the remaining follow-on is packaging the validated stop-path fix and any
+    extra manual/operator polish evidence we want
 - The Emacs-side test surface is substantial and currently passes locally on this checkout.
   - `just test` passed: `1891/1891`
 - The repo contains real compositor, Elisp, Nix, packaging, and CI work, not just ideas.

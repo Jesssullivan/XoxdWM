@@ -179,15 +179,53 @@ Observed follow-up notes:
   present
 - the greeter switched from locale `C` to `C.UTF-8`
 
-This closes the "no greeter exists on the host" gap. The remaining local-login
-question is now narrower: a physical `yoga` login still needs to select
-`EXWM-VR` from the SDDM greeter path and confirm the installed session wrapper
-works from the console, not just over SSH-driven bounded proof. The preselected
-user/session state should shorten that pass, but it does not replace the proof.
+This closed the "no greeter exists on the host" gap and set up the final proof
+pass.
+
+## SDDM Greeter-Path Proof
+
+With SDDM active and the session preselected, a controlled autologin pass was
+used as a harness for the real greeter path. The host was temporarily given an
+`[Autologin]` stanza for `jsullivan2` plus `exwm-vr.desktop`, SDDM was
+restarted, the resulting session was observed, and the autologin file was then
+removed so future restarts do not rely on that mode.
+
+Observed proof markers:
+
+- `loginctl` showed a new session with:
+  - `Class=user`
+  - `Type=wayland`
+  - `Service=sddm-autologin`
+  - `Desktop=EXWM-VR:`
+  - `VTNr=1`
+  - `State=active`
+- process list showed:
+  - `/usr/libexec/sddm-helper ... --start /usr/share/exwm-vr/exwm-vr-session`
+  - `/usr/bin/bash /usr/share/exwm-vr/exwm-vr-session`
+  - `/usr/bin/ewwm-compositor --backend drm --wayland-socket wayland-0`
+  - `/usr/bin/emacs --fg-daemon=exwm-vr --quick --load /usr/share/exwm-vr/exwm-vr-session-init.el`
+- `systemctl --user is-active` returned `active / active / active` for:
+  - `exwm-vr.target`
+  - `exwm-vr-compositor.service`
+  - `exwm-vr-emacs.service`
+- user journal again included:
+  - `ewwm-compositor v0.5.4 starting`
+  - `backend: drm`
+  - `IPC server listening socket_path="/run/user/1000/ewwm-ipc.sock"`
+  - `ewwm: initialized`
+- SDDM journal recorded:
+  - `Starting Wayland user session: "/etc/sddm/wayland-session" "/usr/share/exwm-vr/exwm-vr-session"`
+- `seatd` recorded a new client connection for the compositor on `seat0`
+
+This is the first local greeter-path proof for `yoga`. It is still a one-time
+`Smoke` result rather than a repeatedly exercised support lane, but it closes
+the earlier question of whether the installed SDDM path can launch the packaged
+`EXWM-VR` session at all.
 
 ## Next Gate
 
 - keep the real installed `0.5.4-1.el10` host as the authoritative `yoga` lane
-- perform a physical `yoga` login through SDDM selecting `EXWM-VR`
-- move from ssh-driven bounded proof to a documented local login/session path
-- package and install the validated `SuccessExitStatus=15` fix on `yoga`
+- package and install the validated `SuccessExitStatus=15` fix on `yoga` so the
+  host no longer needs `/etc/systemd/user/exwm-vr-emacs.service.d/10-success-exit.conf`
+- record a manual SDDM session selection if we want operator-polish evidence in
+  addition to the successful `sddm-autologin` proof

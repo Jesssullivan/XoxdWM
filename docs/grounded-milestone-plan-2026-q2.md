@@ -73,11 +73,11 @@ Current state on `2026-04-22`:
 - that closes the ambient-bootstrap question and the "is the real package lane
   installable on the host" question
 - the stop-path issue is understood and validated with an in-tree unit fix
-- the remaining gap is local login/session closure plus packaging that stop-path
-  fix into the next installed host update, not package installation authority
-- `yoga` now has an active SDDM greeter lane, so this milestone has moved from
-  "pick a login manager" to "prove the installed `EXWM-VR` session through the
-  real greeter path"
+- `yoga` now has a one-time SDDM greeter-path proof via `sddm-autologin` on
+  `seat0`, which closes the basic local-session viability question
+- the remaining gap is packaging that stop-path fix into the next installed
+  host update plus any extra operator-polish evidence we want, not package or
+  greeter-path viability
 
 ### Milestone 2: `honey` XR Substrate Proof
 
