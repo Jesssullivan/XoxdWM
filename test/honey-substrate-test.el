@@ -24,4 +24,12 @@
       (should (string-match-p "No non_desktop=1 connector found; continuing because" script))
       (should (string-match-p "no connected DisplayPort fallback matched" script)))))
 
+(ert-deftest honey-substrate/monado-env-docs-mark-wayland-fallback-honestly ()
+  "The setup helper should describe forced Wayland as a fallback, not lease mode."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--setup-script)
+    (let ((script (buffer-string)))
+      (should (string-match-p "Wayland window fallback" script))
+      (should-not (string-match-p "Force Wayland DRM lease target" script)))))
+
 ;;; honey-substrate-test.el ends here

@@ -52,6 +52,7 @@ let
 
   # Monado environment file for the systemd service
   monadoEnvFile = pkgs.writeText "monado-env" (concatStringsSep "\n" [
+    "# Temporary Wayland window fallback until DRM lease is wired."
     "XRT_COMPOSITOR_FORCE_WAYLAND=1"
     "XRT_COMPOSITOR_WAYLAND_CONNECTOR=${mcfg.connector}"
     "STEAMVR_LH_ENABLE=1"

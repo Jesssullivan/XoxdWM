@@ -123,10 +123,15 @@ Current state on `2026-04-22`:
 - `honey` now has a bounded named-host XoxdWM compositor startup with
   `exwm-vr.target`, `exwm-vr-compositor.service`, and `exwm-vr-emacs.service`
   all active
+- the host evidence for this milestone is recorded in
+  [honey-substrate-proof-2026-04-22.md](honey-substrate-proof-2026-04-22.md)
 - `honey` now has an explicit active OpenXR runtime file on-host
 - `hello_xr` now reaches Monado runtime selection, Bigscreen Beyond selection,
-  and Vulkan device creation on `honey`
-- the active blocker is no longer "nothing starts"; it is the Monado
+  and Vulkan device creation on `honey` in the current fallback Wayland-window
+  path
+- a follow-up direct Wayland probe now makes the deeper blocker explicit:
+  `ewwm-compositor` does not yet expose DRM lease support to Monado
+- the remaining failure in the fallback path is still the Monado
   `VK_ERROR_SURFACE_LOST_KHR` plus coredump during `xrCreateSession`
 
 ### Milestone 3: `honey` First XoxdWM Smoke On True Substrate

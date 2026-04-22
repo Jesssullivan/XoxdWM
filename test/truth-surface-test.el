@@ -186,6 +186,19 @@
      (string-match-p "yoga-session-proof-2026-04-22\\.md"
                      (truth-surface-test--read-file relative)))))
 
+(ert-deftest truth-surface/core-docs-link-honey-substrate-note ()
+  "Core truth docs should link the named-host `honey` substrate note."
+  (should (file-exists-p
+           (expand-file-name "docs/honey-substrate-proof-2026-04-22.md"
+                             truth-surface-test--root)))
+  (dolist (relative '("README.md"
+                      "docs/status.md"
+                      "docs/support-matrix.md"
+                      "docs/grounded-milestone-plan-2026-q2.md"))
+    (should
+     (string-match-p "honey-substrate-proof-2026-04-22\\.md"
+                     (truth-surface-test--read-file relative)))))
+
 (ert-deftest truth-surface/yoga-run-note-keeps-the-installed-proof-boundary-explicit ()
   "The `yoga` run note should record staged and installed proof boundaries."
   (let ((doc (truth-surface-test--read-file
@@ -197,6 +210,16 @@
     (should (string-match-p "installed" doc))
     (should (string-match-p "exwm-vr\\.target" doc))
     (should (string-match-p "failed" doc))))
+
+(ert-deftest truth-surface/honey-run-note-keeps-fallback-vs-direct-boundary-explicit ()
+  "The `honey` note should distinguish fallback Wayland from true direct mode."
+  (let ((doc (truth-surface-test--read-file
+              "docs/honey-substrate-proof-2026-04-22.md")))
+    (should (string-match-p "XRT_COMPOSITOR_FORCE_WAYLAND=1" doc))
+    (should (string-match-p "Wayland window fallback" doc))
+    (should (string-match-p "XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1" doc))
+    (should (string-match-p "missing drm-lease support" doc))
+    (should (string-match-p "VK_ERROR_SURFACE_LOST_KHR" doc))))
 
 (provide 'truth-surface-test)
 ;;; truth-surface-test.el ends here

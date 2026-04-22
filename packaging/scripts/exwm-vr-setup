@@ -647,10 +647,10 @@ cmd_monado_setup() {
 # Monado environment for Bigscreen Beyond under Sway
 # Source this before running monado-service or monado-cli.
 
-# Force Wayland DRM lease target (not X11, not direct)
+# Temporary Wayland window fallback while DRM lease direct mode is not yet wired
 export XRT_COMPOSITOR_FORCE_WAYLAND=1
 
-# Request lease of the Beyond HMD connector
+# Target the Beyond connector for Monado's Wayland paths
 export XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2
 
 # Enable SteamVR Lighthouse driver (for Beyond tracking)

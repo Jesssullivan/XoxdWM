@@ -39,7 +39,7 @@ That means the repo contains more implementation and documentation surface than 
 - A lot of the repo is research or inventory, not support promise.
 - The current `honey` hardware investigation shows partial host reality, not product reality.
   - current live host evidence now includes a bounded named-host XoxdWM compositor startup plus a Monado/`hello_xr` path that reaches runtime and HMD selection
-  - that still does not equal a working deployed XoxdWM VR smoke path because the current blocker is a Monado compositor crash
+  - that still does not equal a working deployed XoxdWM VR smoke path because the current fallback path still crashes in Monado and the true Wayland-direct path currently reports missing DRM lease support from the compositor
 - `neo` is not a product target.
   - XoxdWM is not expected to run on macOS as a desktop or VR environment.
   - the authoritative build and runtime surface should remain Rocky / Linux remote lanes

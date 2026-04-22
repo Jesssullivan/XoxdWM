@@ -37,7 +37,7 @@ The normalization pass did the following:
   - `/etc/systemd/user/monado.service.d/10-exwm-vr.conf`
   - this supplied:
     - `XR_RUNTIME_JSON=/etc/xdg/openxr/1/active_runtime.json`
-    - `XRT_COMPOSITOR_FORCE_WAYLAND=1`
+    - `XRT_COMPOSITOR_FORCE_WAYLAND=1` (Wayland window fallback, not direct lease mode)
     - `XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2`
     - `STEAMVR_LH_ENABLE=1`
     - `XRT_COMPOSITOR_COMPUTE=1`
@@ -97,10 +97,39 @@ After that correction, `hello_xr` reached:
 - Vulkan instance creation
 - Vulkan device creation
 
+This partial proof is important, but it is still the fallback window path, not
+Monado's true Wayland direct mode.
+
+## Direct-Mode Follow-Up
+
+A follow-up probe forced Monado's direct Wayland target instead of the fallback
+window path:
+
+- `XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1`
+- `XRT_COMPOSITOR_FORCE_WAYLAND` unset
+- `XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2`
+
+That changed the failure mode in a useful way:
+
+- the earlier `VK_ERROR_SURFACE_LOST_KHR` path did not appear first
+- Monado instead logged:
+  - `ERROR [comp_window_direct_wayland_init] Compositor is missing drm-lease support`
+  - `ERROR [compositor_init_window_pre_vulkan] Failed to init Wayland Direct-Mode backend!`
+- `hello_xr` then failed earlier with `XR_ERROR_INSTANCE_LOST` because Monado
+  could not create a direct-mode system compositor
+
+This is the first named-host evidence that the current `honey` smoke path is
+not yet the real DRM-lease bridge. The current XoxdWM compositor startup is
+still treating `DP-2` as a normal output, not handing it off to Monado via
+Wayland direct mode.
+
 ## Current Blocker
 
-The client-tool path still does not complete. `hello_xr` fails during
-`xrCreateSession`, and the running `monado.service` crashes:
+The VR client path still does not complete, but there are now two distinct
+blockers rather than one generic "Monado crash":
+
+1. In the current fallback window path, `hello_xr` fails during
+   `xrCreateSession`, and the running `monado.service` crashes:
 
 - Monado log:
   - `vkGetPhysicalDeviceSurfaceFormatsKHR failed: VK_ERROR_SURFACE_LOST_KHR`
@@ -111,8 +140,18 @@ The client-tool path still does not complete. `hello_xr` fails during
 - `systemd`:
   - `monado.service: Main process exited, code=dumped, status=11/SEGV`
 
-The coredump stack on this pass lands in Monado's compositor path, not in the
-XoxdWM compositor.
+2. In the true Wayland direct path, Monado fails earlier because the running
+   compositor does not expose DRM lease support:
+
+- Monado log:
+  - `ERROR [comp_window_direct_wayland_init] Compositor is missing drm-lease support`
+  - `ERROR [compositor_init_window_pre_vulkan] Failed to init Wayland Direct-Mode backend!`
+- `hello_xr`:
+  - `XR_ERROR_INSTANCE_LOST in xrGetSystem`
+
+The coredump stack on the fallback pass lands in Monado's compositor path, not
+in the XoxdWM compositor. The direct-mode follow-up shows the deeper substrate
+gap more clearly: the true lease-backed path is not available yet.
 
 ## What This Proves
 
@@ -121,20 +160,23 @@ XoxdWM compositor.
 - `honey` now has an explicit active OpenXR runtime selection on-host
 - `monado-cli probe` can now identify the Bigscreen Beyond on `honey`
 - `hello_xr` can now reach real OpenXR runtime and HMD selection on `honey`
+- the current `honey` smoke path is still a fallback Wayland-window path, not
+  a true Wayland-direct DRM-lease handoff
 
 ## What This Does Not Yet Prove
 
 - a working VR session on `honey`
 - a successful `hello_xr` frame submission path
 - a stable Monado compositor path on the current AMD / kernel stack
+- that `ewwm-compositor` exposes usable DRM lease support to Monado on `honey`
 - that XoxdWM itself is the final trusted XR bridge on `honey`
 
 ## Next Gate
 
 - keep the `exwm-vr` package surface installed on `honey`
-- treat the Monado `VK_ERROR_SURFACE_LOST_KHR` plus coredump as the active
-  substrate blocker
-- debug whether the failing path is:
-  - Monado's Wayland surface handling on this host
-  - AMD Vulkan / surface-loss behavior on the current kernel+Mesa stack
-  - the current bridge topology choice for Beyond on `honey`
+- treat compositor-side DRM lease support plus HMD reservation as the next
+  substrate gate
+- keep the fallback `VK_ERROR_SURFACE_LOST_KHR` crash categorized as a separate
+  Monado window-path problem, not the whole bridge story
+- decide whether the next direct-mode proof should come from XoxdWM itself or
+  from an explicit Sway/wlroots bridge on `honey`
