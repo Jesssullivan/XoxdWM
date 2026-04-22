@@ -13,9 +13,11 @@ Snapshot date: 2026-04-22
 - `honey` has partial XR prereqs only: `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `/usr/local/bin/monado-service`, and `/usr/local/share/openxr/1/openxr_monado.json`.
 - `honey` does not currently expose `openxr-info`, `xrgears`, or `xoxdwm`.
 - Recent live host investigation on `honey` showed a stable Dell HDMI management path and a `DP-2` display path on recovered boots, but that is still host-level evidence, not a deployed XoxdWM VR smoke path.
-- `yoga` now has the public Rocky package installed: `exwm-vr`, `exwm-vr-compositor`, and `exwm-vr-elisp`.
-- `yoga` validated the named-host package line: the compositor binary links cleanly, a bounded runtime succeeds with `seatd`, and Wayland/DRM/libinput startup is confirmed.
-- `yoga` still does not have a polished local login/session path. The remaining follow-on is session ergonomics: display-manager or local-launch flow, seat backend propagation into user services, and a fresh-login/user-manager path after seat-group changes.
+- `yoga` currently has `exwm-vr-0.5.3-1.el10`, `exwm-vr-compositor-0.5.3-1.el10`, and `exwm-vr-elisp-0.5.3-1.el10` installed.
+- `yoga` validated the earlier named-host package line: the compositor binary links cleanly, a bounded runtime succeeds with `seatd`, and Wayland/DRM/libinput startup is confirmed.
+- A newer branch-scoped `0.5.4-1.el10` session payload from GitHub Actions run `24768509226` now has a named-host staged proof on `yoga`; it reached `ewwm-compositor v0.5.4 starting`, `backend: drm`, `ewwm-ipc: connected`, and `ewwm: initialized` without the old ambient dotfile contamination.
+- The exact evidence and boundary for that staged proof live in [yoga-session-proof-2026-04-22.md](yoga-session-proof-2026-04-22.md).
+- `yoga` still does not have a polished local login/session path, and the actual RPM upgrade to the proved `0.5.4-1.el10` payload is still blocked on a legitimate privilege path on the host.
 - `neo` is useful as an orchestration and documentation machine, but it is not a product target.
   - XoxdWM is not expected to run as a macOS desktop or VR environment.
   - this repo does not vendor the external Bazel or remote-build definitions for the Rocky build authority
@@ -58,7 +60,7 @@ Snapshot date: 2026-04-22
 
 ## Immediate Priorities
 
-1. Finish the local login/session path on `yoga` so the named-host result is not limited to a bounded ssh-driven compositor smoke.
+1. Finish the local login/session path on `yoga`, starting with a legitimate privileged upgrade from the staged `0.5.4-1.el10` proof to the real installed `exwm-vr-*` units.
 2. Put a real XoxdWM/Monado/OpenXR client-tool install path on `honey`, not just a bare Monado runtime manifest.
 3. Produce the first named-host compositor startup on `honey`.
 4. Keep the Rocky base package lane green while leaving Monado, SELinux, and BCI as separate follow-on concerns.

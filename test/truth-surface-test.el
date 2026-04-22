@@ -173,5 +173,28 @@
              (expand-file-name "packaging/emacs/exwm-vr-session-init.el"
                                truth-surface-test--root)))))
 
+(ert-deftest truth-surface/core-docs-link-yoga-session-run-note ()
+  "Core truth docs should link the named-host `yoga` session note."
+  (should (file-exists-p
+           (expand-file-name "docs/yoga-session-proof-2026-04-22.md"
+                             truth-surface-test--root)))
+  (dolist (relative '("README.md"
+                      "docs/status.md"
+                      "docs/support-matrix.md"
+                      "docs/grounded-milestone-plan-2026-q2.md"))
+    (should
+     (string-match-p "yoga-session-proof-2026-04-22\\.md"
+                     (truth-surface-test--read-file relative)))))
+
+(ert-deftest truth-surface/yoga-run-note-keeps-the-staged-proof-boundary-explicit ()
+  "The `yoga` run note should record what was proved and what remains blocked."
+  (let ((doc (truth-surface-test--read-file
+              "docs/yoga-session-proof-2026-04-22.md")))
+    (should (string-match-p "24768509226" doc))
+    (should (string-match-p "0\\.5\\.4-1\\.el10" doc))
+    (should (string-match-p "0\\.5\\.3-1\\.el10" doc))
+    (should (string-match-p "staged" doc))
+    (should (string-match-p "privilege path" doc))))
+
 (provide 'truth-surface-test)
 ;;; truth-surface-test.el ends here
