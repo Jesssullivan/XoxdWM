@@ -15,4 +15,5 @@ pub mod pointer_constraints;
 pub mod screencopy;
 pub mod xdg_activation;
 pub mod xdg_shell;
+#[cfg(feature = "xwayland")]
 pub mod xwayland;

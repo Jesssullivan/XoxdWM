@@ -1,6 +1,8 @@
 # XoxdWM Roadmap: Q2 2026
 
-This document is the execution-side counterpart to the support matrix.
+This document is the execution-side counterpart to the repo truth surface.
+For the full audit-to-execution model, also read
+[reality-driven-development-arc-2026-q2.md](reality-driven-development-arc-2026-q2.md).
 
 ## Epic 1: Reality Audit And Support Surface
 
@@ -9,7 +11,7 @@ Goal: keep the public repo honest.
 Acceptance:
 
 - root README exists and points to current status docs
-- support matrix is maintained
+- support matrix, status, and reality-check docs stay aligned
 - install docs distinguish package availability from named-host validation
 - aspirational subsystems are not described as supported by default
 
@@ -33,8 +35,9 @@ Goal: produce a documented install path for the compositor on a real Rocky 10 la
 Current reality:
 
 - `yoga` has a validated one-time `kernel-xr` boot path.
-- `yoga` still has no installed Monado/OpenXR/XoxdWM userspace stack.
-- the current public `v0.5.0` Rocky RPM is not yet a usable named-host install path
+- `yoga` now has the public Rocky packages installed and a bounded compositor startup path with `seatd`.
+- `yoga` still does not have a polished local login/session path.
+- Monado/OpenXR userspace on `yoga` is not the current gate for the desktop/dev MVP.
 
 Acceptance:
 
@@ -51,7 +54,8 @@ Goal: prove a minimal VR lifecycle on the current kernel host.
 Current reality:
 
 - `honey` has a proven generic `linux-xr` default and a one-time verified RT lane.
-- `honey` has a Monado runtime manifest and `monado-service`, but not the OpenXR client tooling or compositor deployment needed for a real smoke path.
+- `honey` has a Monado runtime manifest and partial XR prereqs, but not the OpenXR client tooling or compositor deployment needed for a real smoke path.
+- recent host recovery work has shown a stable Dell HDMI management path and a `DP-2` display path on good boots, but that is still host-level evidence rather than a recorded XoxdWM smoke path.
 - the Honey-backed workflows are now capability-gated, but the canonical repo is still not claiming an always-on hardware runner surface by default
 
 Acceptance:

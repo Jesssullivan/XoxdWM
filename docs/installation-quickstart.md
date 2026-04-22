@@ -4,11 +4,15 @@ This quickstart is intentionally narrower than the feature inventory.
 
 - For current support claims, read [Support Matrix](support-matrix.md).
 - For the repo’s current operational status, read [Status](status.md).
-- As of 2026-04-13, the Rocky base compositor package lane is public in `v0.5.1`.
+- For the external Rocky/Linux build authority split, read [Remote Build Authority](remote-build-authority.md).
+- For the current repo-owned remote workflow and host proof lanes, read [Remote Proof Lanes](remote-proof-lanes.md).
+- As of 2026-04-22, the Rocky base compositor package lane is public in `v0.5.1`.
 - `yoga` validated the Rocky RPM install path: the compositor package installs, links cleanly on-host, and can be started in a bounded named-host run with `seatd`.
 - The remaining Rocky follow-on is local session ergonomics on `yoga`, not the base RPM artifact itself.
 - Monado integration and full VR enablement remain separate follow-on work after the base Rocky compositor package path.
 - SELinux hardening and the BrainFlow BCI virtualenv remain separate opt-in package concerns so the base Rocky compositor RPM stays shippable.
+- Authoritative builds belong to Rocky / Linux remote build lanes, not local
+  Darwin builds on `neo`.
 
 ## NixOS (Declarative)
 
@@ -32,10 +36,13 @@ Home Manager (user config):
   imports = [ inputs.xoxdwm.homeManagerModules.exwm-vr ];
   programs.exwm-vr = {
     enable = true;
-    compositor.backend = "auto";
+    compositor.extraArgs = [ "--backend" "drm" ];
   };
 }
 ```
+
+These Nix examples reflect the current module option shapes in the repo.
+They are configuration examples, not named-host proof.
 
 ## Rocky Linux / Fedora (RPM)
 
@@ -71,7 +78,13 @@ curl -LO https://github.com/Jesssullivan/XoxdWM/releases/latest/download/ewwm-co
 sudo apt install ./ewwm-compositor_*_amd64.deb
 ```
 
-## From Source (Any Wayland System)
+## From Source On A Rocky / Linux Target
+
+The authoritative path is the external Rocky remote build toolchain described in
+[remote-build-authority.md](remote-build-authority.md). The manual
+source build below is a reproduction/debug path on a Linux target host, not the
+preferred authority lane and not something to treat as a macOS workflow on
+`neo`.
 
 ```bash
 git clone https://github.com/Jesssullivan/XoxdWM.git
@@ -111,6 +124,13 @@ ewwm-compositor --backend headless --headless-exit-after 5
 
 # Run ERT test suite
 emacs --batch -L lisp/core -L lisp/vr -L lisp/ext -l test/run-tests.el
+```
+
+From `neo`, prefer the remote operator surface before making support claims:
+
+```bash
+just remote-proof-surface
+just remote-proof-runs
 ```
 
 ## Named-Host Guidance

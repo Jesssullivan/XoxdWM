@@ -7,6 +7,10 @@
 
 (require 'ert)
 
+(defvar ewwm-test-selector t
+  "ERT selector passed to `ert-run-tests-batch-and-exit'.
+Set this before loading `test/run-tests.el` to run a subset of tests.")
+
 ;; Set up load path
 (let ((project-root (file-name-directory
                      (directory-file-name
@@ -24,6 +28,6 @@
     (load file nil t)))
 
 ;; Run
-(ert-run-tests-batch-and-exit)
+(ert-run-tests-batch-and-exit ewwm-test-selector)
 
 ;;; run-tests.el ends here

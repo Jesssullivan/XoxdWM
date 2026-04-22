@@ -116,11 +116,12 @@
             ];
           };
 
-          emacsPkg = pkgs.emacs-pgtk.overrideAttrs (old: {
-            configureFlags = (old.configureFlags or [ ]) ++ [
-              "--with-native-compilation=aot"
-            ];
-          });
+          emacsPackages = pkgs.emacsPackagesFor pkgs.emacs-pgtk;
+
+          emacsPkg = emacsPackages.emacsWithPackages (epkgs: with epkgs; [
+            compat
+            xelb
+          ]);
 
           waylandLibs = mkWaylandLibs pkgs;
 
@@ -188,10 +189,12 @@
 
             shellHook = ''
               export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
+            '' + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
               export PKG_CONFIG_PATH="${pkgs.lib.makeSearchPathOutput "dev" "lib/pkgconfig" waylandLibs}"
               export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath waylandLibs}"
               export XDG_DATA_DIRS="$XDG_DATA_DIRS:${pkgs.monado}/share"
               export OPENXR_RUNTIME_JSON="${pkgs.monado}/share/openxr/1/openxr_monado.json"
+            '' + ''
               echo "exwm-vr dev shell ready"
               echo "  rustc: $(rustc --version)"
               echo "  emacs: $(emacs --version | head -1)"

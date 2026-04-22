@@ -1,6 +1,6 @@
 # XoxdWM Status
 
-Snapshot date: 2026-04-19
+Snapshot date: 2026-04-22
 
 ## Honest Assessment
 
@@ -11,10 +11,23 @@ Snapshot date: 2026-04-19
 - `honey` is not currently running a deployed XoxdWM stack.
 - `honey` now has a proven `linux-xr` kernel default and a one-time verified PREEMPT_RT boot, but the VR userspace is still incomplete.
 - `honey` has partial XR prereqs only: `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `/usr/local/bin/monado-service`, and `/usr/local/share/openxr/1/openxr_monado.json`.
-- `honey` does not currently expose `openxr-info`, `xrgears`, or `xoxdwm`, and no active DRM connector or obvious HMD path was present during the audit.
+- `honey` does not currently expose `openxr-info`, `xrgears`, or `xoxdwm`.
+- Recent live host investigation on `honey` showed a stable Dell HDMI management path and a `DP-2` display path on recovered boots, but that is still host-level evidence, not a deployed XoxdWM VR smoke path.
 - `yoga` now has the public Rocky package installed: `exwm-vr`, `exwm-vr-compositor`, and `exwm-vr-elisp`.
 - `yoga` validated the named-host package line: the compositor binary links cleanly, a bounded runtime succeeds with `seatd`, and Wayland/DRM/libinput startup is confirmed.
 - `yoga` still does not have a polished local login/session path. The remaining follow-on is session ergonomics: display-manager or local-launch flow, seat backend propagation into user services, and a fresh-login/user-manager path after seat-group changes.
+- `neo` is useful as an orchestration and documentation machine, but it is not a product target.
+  - XoxdWM is not expected to run as a macOS desktop or VR environment.
+  - this repo does not vendor the external Bazel or remote-build definitions for the Rocky build authority
+  - the current external authority surfaces are documented in [remote-build-authority.md](remote-build-authority.md)
+  - the current repo-owned workflow and host proof lanes are documented in [remote-proof-lanes.md](remote-proof-lanes.md)
+  - authoritative build and runtime validation should stay on Rocky / Linux remote lanes rather than being re-centered on Darwin
+- The local Apple control-plane surface is now serviceable for repo work:
+  - `just truth-lint` passes locally
+  - `just test` passes locally
+  - `nix flake check --no-build` passes locally
+  - local byte-compile and headless Rust checks can pass, but they are auxiliary repo-maintenance checks rather than the default build authority path
+  - this does not turn macOS into a supported runtime target; it only reduces local repo-management friction
 - Recent push CI failures were concentrated in three places:
   - Rocky test: optional `sccache` setup step
   - Nix cache workflow: attempting to install Nix on a pre-provisioned self-hosted runner
@@ -23,6 +36,7 @@ Snapshot date: 2026-04-19
   - `Jesssullivan/XoxdWM#29` removed the shared-path fork gate and passed on an ephemeral `xoxdwm-nix` runner
   - the remaining Honey / VR hardware lanes now key off explicit `USE_VR_HARDWARE` opt-in instead of `github.repository == 'tinyland-inc/XoxdWM'`
   - the repo-level Actions runners API still reports `0` accessible runners on both repos, so runner inventory is still somewhat opaque even though the live shared path works
+  - the named remote lane map is now explicit: `runner-health.yml`, `self-hosted-fast.yml`, `rocky-test.yml`, `packaging.yml`, and `vr-hardware.yml`
 
 ## What This Repo Is Good For Right Now
 
@@ -39,6 +53,8 @@ Snapshot date: 2026-04-19
 - a polished local login/session launch on `yoga`
 - a working named-host XoxdWM compositor install on `honey`
 - proven eye tracking, hand tracking, or BCI support on current named lab hosts
+- macOS as a real runtime target for XoxdWM
+- Darwin as the authoritative build or validation surface
 
 ## Immediate Priorities
 
@@ -46,3 +62,4 @@ Snapshot date: 2026-04-19
 2. Put a real XoxdWM/Monado/OpenXR client-tool install path on `honey`, not just a bare Monado runtime manifest.
 3. Produce the first named-host compositor startup on `honey`.
 4. Keep the Rocky base package lane green while leaving Monado, SELinux, and BCI as separate follow-on concerns.
+5. Make the repo explicit that `neo` is orchestration-only and Rocky / Linux remote lanes are the authoritative build and runtime surface.

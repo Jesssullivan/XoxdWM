@@ -1,6 +1,6 @@
-# EXWM-VR: VR Setup and Usage Guide
+# XoxdWM VR Setup and Usage Guide
 
-**Version 0.1.0** | VR subsystem documentation for EWWM
+Reference guide for the VR subsystem.
 
 ---
 
@@ -19,13 +19,20 @@
 
 ---
 
+This guide is subsystem documentation, not the current support promise for the repo.
+For named-host claims, read [status.md](status.md),
+[support-matrix.md](support-matrix.md), and
+[reality-check-2026-04-22.md](reality-check-2026-04-22.md) first.
+
 ## Supported HMDs
 
-EWWM-VR uses the OpenXR standard via the Monado runtime. Any HMD supported
-by Monado should work. The following have been tested or are expected to work:
+EWWM-VR targets the OpenXR standard via the Monado runtime. The table below is
+a design-oriented compatibility target, not a current named-host support
+promise. If a device is not called out as `Proven` or `Smoke` in the repo truth
+surface, treat it as design-level intent rather than current support.
 
-| HMD | Connection | Status | Notes |
-|-----|-----------|--------|-------|
+| HMD | Connection | Historical / Design Status | Notes |
+|-----|-----------|----------------------------|-------|
 | Valve Index | DisplayPort + USB | Tested | Full support including eye tracking (via Pupil Labs) |
 | Meta Quest 3 | USB / WiVRn wireless | Expected | Via Monado Quest driver or WiVRn |
 | HP Reverb G2 | DisplayPort + USB | Expected | WMR driver in Monado |
@@ -39,8 +46,8 @@ by Monado should work. The following have been tested or are expected to work:
 
 | Architecture | VR Support |
 |-------------|------------|
-| x86_64 | Full (DRM lease, 90fps+) |
-| aarch64 | No (no ARM VR runtime) |
+| x86_64 | Target architecture for current VR work; named-host smoke still pending |
+| aarch64 | Not a current VR target in this repo |
 | s390x | No (headless only) |
 
 ---
@@ -53,10 +60,11 @@ Use the provided NixOS module:
 
 ```nix
 {
-  services.exwm-vr.vr.monado = {
+  services.exwm-vr = {
     enable = true;
-    headset = "auto";         # auto, index, quest3, reverb-g2
-    socketActivation = true;  # Start on first OpenXR API call
+    vr.enable = true;
+    monado.enable = true;
+    monado.connector = "DP-2";
   };
 }
 ```

@@ -12,7 +12,9 @@ path = "src/main.rs"
 
 [features]
 default = ["full-backend"]
+xwayland = ["smithay/xwayland"]
 full-backend = [    # enables DRM/winit backends (requires libseat, libinput, DRM, udev)
+    "xwayland",
     "smithay/backend_drm",
     "smithay/backend_gbm",
     "smithay/backend_libinput",
@@ -27,7 +29,6 @@ smithay = { version = "0.7", default-features = false, features = [
     "desktop",
     "renderer_gl",
     "wayland_frontend",
-    "xwayland",
 ] }
 calloop = { version = "0.14", features = ["signals"] }
 tracing = "0.1"

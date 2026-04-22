@@ -6,7 +6,7 @@ This repository is the canonical public home for the compositor, packaging, rele
 
 ## Current State
 
-As of 2026-04-19:
+As of 2026-04-22:
 
 | Area | Status | Notes |
 | --- | --- | --- |
@@ -20,6 +20,10 @@ As of 2026-04-19:
 ## Start Here
 
 - [Support Matrix](docs/support-matrix.md)
+- [Remote Build Authority](docs/remote-build-authority.md)
+- [Remote Proof Lanes](docs/remote-proof-lanes.md)
+- [Reality Check](docs/reality-check-2026-04-22.md)
+- [Reality-Driven Development Arc](docs/reality-driven-development-arc-2026-q2.md)
 - [Status](docs/status.md)
 - [Q2 2026 Roadmap](docs/roadmap-2026-q2.md)
 - [Installation Quickstart](docs/installation-quickstart.md)
@@ -34,7 +38,12 @@ The repo contains four different kinds of work:
 - hardware and upstream patch research
 - aspirational feature inventory
 
-Only the support matrix and status docs should be read as the current operational truth.
+Use the reality check, status, and support matrix together as the current truth surface.
+Subsystem docs and feature inventories can still be more aspirational than present support.
+`neo` and other Darwin machines are control-plane surfaces only. Authoritative
+build and runtime validation belongs on Rocky / Linux remote lanes and named-host
+proof; see [Remote Build Authority](docs/remote-build-authority.md) and
+[Remote Proof Lanes](docs/remote-proof-lanes.md).
 
 Shared self-hosted CI now runs from this canonical repo. Honey-backed hardware lanes remain explicit opt-in via `USE_VR_HARDWARE` rather than implicit fork-only behavior.
 

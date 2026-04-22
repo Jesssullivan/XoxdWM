@@ -1,6 +1,10 @@
-# EXWM-VR: Eye Tracking Guide
+# XoxdWM Eye Tracking Guide
 
-**Version 0.1.0** | Eye tracking setup, calibration, and usage
+Reference guide for eye-tracking setup, calibration, and usage.
+
+This guide documents subsystem design and implementation surfaces. Treat
+named-host support as whatever is called out in [support-matrix.md](support-matrix.md)
+and [status.md](status.md).
 
 ---
 

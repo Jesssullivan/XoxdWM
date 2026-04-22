@@ -4,9 +4,10 @@
 set dotenv-load
 
 project_root := justfile_directory()
-core_el := `find lisp/core -name '*.el' -not -name '*-pkg.el' -not -name '*-autoloads.el' 2>/dev/null | sort`
-vr_el := `find lisp/vr -name '*.el' 2>/dev/null | sort`
-ext_el := `find lisp/ext -name '*.el' 2>/dev/null | sort`
+xoxdwm_repo := "Jesssullivan/XoxdWM"
+core_el := `find lisp/core -name '*.el' -not -name '*-pkg.el' -not -name '*-autoloads.el' 2>/dev/null | sort | paste -sd ' ' -`
+vr_el := `find lisp/vr -name '*.el' 2>/dev/null | sort | paste -sd ' ' -`
+ext_el := `find lisp/ext -name '*.el' 2>/dev/null | sort | paste -sd ' ' -`
 all_el := core_el + " " + vr_el + " " + ext_el
 load_flags := "-L " + project_root + "/lisp/core -L " + project_root + "/lisp/vr -L " + project_root + "/lisp/ext"
 
@@ -48,8 +49,16 @@ test-integration:
     @echo "Running integration tests..."
     emacs --batch \
         {{load_flags}} \
-        -l "{{project_root}}/test/run-tests.el" \
-        --eval '(ert-run-tests-batch-and-exit "week.*-integration")'
+        --eval '(setq ewwm-test-selector "week.*-integration")' \
+        -l "{{project_root}}/test/run-tests.el"
+
+[group('test')]
+truth-lint:
+    @echo "Running truth-surface tests..."
+    emacs --batch \
+        {{load_flags}} \
+        --eval '(setq ewwm-test-selector "^truth-surface/")' \
+        -l "{{project_root}}/test/run-tests.el"
 
 [group('test')]
 test-all: test test-compositor test-integration
@@ -505,6 +514,77 @@ release-notes:
 [group('ci')]
 ci: lint-elisp build test
     @echo "CI passed."
+
+[group('ci')]
+remote-proof-surface:
+    @echo "XoxdWM remote proof surface"
+    @echo ""
+    @echo "Local control plane on neo:"
+    @echo "  just truth-lint"
+    @echo "  just test"
+    @echo "  nix flake check --no-build"
+    @echo ""
+    @echo "Repo-owned remote lanes:"
+    @echo "  runner-health.yml      repo-owned self-hosted runner and Nix health"
+    @echo "  self-hosted-fast.yml   shared fast CI on xoxdwm-nix"
+    @echo "  nix-cache.yml          repo-owned Nix build/cache realizations"
+    @echo "  cache-warm.yml         scheduled cache and cross-target warming"
+    @echo "  rocky-test.yml         bounded Rocky container smoke"
+    @echo "  packaging.yml          release artifact lane, not named-host support truth"
+    @echo "  vr-hardware.yml        honey hardware and VR smoke, opt-in only"
+    @echo ""
+    @echo "Docs:"
+    @echo "  docs/remote-build-authority.md"
+    @echo "  docs/remote-proof-lanes.md"
+
+[group('ci')]
+remote-proof-runs limit="5":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    gh auth status >/dev/null 2>&1 || {
+        echo "gh auth is required for remote-proof-runs"
+        exit 1
+    }
+    workflows=(
+        runner-health.yml
+        self-hosted-fast.yml
+        nix-cache.yml
+        cache-warm.yml
+        rocky-test.yml
+        packaging.yml
+        vr-hardware.yml
+    )
+    for workflow in "${workflows[@]}"; do
+        echo "=== $workflow ==="
+        gh run list -R "{{xoxdwm_repo}}" --workflow "$workflow" --limit "{{limit}}" \
+            --json databaseId,workflowName,status,conclusion,displayTitle,headBranch,event,createdAt,url \
+            --jq '.[] | "\(.databaseId)\t\(.workflowName)\t\(.status)\t\(.conclusion // "-")\t\(.event)\t\(.headBranch)\t\(.createdAt)\t\(.url)"'
+        echo
+    done
+
+[group('ci')]
+remote-run-watch run_id:
+    gh run watch "{{run_id}}" -R "{{xoxdwm_repo}}"
+
+[group('ci')]
+remote-runner-health:
+    gh workflow run runner-health.yml -R "{{xoxdwm_repo}}"
+    @echo "Triggered. Watch with: just remote-proof-runs"
+
+[group('ci')]
+remote-cache-warm:
+    gh workflow run cache-warm.yml -R "{{xoxdwm_repo}}"
+    @echo "Triggered. Watch with: just remote-proof-runs"
+
+[group('ci')]
+remote-vr-smoke suite="smoke":
+    gh workflow run vr-hardware.yml -R "{{xoxdwm_repo}}" -f test-suite="{{suite}}"
+    @echo "Triggered. Watch with: just remote-proof-runs"
+
+[group('ci')]
+remote-package version:
+    gh workflow run packaging.yml -R "{{xoxdwm_repo}}" -f version="{{version}}"
+    @echo "Triggered. Watch with: just remote-proof-runs"
 
 # ── nix ────────────────────────────────────────────────
 

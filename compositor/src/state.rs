@@ -36,8 +36,11 @@ use smithay::{
         shm::ShmState,
         xdg_activation::XdgActivationState,
     },
-    xwayland::xwm::X11Wm,
+};
+#[cfg(feature = "xwayland")]
+use smithay::{
     wayland::xwayland_shell::XWaylandShellState,
+    xwayland::xwm::X11Wm,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -162,8 +165,11 @@ pub struct EwwmState {
     pub foreign_toplevel_state: ForeignToplevelListState,
 
     // XWayland
+    #[cfg(feature = "xwayland")]
     pub xwm: Option<X11Wm>,
+    #[cfg(feature = "xwayland")]
     pub xwayland_shell_state: XWaylandShellState,
+    #[cfg(feature = "xwayland")]
     pub xdisplay: Option<u32>,
 
     // Popups
@@ -281,6 +287,7 @@ impl EwwmState {
         let foreign_toplevel_state = ForeignToplevelListState::new::<Self>(&display_handle);
 
         // XWayland shell protocol (for surface serial matching)
+        #[cfg(feature = "xwayland")]
         let xwayland_shell_state = XWaylandShellState::new::<Self>(&display_handle);
 
         // Pointer constraints (pointer-constraints-unstable-v1)
@@ -289,9 +296,16 @@ impl EwwmState {
 
         let seat = seat_state.new_wl_seat(&display_handle, "ewwm-seat");
 
-        info!("EwwmState initialized (layer-shell, foreign-toplevel, xwayland-shell, \
-               session-lock, idle-notify, idle-inhibit, primary-selection, dmabuf, \
-               cursor-shape, xdg-activation, pointer-constraints)");
+        info!(
+            "EwwmState initialized (layer-shell, foreign-toplevel, session-lock, \
+             idle-notify, idle-inhibit, primary-selection, dmabuf, cursor-shape, \
+             xdg-activation, pointer-constraints{} )",
+            if cfg!(feature = "xwayland") {
+                ", xwayland-shell"
+            } else {
+                ""
+            }
+        );
 
         let ipc_socket_path = IpcServer::default_socket_path();
 
@@ -314,8 +328,11 @@ impl EwwmState {
             cursor_shape_state,
             xdg_activation_state,
             foreign_toplevel_state,
+            #[cfg(feature = "xwayland")]
             xwm: None,
+            #[cfg(feature = "xwayland")]
             xwayland_shell_state,
+            #[cfg(feature = "xwayland")]
             xdisplay: None,
             popups: PopupManager::default(),
             seat,

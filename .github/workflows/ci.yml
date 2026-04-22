@@ -7,7 +7,9 @@ on:
       - 'compositor/**'
       - 'lisp/**'
       - 'nix/**'
+      - 'docs/**'
       - 'test/**'
+      - 'README.md'
       - 'flake.nix'
       - 'flake.lock'
       - 'justfile'
@@ -19,7 +21,9 @@ on:
       - 'compositor/**'
       - 'lisp/**'
       - 'nix/**'
+      - 'docs/**'
       - 'test/**'
+      - 'README.md'
       - 'flake.nix'
       - 'flake.lock'
       - 'justfile'
@@ -74,6 +78,19 @@ jobs:
         continue-on-error: true
       - name: Lint Elisp (strict byte-compile)
         run: nix develop --command just lint-elisp
+
+  truth-lint:
+    name: Truth Lint
+    if: vars.USE_SELFHOSTED != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v30
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+        continue-on-error: true
+      - name: Run truth-surface checks
+        run: nix develop --command just truth-lint
 
   nix-build:
     name: Nix Build

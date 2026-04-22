@@ -1,9 +1,13 @@
-# EXWM-VR User Guide
+# XoxdWM User Guide
 
-**Version 0.1.0** | **EWWM (Emacs Wayland Window Manager)**
+Reference guide for installation, operation, and subsystem workflows.
 
-A VR-first transhuman Emacs window manager built on Smithay, OpenXR, and
-the full Emacs ecosystem.
+This document is broader than the currently validated support surface. For
+named-host truth and Rocky / Linux build authority, read
+[support-matrix.md](support-matrix.md) and [status.md](status.md) first.
+For the external authority split and the current repo-owned remote workflow map,
+read [remote-build-authority.md](remote-build-authority.md) and
+[remote-proof-lanes.md](remote-proof-lanes.md).
 
 ---
 
@@ -126,16 +130,19 @@ For per-user configuration:
 }
 ```
 
-### Building from Flake
+### Linux Build Outputs From The Flake
+
+These commands are for Linux targets, CI, or explicit remote build lanes. Do
+not treat them as the default authority path from `neo`.
 
 ```bash
-# Build the compositor
+# Build the compositor on a Linux build surface
 nix build .#packages.x86_64-linux.compositor
 
-# Build headless variant (s390x, CI)
+# Build headless variant
 nix build .#packages.x86_64-linux.compositor-headless
 
-# Enter development shell
+# Enter the Linux-oriented development shell
 nix develop
 
 # Build OCI container image
@@ -534,7 +541,7 @@ sessions.
 (ewwm-headless-mode)
 ```
 
-Or build the headless compositor:
+Or, on a Linux target, build the headless compositor directly:
 
 ```bash
 cargo build --release --no-default-features
