@@ -72,6 +72,7 @@ Source30:       99-exwm-vr.rules
 Source40:       exwm-vr.desktop
 Source41:       exwm-vr-session
 Source42:       exwm-vr-portals.conf
+Source43:       exwm-vr-session-init.el
 
 BuildArch:      x86_64 aarch64 s390x
 
@@ -360,6 +361,8 @@ install -Dpm 0755 %{SOURCE41} \
     %{buildroot}%{_datadir}/%{project_name}/exwm-vr-session
 install -Dpm 0644 %{SOURCE42} \
     %{buildroot}%{_datadir}/xdg-desktop-portal/exwm-vr-portals.conf
+install -Dpm 0644 %{SOURCE43} \
+    %{buildroot}%{_datadir}/%{project_name}/exwm-vr-session-init.el
 %endif
 
 # --- Headless compositor binary ---
@@ -607,6 +610,7 @@ fi
 %{_datadir}/wayland-sessions/exwm-vr.desktop
 %dir %{_datadir}/%{project_name}
 %{_datadir}/%{project_name}/exwm-vr-session
+%{_datadir}/%{project_name}/exwm-vr-session-init.el
 %{_datadir}/xdg-desktop-portal/exwm-vr-portals.conf
 %dir %{_localstatedir}/lib/%{project_name}
 %endif

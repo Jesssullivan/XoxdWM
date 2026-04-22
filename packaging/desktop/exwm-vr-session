@@ -158,7 +158,8 @@ fi
 export WAYLAND_DISPLAY="${EXWM_VR_WAYLAND_SOCKET}"
 
 # Start Emacs as a foreground daemon.
-/usr/bin/emacs --fg-daemon=exwm-vr -l ewwm &
+/usr/bin/emacs --fg-daemon=exwm-vr --quick \
+    --load /usr/share/exwm-vr/exwm-vr-session-init.el &
 EMACS_PID=$!
 
 # The session lives as long as the compositor does.

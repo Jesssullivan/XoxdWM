@@ -210,6 +210,11 @@ Select "EXWM-VR" from your display manager (GDM, SDDM) session list. The
 session wrapper at `/usr/share/wayland-sessions/exwm-vr.desktop` handles
 environment setup, compositor launch, and Emacs startup.
 
+On the packaged Rocky session lane, Emacs starts through the dedicated
+`/usr/share/exwm-vr/exwm-vr-session-init.el` bootstrap. That session entrypoint
+avoids ambient `~/.emacs` / `init.el` state and optionally loads
+`~/.config/exwm-vr/config.el` instead.
+
 ---
 
 ## First Boot Walkthrough
@@ -251,7 +256,9 @@ Monado service, BrainFlow daemon, serial ports, and GPU capabilities.
 
 ## Configuration Reference
 
-All configuration is via Emacs `defcustom` variables. Set them in your
+All configuration is via Emacs `defcustom` variables. On the packaged Rocky
+session lane, place session-specific settings in `~/.config/exwm-vr/config.el`.
+For non-packaged development flows, you can still set them in your regular
 `init.el` or via `M-x customize-group RET ewwm RET`.
 
 ### Core Settings

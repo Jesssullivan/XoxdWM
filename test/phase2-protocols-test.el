@@ -156,6 +156,19 @@
         (goto-char (point-min))
         (should-not (search-forward "wayland-1" nil t))))))
 
+(ert-deftest phase2p/session-wrapper-loads-dedicated-emacs-bootstrap ()
+  "Session wrapper should not rely on ambient user init.el state."
+  (let* ((root phase2p-test--project-root)
+         (wrapper (expand-file-name "packaging/desktop/exwm-vr-session" root)))
+    (when (file-exists-p wrapper)
+      (with-temp-buffer
+        (insert-file-contents wrapper)
+        (should (search-forward "--quick" nil t))
+        (goto-char (point-min))
+        (should (search-forward "/usr/share/exwm-vr/exwm-vr-session-init.el" nil t))
+        (goto-char (point-min))
+        (should-not (search-forward "-l ewwm" nil t))))))
+
 (ert-deftest phase2p/desktop-file-has-tryexec ()
   "Desktop file includes TryExec."
   (let* ((root phase2p-test--project-root)
@@ -192,7 +205,22 @@
     (when (file-exists-p service)
       (with-temp-buffer
         (insert-file-contents service)
-        (should (search-forward "Environment=WAYLAND_DISPLAY=wayland-0" nil t))))))
+        (should (search-forward "Environment=WAYLAND_DISPLAY=wayland-0" nil t))
+        (goto-char (point-min))
+        (should (search-forward "--quick --load /usr/share/exwm-vr/exwm-vr-session-init.el" nil t))))))
+
+(ert-deftest phase2p/packaged-session-init-enables-ewwm ()
+  "Packaged Rocky session should start ewwm from a dedicated init file."
+  (let* ((root phase2p-test--project-root)
+         (init-file (expand-file-name "packaging/emacs/exwm-vr-session-init.el" root)))
+    (when (file-exists-p init-file)
+      (with-temp-buffer
+        (insert-file-contents init-file)
+        (should (search-forward "(require 'ewwm)" nil t))
+        (goto-char (point-min))
+        (should (search-forward "(ewwm-global-mode 1)" nil t))
+        (goto-char (point-min))
+        (should (search-forward "EXWM_VR_CONFIG_FILE" nil t))))))
 
 (ert-deftest phase2p/session-idle-no-swaymsg ()
   "ewwm-session idle args do not reference swaymsg."
