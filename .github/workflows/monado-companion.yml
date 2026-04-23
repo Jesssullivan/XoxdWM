@@ -63,7 +63,11 @@ jobs:
       - name: Validate Monado RPM contents
         run: |
           set -euo pipefail
-          RPM=$(find "$HOME/rpmbuild/RPMS" -name 'monado-beyond-*.rpm' | head -1)
+          RPM=$(find "$HOME/rpmbuild/RPMS" \
+            -name 'monado-beyond-[0-9]*.rpm' \
+            ! -name '*-debuginfo-*.rpm' \
+            ! -name '*-debugsource-*.rpm' \
+            | sort | head -1)
           if [ -z "$RPM" ]; then
             echo "No monado-beyond RPM found in rpmbuild output" >&2
             exit 1

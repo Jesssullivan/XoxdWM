@@ -6,10 +6,10 @@
 # Usage:
 #   rpmbuild -bb --define "wlroots_version 0.18.2" wlroots-beyond.spec
 
-%define wlroots_version %{?wlroots_version}%{!?wlroots_version:0.18.2}
+%global wlroots_default_version 0.18.2
 
 Name:           wlroots-beyond
-Version:        %{wlroots_version}
+Version:        %{?wlroots_version}%{!?wlroots_version:%{wlroots_default_version}}
 Release:        1%{?dist}
 Summary:        Patched wlroots with Bigscreen Beyond non-desktop detection
 License:        MIT

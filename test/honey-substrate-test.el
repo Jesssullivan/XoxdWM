@@ -16,6 +16,10 @@
   (expand-file-name ".github/workflows/monado-companion.yml"
                     (expand-file-name ".." (file-name-directory load-file-name))))
 
+(defconst honey-substrate--wlroots-spec
+  (expand-file-name "packaging/rpm/wlroots-beyond.spec"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
 (defconst honey-substrate--justfile
   (expand-file-name "justfile"
                     (expand-file-name ".." (file-name-directory load-file-name))))
@@ -87,7 +91,24 @@
     (let ((workflow (buffer-string)))
       (should (string-match-p "packaging/rpm/monado-beyond\\.spec" workflow))
       (should (string-match-p "epel-release-latest-10\\.noarch\\.rpm" workflow))
+      (should (string-match-p (regexp-quote "monado-beyond-[0-9]*.rpm") workflow))
+      (should (string-match-p (regexp-quote "! -name '*-debuginfo-*.rpm'") workflow))
+      (should (string-match-p (regexp-quote "! -name '*-debugsource-*.rpm'") workflow))
       (should-not (string-match-p "libuvc-devel" workflow)))))
+
+(ert-deftest honey-substrate/wlroots-rpm-lane-keeps-version-macro-non-recursive ()
+  "wlroots RPM spec should not redefine the same version macro recursively."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--wlroots-spec)
+    (let ((spec (buffer-string)))
+      (should (string-match-p (regexp-quote "%global wlroots_default_version 0.18.2") spec))
+      (should (string-match-p
+               (regexp-quote "Version:        %{?wlroots_version}%{!?wlroots_version:%{wlroots_default_version}}")
+               spec))
+      (should-not
+       (string-match-p
+        (regexp-quote "%define wlroots_version %{?wlroots_version}%{!?wlroots_version:0.18.2}")
+        spec)))))
 
 (ert-deftest honey-substrate/justfile-exposes-remote-honey-dev-lane ()
   "The task runner should expose thin remote operator helpers for `neo` -> `honey`."
