@@ -154,6 +154,12 @@
       (should-not (string-match-p
                    (regexp-quote "-Dxwayland=enabled")
                    spec))
+      (should (string-match-p
+               (regexp-quote "%config(noreplace) %{_sysconfdir}/sway/config")
+               spec))
+      (should (string-match-p
+               (regexp-quote "%{_datadir}/backgrounds/sway/*.png")
+               spec))
       (should-not (string-match-p (regexp-quote "Requires:       xwayland") spec))
       (should (string-match-p (regexp-quote "* Tue Mar 10 2026 EXWM-VR") spec)))))
 

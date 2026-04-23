@@ -76,9 +76,12 @@ install -Dpm 0644 %{SOURCE1} \
 %{_bindir}/swaynag
 %{_bindir}/swaybar
 %dir %{_sysconfdir}/sway
+%config(noreplace) %{_sysconfdir}/sway/config
 %dir %{_sysconfdir}/sway/config.d
 %config(noreplace) %{_sysconfdir}/sway/config.d/exwm-vr.conf
 %{_datadir}/wayland-sessions/sway.desktop
+%dir %{_datadir}/backgrounds/sway
+%{_datadir}/backgrounds/sway/*.png
 %{_mandir}/man1/sway*.1*
 %{_mandir}/man5/sway*.5*
 %{_mandir}/man7/sway*.7*
