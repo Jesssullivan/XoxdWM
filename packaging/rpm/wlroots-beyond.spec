@@ -89,7 +89,7 @@ DESTDIR=%{buildroot} ninja -C build install
 %{_libdir}/libwlroots-*.so
 
 %files devel
-%{_includedir}/wlr/
+%{_includedir}/wlroots-0.18/
 %{_libdir}/pkgconfig/wlroots-*.pc
 
 %changelog
