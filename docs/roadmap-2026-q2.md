@@ -60,7 +60,7 @@ honest XoxdWM smoke on that substrate.
 
 Current reality:
 
-- `honey` has a proven generic `linux-xr` default and a one-time verified RT lane.
+- `honey` has a proven generic `linux-xr` default, while RT host validation now lives in Dell-7810 and XR-side RT benefit remains a separate downstream proof item.
 - `honey` now has branch-scoped `exwm-vr-0.5.4-1.el10` packages installed and a bounded named-host XoxdWM compositor startup.
 - `honey` now has an explicit active OpenXR runtime file plus a host-local Monado service override for the Beyond / `DP-2` path.
 - `honey` now has a one-shot direct-mode proof from the installed compositor package surface, a staged `monado-beyond` companion RPM proof from run `24804821792`, and an installed-host `monado-beyond` follow-up from run `24807084915` that reaches active `/usr/bin/monado-service` plus eye swapchain creation. The remaining gap is turning that into a repeatable operator lane with explicit stale-socket handling and a more durable client-tool path than the current local `/usr/local/bin/hello_xr` build.

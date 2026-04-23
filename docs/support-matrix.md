@@ -20,10 +20,15 @@ validation for `honey` (Dell Precision 7810) are documented in the companion
 [authority map](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/platform/authority-map.md)
 for which surfaces each repo owns.
 
+For PREEMPT_RT specifically, use the Dell claim ladder:
+
+- Dell-7810 owns C1/C2/C3 for `honey` RT host evidence and workstation acceptance
+- XoxdWM should only claim C4, meaning a demonstrated downstream software benefit under RT
+
 | Target | Status | Notes |
 | --- | --- | --- |
 | `honey` kernel generic lane | Proven | Running `6.19.5-7.xr.el10`; this is the persistent default. Baseline validated in [`Dell-7810/docs/platform/host-kernel-baseline.md`](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/platform/host-kernel-baseline.md). |
-| `honey` kernel RT lane | Smoke | One-time boot into `6.19.5-rt1-8.xr.el10` succeeded and live `PREEMPT_RT` was verified, but RT is not the default lane. |
+| `honey` kernel RT lane | Smoke | Dell-7810 has one-time RT boot proof and host-posture validation for `6.19.5-rt1-8.xr.el10`, but XoxdWM does not yet claim a downstream XR/software RT benefit on `honey`. |
 | `honey` XoxdWM compositor install | Smoke | `honey` now has branch-scoped `exwm-vr-0.5.4-1.el10` packages installed, and `systemctl --user start exwm-vr.target` reached a bounded named-host startup with active compositor plus Emacs, `DP-2` at `5088x2544@75Hz`, `HDMI-A-2` at `1920x1080@60Hz`, and `ewwm: initialized`. Reinstalling the `24776900393` compositor RPM put the lease-capable `/usr/bin/ewwm-compositor` onto the host, and the installed package surface now grants a real DRM lease to Monado when `DP-2` is designated via the supported `~/.config/exwm-vr/compositor.env` surface; see [honey-substrate-proof-2026-04-22.md](honey-substrate-proof-2026-04-22.md). |
 | `honey` OpenXR userspace prereqs | Smoke | `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `monado-beyond-0.0.1-1.20260310git.el10`, `/usr/bin/monado-service`, `/usr/share/openxr/1/openxr_monado.json`, and `/etc/xdg/openxr/1/active_runtime.json` are present. `monado-cli probe` can now identify the Bigscreen Beyond when the host uses the explicit `DP-2`/SteamVR environment. |
 | `honey` VR session | Smoke | On `2026-04-22`, the installed `ewwm-compositor` from the reinstalled `24776900393` RPM artifact granted a real `DP-2` DRM lease to Monado on `honey`, and `hello_xr -g Vulkan` reached `READY` with two eye swapchains at `3561x3561`. The compositor-side lease designation now uses `~/.config/exwm-vr/compositor.env`, and a repo-owned `exwm-vr-monado.service` now uses `~/.config/exwm-vr/monado.env` without service drop-ins. A later staged `monado-beyond` companion RPM proof from run `24804821792` reached active Monado plus eye swapchain creation, and the installed-host follow-up from run `24807084915` now reaches the same direct-mode proof on `honey` with `/usr/bin/monado-service` and no `MONADO_SERVICE_BIN` override. |
