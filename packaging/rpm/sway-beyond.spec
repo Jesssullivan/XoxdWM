@@ -6,10 +6,10 @@
 # Usage:
 #   rpmbuild -bb --define "sway_version 1.10" sway-beyond.spec
 
-%define sway_version %{?sway_version}%{!?sway_version:1.10}
+%global sway_default_version 1.10
 
 Name:           sway-beyond
-Version:        %{sway_version}
+Version:        %{?sway_version}%{!?sway_version:%{sway_default_version}}
 Release:        1%{?dist}
 Summary:        Sway compositor built against wlroots-beyond for VR hosts
 License:        MIT
@@ -37,7 +37,7 @@ BuildRequires:  scdoc
 BuildRequires:  libevdev-devel
 
 Requires:       wlroots-beyond%{?_isa} >= 0.18
-Requires:       xwayland
+Requires:       xorg-x11-server-Xwayland
 
 Provides:       sway = %{version}-%{release}
 Provides:       sway%{?_isa} = %{version}-%{release}

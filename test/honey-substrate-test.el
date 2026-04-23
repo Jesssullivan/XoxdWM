@@ -116,7 +116,29 @@
       (should-not
        (string-match-p
         (regexp-quote "%define wlroots_version %{?wlroots_version}%{!?wlroots_version:0.18.2}")
-        spec)))))
+        spec))
+      (should (string-match-p
+               (regexp-quote "BuildRequires:  xorg-x11-server-Xwayland-devel")
+               spec))
+      (should-not (string-match-p (regexp-quote "BuildRequires:  xwayland") spec)))))
+
+(ert-deftest honey-substrate/sway-rpm-lane-keeps-version-and-xwayland-surface-honest ()
+  "sway RPM spec should use a non-recursive version macro and Rocky Xwayland names."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--sway-spec)
+    (let ((spec (buffer-string)))
+      (should (string-match-p (regexp-quote "%global sway_default_version 1.10") spec))
+      (should (string-match-p
+               (regexp-quote "Version:        %{?sway_version}%{!?sway_version:%{sway_default_version}}")
+               spec))
+      (should-not
+       (string-match-p
+        (regexp-quote "%define sway_version %{?sway_version}%{!?sway_version:1.10}")
+        spec))
+      (should (string-match-p
+               (regexp-quote "Requires:       xorg-x11-server-Xwayland")
+               spec))
+      (should-not (string-match-p (regexp-quote "Requires:       xwayland") spec)))))
 
 (ert-deftest honey-substrate/native-rpm-specs-use-portable-meson-invocations ()
   "wlroots/sway RPM specs should not depend on distro-specific %%meson macros."
@@ -132,13 +154,29 @@
         (should-not (string-match-p (regexp-quote "%meson_build") spec))
         (should-not (string-match-p (regexp-quote "%meson_install") spec))))))
 
-(ert-deftest honey-substrate/native-deps-workflow-upgrades-meson-for-wlroots ()
-  "The Ubuntu native-deps workflow should install a Meson new enough for wlroots."
+(ert-deftest honey-substrate/native-deps-workflow-builds-rpm-lane-in-rocky ()
+  "The native RPM lane should run in a Rocky container with Rocky-native deps."
   (with-temp-buffer
     (insert-file-contents honey-substrate--native-deps-workflow)
     (let ((workflow (buffer-string)))
-      (should (string-match-p (regexp-quote "python3-pip") workflow))
-      (should (string-match-p (regexp-quote "python3 -m pip install --break-system-packages 'meson>=1.5.0'") workflow)))))
+      (should (string-match-p (regexp-quote "container:") workflow))
+      (should (string-match-p (regexp-quote "image: rockylinux/rockylinux:10") workflow))
+      (should (string-match-p (regexp-quote "epel-release-latest-10.noarch.rpm") workflow))
+      (should (string-match-p (regexp-quote "dnf config-manager --set-enabled crb || dnf config-manager setopt crb.enabled=1") workflow))
+      (should (string-match-p (regexp-quote "mesa-libGLES-devel") workflow))
+      (should (string-match-p (regexp-quote "xorg-x11-server-Xwayland-devel") workflow))
+      (should-not (string-match-p (regexp-quote "apt-get") workflow))
+      (should-not (string-match-p (regexp-quote "python3 -m pip install --break-system-packages 'meson>=1.5.0'") workflow)))))
+
+(ert-deftest honey-substrate/native-deps-workflow-selects-main-wlroots-rpms ()
+  "The native RPM lane should not accidentally pick wlroots debug RPMs."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--native-deps-workflow)
+    (let ((workflow (buffer-string)))
+      (should (string-match-p (regexp-quote "wlroots-beyond-[0-9]*.rpm") workflow))
+      (should (string-match-p (regexp-quote "! -name '*-debuginfo-*.rpm'") workflow))
+      (should (string-match-p (regexp-quote "! -name '*-debugsource-*.rpm'") workflow))
+      (should (string-match-p (regexp-quote "wlroots-beyond-devel-*.rpm") workflow)))))
 
 (ert-deftest honey-substrate/justfile-exposes-remote-honey-dev-lane ()
   "The task runner should expose thin remote operator helpers for `neo` -> `honey`."

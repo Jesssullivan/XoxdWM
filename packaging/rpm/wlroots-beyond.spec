@@ -35,7 +35,7 @@ BuildRequires:  pixman-devel
 BuildRequires:  libseat-devel
 BuildRequires:  xcb-util-wm-devel
 BuildRequires:  libxcb-devel
-BuildRequires:  xwayland
+BuildRequires:  xorg-x11-server-Xwayland-devel
 BuildRequires:  hwdata
 
 Provides:       wlroots = %{version}-%{release}
