@@ -16,6 +16,10 @@
   (expand-file-name ".github/workflows/monado-companion.yml"
                     (expand-file-name ".." (file-name-directory load-file-name))))
 
+(defconst honey-substrate--native-deps-workflow
+  (expand-file-name ".github/workflows/native-deps.yml"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
 (defconst honey-substrate--wlroots-spec
   (expand-file-name "packaging/rpm/wlroots-beyond.spec"
                     (expand-file-name ".." (file-name-directory load-file-name))))
@@ -127,6 +131,14 @@
         (should-not (string-match-p (regexp-quote "%meson") spec))
         (should-not (string-match-p (regexp-quote "%meson_build") spec))
         (should-not (string-match-p (regexp-quote "%meson_install") spec))))))
+
+(ert-deftest honey-substrate/native-deps-workflow-upgrades-meson-for-wlroots ()
+  "The Ubuntu native-deps workflow should install a Meson new enough for wlroots."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--native-deps-workflow)
+    (let ((workflow (buffer-string)))
+      (should (string-match-p (regexp-quote "python3-pip") workflow))
+      (should (string-match-p (regexp-quote "python3 -m pip install --break-system-packages 'meson>=1.5.0'") workflow)))))
 
 (ert-deftest honey-substrate/justfile-exposes-remote-honey-dev-lane ()
   "The task runner should expose thin remote operator helpers for `neo` -> `honey`."

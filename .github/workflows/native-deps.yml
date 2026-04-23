@@ -76,7 +76,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            rpm ccache \
+            rpm ccache python3-pip \
             meson ninja-build gcc pkg-config \
             libwayland-dev wayland-protocols \
             libdrm-dev libegl-dev libgbm-dev libgl-dev \
@@ -88,6 +88,7 @@ jobs:
             libjson-c-dev libpango1.0-dev libcairo2-dev \
             libgdk-pixbuf-2.0-dev libpcre2-dev libevdev-dev \
             scdoc
+          python3 -m pip install --break-system-packages 'meson>=1.5.0'
 
       - name: Setup ccache
         run: |
