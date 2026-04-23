@@ -128,7 +128,10 @@
       (should (string-match-p
                (regexp-quote "BuildRequires:  xorg-x11-server-Xwayland-devel")
                spec))
-      (should-not (string-match-p (regexp-quote "BuildRequires:  xwayland") spec)))))
+      (should-not (string-match-p (regexp-quote "BuildRequires:  xwayland") spec))
+      (should (string-match-p (regexp-quote "%{_libdir}/libwlroots-*.so") spec))
+      (should-not (string-match-p (regexp-quote "%{_libdir}/libwlroots-*.so.*") spec))
+      (should (string-match-p (regexp-quote "* Tue Mar 10 2026 EXWM-VR") spec)))))
 
 (ert-deftest honey-substrate/sway-rpm-lane-keeps-version-and-xwayland-surface-honest ()
   "sway RPM spec should use a non-recursive version macro and Rocky Xwayland names."
@@ -146,7 +149,8 @@
       (should (string-match-p
                (regexp-quote "Requires:       xorg-x11-server-Xwayland")
                spec))
-      (should-not (string-match-p (regexp-quote "Requires:       xwayland") spec)))))
+      (should-not (string-match-p (regexp-quote "Requires:       xwayland") spec))
+      (should (string-match-p (regexp-quote "* Tue Mar 10 2026 EXWM-VR") spec)))))
 
 (ert-deftest honey-substrate/native-rpm-specs-use-portable-meson-invocations ()
   "wlroots/sway RPM specs should not depend on distro-specific %%meson macros."

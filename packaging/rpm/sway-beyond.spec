@@ -88,7 +88,7 @@ install -Dpm 0644 %{SOURCE1} \
 %{_datadir}/zsh/site-functions/_sway*
 
 %changelog
-* Mon Mar 10 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 1.10-1
+* Tue Mar 10 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 1.10-1
 - Initial sway-beyond package
 - Built against wlroots-beyond with Bigscreen Beyond patches
 - Includes EXWM-VR sway config drop-in

@@ -86,14 +86,13 @@ DESTDIR=%{buildroot} ninja -C build install
 
 %files
 %license LICENSE
-%{_libdir}/libwlroots-*.so.*
+%{_libdir}/libwlroots-*.so
 
 %files devel
 %{_includedir}/wlr/
-%{_libdir}/libwlroots-*.so
 %{_libdir}/pkgconfig/wlroots-*.pc
 
 %changelog
-* Mon Mar 10 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 0.18.2-1
+* Tue Mar 10 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 0.18.2-1
 - Initial wlroots-beyond package
 - Patch: force non_desktop for Bigscreen Beyond VR headsets
