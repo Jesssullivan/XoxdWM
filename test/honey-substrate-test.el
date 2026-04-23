@@ -151,6 +151,9 @@
       (should (string-match-p
                (regexp-quote "Requires:       xorg-x11-server-Xwayland")
                spec))
+      (should-not (string-match-p
+                   (regexp-quote "-Dxwayland=enabled")
+                   spec))
       (should-not (string-match-p (regexp-quote "Requires:       xwayland") spec))
       (should (string-match-p (regexp-quote "* Tue Mar 10 2026 EXWM-VR") spec)))))
 

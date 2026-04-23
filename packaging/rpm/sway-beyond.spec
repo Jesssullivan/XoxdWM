@@ -59,7 +59,6 @@ via DRM lease to Monado/SteamVR.
 meson setup build \
     --prefix=%{_prefix} \
     --libdir=%{_libdir} \
-    -Dxwayland=enabled \
     -Dman-pages=enabled
 ninja -C build
 
