@@ -20,6 +20,10 @@
   (expand-file-name "justfile"
                     (expand-file-name ".." (file-name-directory load-file-name))))
 
+(defconst honey-substrate--monado-launch-script
+  (expand-file-name "packaging/scripts/exwm-vr-monado-launch"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
 (defconst honey-substrate--remote-authority-doc
   (expand-file-name "docs/remote-build-authority.md"
                     (expand-file-name ".." (file-name-directory load-file-name))))
@@ -55,15 +59,13 @@
 (ert-deftest honey-substrate/monado-launch-cleans-stale-ipc-and-prefers-packaged-runtime ()
   "The launcher should clear dead IPC sockets and prefer the packaged runtime."
   (with-temp-buffer
-    (insert-file-contents
-     (expand-file-name "packaging/scripts/exwm-vr-monado-launch"
-                       (expand-file-name ".." (file-name-directory load-file-name))))
+    (insert-file-contents honey-substrate--monado-launch-script)
     (let ((script (buffer-string)))
-      (should (string-match-p "monado_comp_ipc" script))
-      (should (string-match-p "pgrep -x monado-service" script))
-      (should (string-match-p "rm -f \"\\${socket_path}\"" script))
-      (should (string-match-p "/usr/bin/monado-service" script))
-      (should (string-match-p "/usr/local/bin/monado-service" script)))))
+      (should (string-match-p (regexp-quote "monado_comp_ipc") script))
+      (should (string-match-p (regexp-quote "pgrep -x monado-service") script))
+      (should (string-match-p (regexp-quote "rm -f \"${socket_path}\"") script))
+      (should (string-match-p (regexp-quote "/usr/bin/monado-service") script))
+      (should (string-match-p (regexp-quote "/usr/local/bin/monado-service") script)))))
 
 (ert-deftest honey-substrate/monado-companion-lane-keeps-rocky-deps-honest ()
   "The Monado companion RPM lane should not depend on unavailable Rocky libuvc packaging."
