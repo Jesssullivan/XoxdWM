@@ -199,7 +199,13 @@
       (should (string-match-p "remote_repo_path := \"/home/jess/XoxdWM\"" justfile))
       (should (string-match-p "cd {{remote_repo_path}}" justfile))
       (should (string-match-p "nix develop --command" justfile))
-      (should (string-match-p "XDG_RUNTIME_DIR=.*run/user/" justfile)))))
+      (should (string-match-p "XDG_RUNTIME_DIR=.*run/user/" justfile))
+      (should (string-match-p (regexp-quote "cmd_b64=\"$(printf '%s' \"${cmd}\" | base64 | tr -d '\\n')\"") justfile))
+      (should (string-match-p (regexp-quote "ssh jess@{{host}} bash -s -- \"${cmd_b64}\" <<'REMOTE'") justfile))
+      (should (string-match-p (regexp-quote "cmd=\"$(printf '%s' \"$1\" | base64 --decode)\"") justfile))
+      (should (string-match-p (regexp-quote "exec nix develop --command bash -lc \"$cmd\"") justfile))
+      (should-not (string-match-p (regexp-quote "cmd='{{args}}'") justfile))
+      (should-not (string-match-p (regexp-quote "exec nix develop --command \"$@\"") justfile)))))
 
 (ert-deftest honey-substrate/remote-authority-doc-separates-direnv-honey-and-bazel ()
   "Remote authority docs should keep local direnv, `honey` devshells, and `rockies` Bazel distinct."

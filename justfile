@@ -608,14 +608,24 @@ honey-devshell host="honey":
 honey-run host="honey" *args="":
     #!/usr/bin/env bash
     set -euo pipefail
-    cmd='{{args}}'
+    cmd="$(cat <<'EOF'
+    {{args}}
+    EOF
+    )"
     cmd="${cmd#-- }"
     cmd="${cmd#--}"
     if [[ -z "${cmd}" ]]; then
         echo "Usage: just honey-run {{host}} -- <command...>"
         exit 1
     fi
-    ssh jess@{{host}} "cd {{remote_repo_path}} && export XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-/run/user/\$(id -u)} && exec nix develop --command ${cmd}"
+    cmd_b64="$(printf '%s' "${cmd}" | base64 | tr -d '\n')"
+    ssh jess@{{host}} bash -s -- "${cmd_b64}" <<'REMOTE'
+    set -euo pipefail
+    cd "{{remote_repo_path}}"
+    export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    cmd="$(printf '%s' "$1" | base64 --decode)"
+    exec nix develop --command bash -lc "$cmd"
+    REMOTE
 
 [group('ci')]
 honey-proof-env host="honey":
