@@ -93,7 +93,7 @@ jobs:
             ccache meson ninja-build pkgconf-pkg-config \
             wayland-devel wayland-protocols-devel \
             libdrm-devel mesa-libEGL-devel mesa-libgbm-devel \
-            mesa-libGL-devel mesa-libGLES-devel \
+            mesa-libGL-devel libglvnd-devel \
             libinput-devel libxkbcommon-devel libevdev-devel \
             pixman-devel libseat-devel \
             libxcb-devel xcb-util-wm-devel \

@@ -56,6 +56,14 @@
       (should (string-match-p "No non_desktop=1 connector found; continuing because" script))
       (should (string-match-p "no connected DisplayPort fallback matched" script)))))
 
+(ert-deftest honey-substrate/rocky-host-setup-uses-real-gles-provider ()
+  "The host setup helper should use Rocky's actual GLES provider package."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--setup-script)
+    (let ((script (buffer-string)))
+      (should (string-match-p (regexp-quote "libglvnd-devel") script))
+      (should-not (string-match-p (regexp-quote "mesa-libGLES-devel") script)))))
+
 (ert-deftest honey-substrate/monado-env-docs-point-to-supported-config-surface ()
   "The setup helper should install direct-mode env files under ~/.config/exwm-vr."
   (with-temp-buffer
@@ -163,7 +171,8 @@
       (should (string-match-p (regexp-quote "image: rockylinux/rockylinux:10") workflow))
       (should (string-match-p (regexp-quote "epel-release-latest-10.noarch.rpm") workflow))
       (should (string-match-p (regexp-quote "dnf config-manager --set-enabled crb || dnf config-manager setopt crb.enabled=1") workflow))
-      (should (string-match-p (regexp-quote "mesa-libGLES-devel") workflow))
+      (should (string-match-p (regexp-quote "libglvnd-devel") workflow))
+      (should-not (string-match-p (regexp-quote "mesa-libGLES-devel") workflow))
       (should (string-match-p (regexp-quote "xorg-x11-server-Xwayland-devel") workflow))
       (should-not (string-match-p (regexp-quote "apt-get") workflow))
       (should-not (string-match-p (regexp-quote "python3 -m pip install --break-system-packages 'meson>=1.5.0'") workflow)))))

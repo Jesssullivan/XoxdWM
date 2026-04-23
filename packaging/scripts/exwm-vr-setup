@@ -378,7 +378,7 @@ cmd_sway_setup() {
     dnf install -y \
         wlroots-devel wayland-devel wayland-protocols-devel \
         libinput-devel libevdev-devel pixman-devel \
-        mesa-libEGL-devel mesa-libGLES-devel \
+        mesa-libEGL-devel libglvnd-devel \
         libdrm-devel json-c-devel pango-devel cairo-devel pcre2-devel \
         meson ninja-build gcc scdoc \
         seatd xorg-x11-server-Xwayland 2>&1 | tail -5
