@@ -56,11 +56,15 @@ via DRM lease to Monado/SteamVR.
 %autosetup -n sway-%{version} -p1
 
 %build
-%meson -Dxwayland=enabled -Dman-pages=enabled
-%meson_build
+meson setup build \
+    --prefix=%{_prefix} \
+    --libdir=%{_libdir} \
+    -Dxwayland=enabled \
+    -Dman-pages=enabled
+ninja -C build
 
 %install
-%meson_install
+DESTDIR=%{buildroot} ninja -C build install
 
 # Install EXWM-VR sway config drop-in
 install -Dpm 0644 %{SOURCE1} \

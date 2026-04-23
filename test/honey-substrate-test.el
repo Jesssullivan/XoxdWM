@@ -20,6 +20,10 @@
   (expand-file-name "packaging/rpm/wlroots-beyond.spec"
                     (expand-file-name ".." (file-name-directory load-file-name))))
 
+(defconst honey-substrate--sway-spec
+  (expand-file-name "packaging/rpm/sway-beyond.spec"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
 (defconst honey-substrate--justfile
   (expand-file-name "justfile"
                     (expand-file-name ".." (file-name-directory load-file-name))))
@@ -109,6 +113,20 @@
        (string-match-p
         (regexp-quote "%define wlroots_version %{?wlroots_version}%{!?wlroots_version:0.18.2}")
         spec)))))
+
+(ert-deftest honey-substrate/native-rpm-specs-use-portable-meson-invocations ()
+  "wlroots/sway RPM specs should not depend on distro-specific %%meson macros."
+  (dolist (spec-path (list honey-substrate--wlroots-spec
+                           honey-substrate--sway-spec))
+    (with-temp-buffer
+      (insert-file-contents spec-path)
+      (let ((spec (buffer-string)))
+        (should (string-match-p (regexp-quote "meson setup build") spec))
+        (should (string-match-p (regexp-quote "ninja -C build") spec))
+        (should (string-match-p (regexp-quote "DESTDIR=%{buildroot} ninja -C build install") spec))
+        (should-not (string-match-p (regexp-quote "%meson") spec))
+        (should-not (string-match-p (regexp-quote "%meson_build") spec))
+        (should-not (string-match-p (regexp-quote "%meson_install") spec))))))
 
 (ert-deftest honey-substrate/justfile-exposes-remote-honey-dev-lane ()
   "The task runner should expose thin remote operator helpers for `neo` -> `honey`."

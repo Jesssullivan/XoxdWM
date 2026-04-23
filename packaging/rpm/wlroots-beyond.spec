@@ -74,11 +74,15 @@ Headers and pkgconfig files for building against wlroots-beyond.
 %autosetup -n wlroots-%{version} -p1
 
 %build
-%meson -Dxwayland=enabled -Dexamples=false
-%meson_build
+meson setup build \
+    --prefix=%{_prefix} \
+    --libdir=%{_libdir} \
+    -Dxwayland=enabled \
+    -Dexamples=false
+ninja -C build
 
 %install
-%meson_install
+DESTDIR=%{buildroot} ninja -C build install
 
 %files
 %license LICENSE
