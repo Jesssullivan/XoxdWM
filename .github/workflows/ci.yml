@@ -157,4 +157,4 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@v8
         continue-on-error: true
       - name: Validate git-cliff config
-        run: nix develop --command git-cliff --validate cliff.toml
+        run: nix develop --command git-cliff --config cliff.toml --unreleased --strip all --output /tmp/xoxdwm-changelog-check.md

@@ -82,6 +82,8 @@
 
 (declare-function x-get-atom-name "C source code" (VALUE &optional FRAME))
 
+(defvar x-no-window-manager)
+
 (defgroup exwm nil
   "Emacs X Window Manager."
   :tag "EXWM"
