@@ -64,13 +64,17 @@ By the end of the sprint:
 Current facts:
 
 - Main checkout: `codex/reality-authority-surface`
-- Current head: `3acf7de`
+- Current pushed sprint head: `9ba8b01`
 - Active PR: <https://github.com/Jesssullivan/XoxdWM/pull/34>
-- Local truth lint: `just truth-lint` passes `17/17` before this sprint doc
-- Important green lanes on current PR head: Rocky Linux Test, Monado Companion
-  RPM, native wlroots/sway RPM, NixOS VM integration
-- Remaining PR instability is from cancelled slow/self-hosted/multi-arch
-  follow-on checks, not a known current code failure
+- Local truth lint: `just truth-lint` passes `18/18` after the sprint doc
+  guardrail
+- Local full test surface: `just test` passes `1936/1936`
+- Dhall boot validation passes via `nix shell nixpkgs#dhall --command just
+  boot-validate`
+- PR #34 instability is currently check-state instability on the fresh pushed
+  head, not a known local test failure. Earlier instability was from cancelled
+  slow/self-hosted/multi-arch follow-on checks; the latest head still needs
+  GitHub checks to settle or be explicitly classified.
 
 Tasks:
 
@@ -193,6 +197,9 @@ Current facts:
   lanes such as `tinyland-nix`, `tinyland-nix-heavy`, `tinyland-nix-kvm`,
   `tinyland-nix-gpu`, and `tinyland-dind`.
 - Repo-shaped runner taxonomy is debt, not the target model.
+- The local GloriousFlywheel `main` checkout has broad dirty work as of the
+  follow-up audit. Treat it as preservation/reconciliation work, not a safe
+  source for direct ingestion into XoxdWM.
 - `rockies` PR #121 has visible green checks but still shows blocked.
 - `rockies` PR #125 is blocked by one Budgie display-persistence VM execution
   smoke failure.
@@ -206,7 +213,9 @@ Tasks:
    not release truth by itself.
 4. In XoxdWM, keep remote-build docs pointed at GloriousFlywheel and
    `rockies`, without adding fake local Bazel wrappers.
-5. Record the runner/cache substrate map in one place:
+5. Preserve or branch dirty GloriousFlywheel local work before using it as an
+   ingestion source.
+6. Record the runner/cache substrate map in one place:
    GloriousFlywheel for implementation, `rockies` for composition planning,
    XoxdWM for runtime proof consumption.
 
