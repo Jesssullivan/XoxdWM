@@ -35,7 +35,7 @@ Not every remote workflow is authoritative in the same way.
 | Release packaging | [.github/workflows/packaging.yml](../.github/workflows/packaging.yml) | mixed: `tinyland-nix` and hosted Rocky container jobs | release artifact production and bounded RPM metadata validation | deployed host truth or full VR package integration |
 | Monado companion packaging | [.github/workflows/monado-companion.yml](../.github/workflows/monado-companion.yml) | hosted Rocky container job | bounded Rocky RPM production for the companion Monado runtime lane | named-host proof or proof that the base compositor RPM now bundles Monado |
 | Honey VR hardware | [.github/workflows/vr-hardware.yml](../.github/workflows/vr-hardware.yml) and `fast-vr` in [.github/workflows/self-hosted-fast.yml](../.github/workflows/self-hosted-fast.yml) | `[self-hosted, honey]` | GPU, DRM, Monado, and bounded VR smoke when hardware lanes are explicitly enabled | stable deployed XoxdWM VR desktop on `honey` |
-| External Rocky control plane | sibling repos [rockies](</Users/jess/git/rockies>), [linux-xr](</Users/jess/git/linux-xr>), and [GloriousFlywheel](</Users/jess/git/GloriousFlywheel>) | external | Rocky composition policy, kernel packaging, and runner/cache substrate | XoxdWM implementation truth by themselves |
+| External Rocky control plane | sibling repos [rockies](</Users/jess/git/rockies>), [linux-xr](</Volumes/linux-xr-cs/linux-xr>), and [GloriousFlywheel](</Users/jess/git/GloriousFlywheel>) | external | Rocky composition policy, kernel packaging, and runner/cache substrate | XoxdWM implementation truth by themselves |
 
 ## Default Sequence From `neo`
 

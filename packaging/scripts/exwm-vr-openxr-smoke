@@ -132,6 +132,25 @@ socket_status() {
     fi
 }
 
+runtime_json_value() {
+    local key="$1"
+
+    sed -nE "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\"([^\"]*)\".*/\\1/p" "$XR_RUNTIME_JSON" 2>/dev/null | head -1
+}
+
+service_status() {
+    local unit="$1"
+    local name="$2"
+    local state="unavailable"
+
+    if command -v systemctl >/dev/null 2>&1; then
+        state="$(systemctl --user is-active "$unit" 2>/dev/null || true)"
+        [[ -n "$state" ]] || state="unknown"
+    fi
+
+    printf '%s=%s\n' "$name" "$state"
+}
+
 print_status() {
     echo "host=$(hostname 2>/dev/null || echo unknown)"
     echo "uid=$(id -u)"
@@ -143,7 +162,8 @@ print_status() {
         if command -v readlink >/dev/null 2>&1; then
             echo "runtime_json_target=$(readlink -f "$XR_RUNTIME_JSON" 2>/dev/null || readlink "$XR_RUNTIME_JSON" 2>/dev/null || echo unknown)"
         fi
-        grep -E '"name"|"library_path"' "$XR_RUNTIME_JSON" 2>/dev/null || true
+        echo "runtime_name=$(runtime_json_value name)"
+        echo "runtime_library_path=$(runtime_json_value library_path)"
     else
         echo "runtime_json=missing"
     fi
@@ -152,9 +172,8 @@ print_status() {
     socket_status "$XDG_RUNTIME_DIR/ewwm-ipc.sock" "ewwm_ipc"
     socket_status "$XDG_RUNTIME_DIR/monado_comp_ipc" "monado_ipc"
 
-    if command -v systemctl >/dev/null 2>&1; then
-        systemctl --user is-active exwm-vr-compositor.service exwm-vr-monado.service 2>/dev/null || true
-    fi
+    service_status "exwm-vr-compositor.service" "exwm_vr_compositor_service"
+    service_status "exwm-vr-monado.service" "exwm_vr_monado_service"
 
     if [[ -n "$client_path" ]]; then
         echo "openxr_client=$client_path"
