@@ -310,6 +310,11 @@ deploy-verify host="honey":
     VERIFY
 
 # ── kernel (linux-xr) ─────────────────────────────────
+#
+# Boundary:
+# - linux-xr owns kernel RPM release and installer semantics.
+# - Dell-7810 owns BIOS, SMI, NUMA, tuned, rollback, and RT host acceptance.
+# - XoxdWM owns downstream XR/runtime proof after the host is prepared.
 
 linux_xr_repo := "tinyland-inc/linux-xr"
 
@@ -321,6 +326,9 @@ beyond-kernel-install host tag variant="generic":
     #!/usr/bin/env bash
     set -euo pipefail
     echo "=== Installing kernel-xr ({{variant}}) {{tag}} on {{host}} ==="
+    if [[ "{{variant}}" == "rt" ]]; then
+        echo "NOTE: RT install is not RT promotion. Use Dell-7810 host evidence before making RT default for regular use."
+    fi
     rm -rf /tmp/kernel-xr-rpms && mkdir -p /tmp/kernel-xr-rpms
     case "{{variant}}" in
         rt)      PATTERN="kernel-xr-rt-*.x86_64.rpm" ;;
@@ -960,21 +968,40 @@ bios-verify host="honey":
     ssh jess@{{host}} "sudo dmidecode -t bios | grep -E 'Vendor|Version|Release|Revision|Date'"
 
 # Deploy tuned profile for BCI/VR workloads to remote host.
+# Prefer the Dell-owned T7810 profile when the sibling repo is present.
 [group('bios')]
 bios-tuned-deploy host="honey":
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "=== Deploying xr-bci tuned profile to {{host}} ==="
-    scp -r "{{project_root}}/packaging/tuned/xr-bci" jess@{{host}}:/tmp/
-    ssh jess@{{host}} "echo 'tinyland' | sudo -S bash -c 'cp -r /tmp/xr-bci /etc/tuned/ && tuned-adm profile xr-bci && echo Done: && tuned-adm active'"
+    profile_dir="{{project_root}}/packaging/tuned/xr-bci"
+    profile_name="xr-bci"
+    dell_profile="{{project_root}}/../Dell-7810/packaging/tuned/t7810-low-latency"
+    if [[ -d "${dell_profile}" ]]; then
+        profile_dir="${dell_profile}"
+        profile_name="t7810-low-latency"
+        echo "=== Deploying Dell-7810-owned ${profile_name} tuned profile to {{host}} ==="
+    else
+        echo "=== Deploying legacy XoxdWM ${profile_name} tuned profile to {{host}} ==="
+    fi
+    scp -r "${profile_dir}" jess@{{host}}:/tmp/
+    ssh jess@{{host}} "echo 'tinyland' | sudo -S bash -c 'cp -r /tmp/${profile_name} /etc/tuned/ && tuned-adm profile ${profile_name} && echo Done: && tuned-adm active'"
 
 # Run SMI validation on remote host (characterize hardware latency).
+# Prefer the Dell-owned validator when the sibling repo is present.
 [group('bios')]
 smi-validate host="honey" *args="":
     #!/usr/bin/env bash
     set -euo pipefail
     echo "=== SMI Validation on {{host}} ==="
-    scp "{{project_root}}/packaging/scripts/smi-validate" jess@{{host}}:/tmp/
+    validator="{{project_root}}/packaging/scripts/smi-validate"
+    dell_validator="{{project_root}}/../Dell-7810/scripts/platform/smi-validate"
+    if [[ -x "${dell_validator}" ]]; then
+        validator="${dell_validator}"
+        echo "Using Dell-7810-owned SMI validator."
+    else
+        echo "Using legacy XoxDWM SMI validator."
+    fi
+    scp "${validator}" jess@{{host}}:/tmp/smi-validate
     ssh jess@{{host}} "chmod +x /tmp/smi-validate && echo 'tinyland' | sudo -S /tmp/smi-validate {{args}}"
 
 # ── rollout ─────────────────────────────────────────

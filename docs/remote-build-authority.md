@@ -95,18 +95,29 @@ What those docs make explicit:
 
 ### `tinyland-inc/linux-xr`
 
-The local sibling repo at `/Users/jess/git/linux-xr` is the kernel-authoritative
-surface for XR kernel packaging and carry.
+The case-sensitive checkout at `/Volumes/linux-xr-cs/linux-xr` is the
+kernel-authoritative surface for XR kernel packaging and carry. The older
+Darwin checkout at `/Users/jess/git/linux-xr` is not an ingestion source unless
+it is intentionally rebuilt or moved onto a case-sensitive filesystem; the
+Linux tree contains case-distinct paths that a default macOS checkout cannot
+represent safely.
 
 Relevant references:
 
-- [README.md](</Users/jess/git/linux-xr/README.md>)
-- [xr/scripts/build-rpm.sh](</Users/jess/git/linux-xr/xr/scripts/build-rpm.sh>)
+- [README.md](</Volumes/linux-xr-cs/linux-xr/README.md>)
+- [xr/patches/README.md](</Volumes/linux-xr-cs/linux-xr/xr/patches/README.md>)
+- [site/docs/upstream-status.md](</Volumes/linux-xr-cs/linux-xr/site/docs/upstream-status.md>)
+- [xr/scripts/build-rpm.sh](</Volumes/linux-xr-cs/linux-xr/xr/scripts/build-rpm.sh>)
 
 Current truth from that repo:
 
 - kernel builds run on GloriousFlywheel infrastructure
-- XoxdWM patch payloads are consumed from XoxdWM during kernel packaging
+- kernel carry patches are owned in `linux-xr` under `xr/patches`
+- linux-xr PR #23 reconciled the current carry hygiene at merge commit
+  `35ccbe2`
+- DisplayID DSC BPP and the Bigscreen Beyond non-desktop quirk remain the
+  active upstreamable split; SMI, NUMA, tuned-profile, and rollback validation
+  remain Dell-7810/XoxdWM operator surfaces rather than kernel-patch carry
 
 ### `tinyland-inc/GloriousFlywheel`
 
