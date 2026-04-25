@@ -1,6 +1,6 @@
 # XoxdWM Status
 
-Snapshot date: 2026-04-22
+Snapshot date: 2026-04-25
 
 ## Honest Assessment
 
@@ -46,8 +46,9 @@ Snapshot date: 2026-04-22
   - self-hosted fast CI: heavy checks on all pushes, including non-code work
 - Shared self-hosted CI is being reconciled against the GloriousFlywheel runner
   contract:
-  - `Jesssullivan/XoxdWM#29` removed the shared-path fork gate and passed on an ephemeral `xoxdwm-nix` runner, but current PR #34 jobs using that label are queued with no assigned runner
+  - `Jesssullivan/XoxdWM#29` removed the shared-path fork gate and passed on an ephemeral `xoxdwm-nix` runner; PR #34 has since migrated non-hardware self-hosted jobs to the shared `tinyland-nix` capability lane
   - non-hardware self-hosted Nix workflows now target the shared `tinyland-nix` capability lane
+  - current PR #34 `tinyland-nix` jobs are queued with no assigned runner, so `tinyland-inc/GloriousFlywheel#413` tracks shared-lane reachability/enrollment rather than XoxdWM product failure
   - the remaining Honey / VR hardware lanes now key off explicit `USE_VR_HARDWARE` opt-in instead of `github.repository == 'tinyland-inc/XoxdWM'`
   - runner inventory and repo enrollment are still separate infrastructure facts, not XoxdWM runtime support claims
   - the named remote lane map is now explicit: `runner-health.yml`, `self-hosted-fast.yml`, `rocky-test.yml`, `packaging.yml`, and `vr-hardware.yml`

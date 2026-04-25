@@ -1,6 +1,6 @@
 # XoxdWM Remote Build Authority
 
-Snapshot date: 2026-04-22
+Snapshot date: 2026-04-25
 
 This repo is the source and truth surface for XoxdWM implementation work. It is
 not the Rocky build farm, not the Bazel control plane, and not the runner/cache
@@ -122,8 +122,11 @@ Current truth from that repo:
 
 - XoxdWM self-hosted Nix workflows target the shared `tinyland-nix`
   capability lane instead of the stale `xoxdwm-nix` repo-shaped label
-- a queued `xoxdwm-nix` job with no `runner_name` is an enrollment or label
-  mismatch signal, not an XoxdWM product proof failure
+- a queued shared-runner job with no `runner_name` is an enrollment, owner
+  boundary, or ARC reachability signal, not an XoxdWM product proof failure
+- `tinyland-inc/GloriousFlywheel#413` is the current tracker for proving
+  `Jesssullivan/XoxdWM` can reach the shared `tinyland-nix` lane without
+  recreating repo-shaped runner labels
 - Bazel remote cache and Attic live here as acceleration layers, not as
   publication truth by themselves
 

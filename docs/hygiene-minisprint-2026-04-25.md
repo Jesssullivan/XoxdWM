@@ -28,13 +28,17 @@ then reconcile trackers, then widen repeatability work.
 
 - [ ] Let XoxdWM PR #34 checks settle on the latest pushed head, then classify
   every non-green result as required, waived, cancelled-noise, or real blocker.
-  Current queue finding: stale `xoxdwm-nix` jobs have no assigned runner.
-- [ ] Verify the `tinyland-nix` migration on the next PR #34 head; if those
+  Current queue finding: PR #34 head `b74e72c` has nine queued shared-runner
+  jobs requesting `tinyland-nix` with no assigned `runner_name`.
+- [x] Verify the `tinyland-nix` migration on the next PR #34 head; if those
   jobs still queue, track it as GloriousFlywheel/repo-enrollment infrastructure,
-  not XoxdWM product failure.
+  not XoxdWM product failure. The follow-up owner-boundary issue is
+  `tinyland-inc/GloriousFlywheel#413`.
 - [ ] Reconcile XoxdWM GitHub issues `#10`, `#11`, `#12`, `#13`, `#20`, and
   `#22` against PR #34 evidence. Triage comments are posted; closures remain
-  gated on PR #34 stabilization.
+  gated on PR #34 stabilization. Current closure candidates are `#10`, `#12`,
+  and scope-limited `#13`; `#11`, `#20`, and `#22` should stay open or be
+  re-scoped.
 - [x] Decide and retire or close stale XoxdWM Greptile canary PR `#27`.
 - [x] Update Linear `TIN-341`, `TIN-342`, `TIN-343`, `TIN-344`, and `TIN-345`
   so completed evidence no longer looks open.
@@ -44,16 +48,20 @@ then reconcile trackers, then widen repeatability work.
 - [x] Treat `/private/tmp/xoxdwm-host-contract` as duplicate/equivalent work
   unless a later audit finds missing content.
 - [x] For `rockies` PR #121, identify whether the blocker is only draft/review
-  state or a hidden merge requirement.
+  state or a hidden merge requirement. It is currently draft plus review
+  required; visible checks are green.
 - [ ] For `rockies` PR #125, rerun the KVM VM smoke once if allowed; if the
   signal-9 failure reproduces, patch diagnostics and a bounded retry policy in
-  `rockies`, not XoxdWM.
+  `rockies`, not XoxdWM. Current log evidence already shows the VM derivation
+  builder was killed by signal 9 after VM boot began on `tinyland-nix-kvm`.
 - [x] Preserve or branch dirty local GloriousFlywheel work before using it as an
   ingestion source. Preserved on `tinyland-inc/GloriousFlywheel#408`.
 - [x] Keep GloriousFlywheel as the implementation authority for ARC runners,
   Attic, Bazel remote cache, runner lifecycle, and dogfood proof.
 - [x] Keep XoxdWM docs as consumer-facing references to remote-build authority,
   not copied GloriousFlywheel operator implementation.
+- [ ] Treat the local `linux-xr` checkout as a no-ingest surface until its
+  dirty worktree and 22-commit upstream lag are intentionally reconciled.
 - [ ] Keep Dell reset, PSU, management-display, and `rke2` safety constraints in
   Dell-7810 authority surfaces, with only software-facing implications mirrored
   here.
@@ -127,16 +135,19 @@ Current facts:
 - Dhall boot validation passes via `nix shell nixpkgs#dhall --command just
   boot-validate`
 - PR #34 instability is currently check-state instability on the fresh pushed
-  head, not a known local test failure. Earlier instability was from cancelled
-  slow/self-hosted/multi-arch follow-on checks; the latest head still needs
-  GitHub checks to settle or be explicitly classified.
+  head, not a known local test failure. Hosted Rocky/package lanes are green,
+  docs-only CI lanes are skipped by path filters, and the remaining queued
+  self-hosted/Nix/multi-arch jobs now request `tinyland-nix` with no assigned
+  runner.
 
 Tasks:
 
-1. Fix README drift around installed `monado-beyond`.
-2. Rerun or explicitly waive the cancelled PR #34 checks.
-3. Decide whether the cancelled self-hosted/Nix/multi-arch lanes are required
-   for this PR or only follow-on confidence.
+1. Keep README, status, and support-matrix language aligned around installed
+   `monado-beyond`.
+2. Let the current PR #34 `tinyland-nix` jobs run or explicitly classify them
+   as shared-lane reachability blockers through GloriousFlywheel.
+3. Decide whether self-hosted/Nix/multi-arch lanes are required for this PR or
+   only follow-on confidence once the shared runner path is reachable.
 4. Preserve `yoga` and `honey` support language as `Smoke`, not `Proven`.
 5. Keep `just truth-lint` green after every doc truth change.
 6. Before merge, run the relevant local cheap checks from `neo`:
@@ -156,10 +167,11 @@ Current facts:
 
 - XoxdWM GitHub issues #10, #12, #13, #20, and #22 still describe the older
   MVP decomposition.
-- Linear `TIN-346` tracks the active `honey` VR smoke path well.
-- Linear `TIN-345` still lags the stronger `yoga` SDDM/package evidence.
-- Linear `TIN-341`, `TIN-342`, `TIN-343`, and `TIN-344` remain open even
-  though much of their work landed in PR #34.
+- Linear `TIN-346` tracks the active `honey` VR smoke path well and remains
+  open because the proof is still one-shot.
+- Linear `TIN-345` is done for the stronger `yoga` SDDM/package evidence.
+- Linear `TIN-341`, `TIN-342`, `TIN-343`, and `TIN-344` are in review rather
+  than still appearing as untriaged blockers.
 - Dell-owned `TIN-338`, `TIN-339`, and `TIN-340` correctly belong in
   `Dell-7810`.
 - `TIN-398` is the correct cross-repo follow-up for honey RT/kernel posture.
@@ -168,7 +180,7 @@ Tasks:
 
 1. Add issue comments or close/re-scope stale XoxdWM GitHub issues after PR
    #34 is stabilized.
-2. Update Linear issue state to reflect landed evidence:
+2. Keep Linear issue state aligned with landed evidence:
    `TIN-345`, `TIN-341`, `TIN-342`, `TIN-343`, and `TIN-344`.
 3. Keep `TIN-346` open until `honey` is repeatable, not just one-shot.
 4. Keep `TIN-398` as the active cross-repo kernel posture reconciliation lane.
@@ -252,24 +264,34 @@ Current facts:
   lanes such as `tinyland-nix`, `tinyland-nix-heavy`, `tinyland-nix-kvm`,
   `tinyland-nix-gpu`, and `tinyland-dind`.
 - Repo-shaped runner taxonomy is debt, not the target model.
-- The local GloriousFlywheel `main` checkout has broad dirty work as of the
-  follow-up audit. Treat it as preservation/reconciliation work, not a safe
-  source for direct ingestion into XoxdWM.
-- `rockies` PR #121 has visible green checks but still shows blocked.
+- The local GloriousFlywheel preservation branch is clean and pushed at
+  `79dfc8f`; PR #408 is the current public-alpha visibility-gate surface.
+  Its checks are green except the intentional cross-org canary skip, but
+  GitHub still reports merge state `DIRTY`, so it needs a deliberate
+  merge-conflict pass before it is merge-ready.
+- `tinyland-inc/GloriousFlywheel#413` tracks the XoxdWM `tinyland-nix`
+  reachability/enrollment blocker.
+- The local `linux-xr` checkout is behind `origin/xr/main` by 22 commits and
+  has dirty kernel-tree edits; it is not a safe ingestion source for this
+  sprint until explicitly reconciled.
+- `rockies` PR #121 has visible green checks but still shows blocked because it
+  is draft and review-required.
 - `rockies` PR #125 is blocked by one Budgie display-persistence VM execution
-  smoke failure.
+  smoke failure; the observed failure is a Nix VM derivation killed by signal 9
+  after VM boot began.
 
 Tasks:
 
-1. In `rockies`, document or resolve why PR #121 is blocked despite visible
-   green checks.
-2. Debug PR #125's Budgie display-persistence VM execution smoke failure.
+1. In `rockies`, either request/review PR #121 and mark it ready, or leave it
+   explicitly blocked on draft/review state.
+2. In `rockies`, rerun PR #125 only when the KVM/shared-runner pool is healthy;
+   if signal 9 reproduces, add diagnostics and a bounded retry policy there.
 3. Ensure `rockies` docs keep Bazel as orchestration/control-plane validation,
    not release truth by itself.
 4. In XoxdWM, keep remote-build docs pointed at GloriousFlywheel and
    `rockies`, without adding fake local Bazel wrappers.
-5. Preserve or branch dirty GloriousFlywheel local work before using it as an
-   ingestion source.
+5. Keep GloriousFlywheel PR #408 and issue #413 as the active substrate
+   tracking surfaces instead of copying runner/cache implementation here.
 6. Record the runner/cache substrate map in one place:
    GloriousFlywheel for implementation, `rockies` for composition planning,
    XoxdWM for runtime proof consumption.
