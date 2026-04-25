@@ -17,6 +17,10 @@ Read this with:
 - `/Users/jess/git/rockies/docs/build-strategy.md`
 - `/Users/jess/git/GloriousFlywheel/docs/current-state.md`
 
+Linear coordination:
+
+- `TIN-556`: XoxdWM, `rockies`, and GloriousFlywheel hygiene mini-sprint parity
+
 ## Sprint Thesis
 
 The current system has real evidence, but uneven administration:
