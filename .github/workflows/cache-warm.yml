@@ -16,49 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Install Nix
-        if: vars.USE_SELFHOSTED != 'true' || vars.GF_SHARED_RUNNERS_REACHABLE != 'true'
-        uses: cachix/install-nix-action@v27
+      - uses: ./.github/actions/ensure-nix
         with:
-          nix_path: nixpkgs=channel:nixos-unstable
-
-      - uses: tinyland-inc/GloriousFlywheel/.github/actions/setup-flywheel@main
-        if: vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true'
-        with:
-          attic-cache: ${{ env.ATTIC_CACHE || 'main' }}
-
-      - name: Ensure Nix daemon is reachable
-        if: vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if nix store ping >/dev/null 2>&1; then
-            exit 0
-          fi
-
-          echo "::warning::Nix is installed but the daemon socket is unavailable; starting the Nix daemon stack"
-          sudo rm -f /nix/var/nix/daemon-socket/socket || true
-          if command -v determinate-nixd >/dev/null 2>&1; then
-            sudo -b "$(command -v determinate-nixd)" daemon
-          else
-            NIX_DAEMON_BIN="$(command -v nix-daemon || true)"
-            if [ -z "$NIX_DAEMON_BIN" ]; then
-              echo "::error::nix-daemon is not on PATH, and nix store ping failed"
-              exit 1
-            fi
-            sudo -b "$NIX_DAEMON_BIN" --daemon
-          fi
-
-          for _ in $(seq 1 15); do
-            if nix store ping >/dev/null 2>&1; then
-              exit 0
-            fi
-            sleep 1
-          done
-
-          echo "::error::nix-daemon did not become reachable after restart"
-          exit 1
+          self_hosted: ${{ vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true' }}
+          attic_cache: ${{ env.ATTIC_CACHE || 'main' }}
 
       - name: Setup Attic
         if: env.ATTIC_SERVER != ''

@@ -38,6 +38,11 @@ then reconcile trackers, then widen repeatability work.
   jobs to `tinyland-nix` unless `GF_SHARED_RUNNERS_REACHABLE=true` is also set.
   Until then, mixed lanes use hosted Linux fallback and self-hosted-only lanes
   skip.
+- [x] Remove direct `tinyland-inc/GloriousFlywheel/.github/actions/setup-flywheel`
+  dependencies from hosted-capable XoxdWM jobs. GitHub resolves `uses:` actions
+  before step gating is enough to protect hosted fallback jobs, so XoxdWM now
+  carries a minimal local `ensure-nix` consumer shim while GloriousFlywheel
+  remains substrate authority.
 - [ ] Reconcile XoxdWM GitHub issues `#10`, `#11`, `#12`, `#13`, `#20`, and
   `#22` against PR #34 evidence. Triage comments are posted; closures remain
   gated on PR #34 stabilization. Current closure candidates are `#10`, `#12`,
@@ -148,6 +153,11 @@ Current facts:
   repo-level self-hosted runners, and GloriousFlywheel's current personal
   compatibility lane is anchored to `Jesssullivan/jesssullivan.github.io`, not
   XoxdWM.
+- A second failure mode was exposed after hosted fallback replaced queued
+  shared-runner jobs: nested or direct references to the GloriousFlywheel
+  `setup-flywheel` action are not resolvable from this personal repo before job
+  step gating can protect them. XoxdWM's local `.github/actions/ensure-nix`
+  action must stay self-contained for hosted fallback.
 
 Tasks:
 
@@ -158,9 +168,12 @@ Tasks:
 3. Require `GF_SHARED_RUNNERS_REACHABLE=true` before any future PR #34 head
    selects `tinyland-nix`; otherwise use hosted Linux fallback or skip
    self-hosted-only jobs.
-4. Preserve `yoga` and `honey` support language as `Smoke`, not `Proven`.
-5. Keep `just truth-lint` green after every doc truth change.
-6. Before merge, run the relevant local cheap checks from `neo`:
+4. Keep hosted-capable jobs free of private/external GloriousFlywheel action
+   dependencies; consume the runner/cache contract through local workflow
+   shims and repo variables until shared-runner reachability is proven.
+5. Preserve `yoga` and `honey` support language as `Smoke`, not `Proven`.
+6. Keep `just truth-lint` green after every doc truth change.
+7. Before merge, run the relevant local cheap checks from `neo`:
    `just truth-lint`; `just test` when code or tests changed.
 
 Acceptance:

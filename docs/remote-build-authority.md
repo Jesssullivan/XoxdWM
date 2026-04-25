@@ -127,6 +127,10 @@ Current truth from that repo:
 - workflows only select `tinyland-nix` when both `USE_SELFHOSTED` and
   `GF_SHARED_RUNNERS_REACHABLE` are `true`; otherwise they use hosted Linux
   fallback or skip self-hosted-only lanes
+- hosted-capable XoxdWM jobs must not directly reference private/external
+  GloriousFlywheel actions, because GitHub resolves `uses:` actions before
+  fallback step gating can protect them; `.github/actions/ensure-nix` carries
+  the minimal local consumer shim
 - `tinyland-inc/GloriousFlywheel#413` is the current tracker for proving
   `Jesssullivan/XoxdWM` can reach the shared `tinyland-nix` lane without
   recreating repo-shaped runner labels

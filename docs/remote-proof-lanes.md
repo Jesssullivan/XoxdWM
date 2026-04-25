@@ -67,6 +67,8 @@ Until that proof variable is set:
 
 - mixed workflows use hosted Linux fallback instead of queuing forever
 - self-hosted-only fast lanes skip
+- hosted-capable jobs use the local `.github/actions/ensure-nix` shim instead
+  of resolving GloriousFlywheel private/external actions directly
 - GloriousFlywheel issue `#413` remains the owner-boundary and ARC
   reachability tracker
 - this repo must not recreate repo-shaped `xoxdwm-*` runner labels to make the
