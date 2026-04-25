@@ -63,10 +63,10 @@ then reconcile trackers, then widen repeatability work.
 - [x] For `rockies` PR #121, identify whether the blocker is only draft/review
   state or a hidden merge requirement. It is currently draft plus review
   required; visible checks are green.
-- [ ] For `rockies` PR #125, rerun the KVM VM smoke once if allowed; if the
-  signal-9 failure reproduces, patch diagnostics and a bounded retry policy in
-  `rockies`, not XoxdWM. Current log evidence already shows the VM derivation
-  builder was killed by signal 9 after VM boot began on `tinyland-nix-kvm`.
+- [x] For `rockies` PR #125, classify the KVM VM smoke state without moving the
+  blocker into XoxdWM. Current refresh shows the Budgie display-persistence VM
+  execution smoke is green on head `6b19abe`; PR #125 remains draft/blocked,
+  not blocked by the earlier signal-9 VM evidence.
 - [x] Preserve or branch dirty local GloriousFlywheel work before using it as an
   ingestion source. Preserved on `tinyland-inc/GloriousFlywheel#408`.
 - [x] Keep GloriousFlywheel as the implementation authority for ARC runners,
