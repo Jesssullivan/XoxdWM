@@ -261,14 +261,15 @@ Current facts:
   surface.
 - `monado-beyond` is installed on-host and `/usr/bin/monado-service` can reach
   direct-mode proof without `MONADO_SERVICE_BIN`.
-- The current client proof still depends on a local `/usr/local/bin/hello_xr`
-  tool.
+- The repo now has `packaging/scripts/exwm-vr-openxr-smoke` plus
+  `just honey-openxr-status` / `just honey-openxr-smoke`, but the current
+  client proof still resolves to a local `/usr/local/bin/hello_xr` tool.
 - The proof was captured once and torn down.
 
 Tasks:
 
-1. Make stale `monado_comp_ipc` cleanup explicit in launcher behavior and
-   operator docs.
+1. Preserve stale `monado_comp_ipc` cleanup in launcher behavior and keep the
+   OpenXR status wrapper as the safe preflight.
 2. Replace local `/usr/local/bin/hello_xr` dependency with a packaged or
    durable Rocky-facing client-tool path.
 3. Rerun the installed `honey` path enough times to classify it as repeatable.

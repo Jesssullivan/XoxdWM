@@ -200,6 +200,8 @@ depends on EXWM Lisp dependencies that are not yet packaged in Rocky 10.
 %package monado
 Summary:        Monado OpenXR runtime integration for EXWM-VR
 BuildArch:      noarch
+Requires:       bash
+Requires:       coreutils
 Requires:       monado
 Requires:       %{name}-compositor = %{version}-%{release}
 
@@ -407,6 +409,8 @@ install -Dpm 0644 %{SOURCE21} \
     %{buildroot}%{_userunitdir}/exwm-vr-monado.service
 install -Dpm 0755 packaging/scripts/exwm-vr-monado-launch \
     %{buildroot}%{_libexecdir}/%{project_name}/monado-launch
+install -Dpm 0755 packaging/scripts/exwm-vr-openxr-smoke \
+    %{buildroot}%{_libexecdir}/%{project_name}/openxr-smoke
 %endif
 install -Dpm 0644 %{SOURCE22} \
     %{buildroot}%{_userunitdir}/exwm-vr-emacs.service
@@ -633,6 +637,7 @@ fi
 %license LICENSE
 %{_userunitdir}/exwm-vr-monado.service
 %{_libexecdir}/%{project_name}/monado-launch
+%{_libexecdir}/%{project_name}/openxr-smoke
 %{_udevrulesdir}/99-exwm-vr.rules
 %dir %{_sysconfdir}/xdg/openxr
 %dir %{_sysconfdir}/xdg/openxr/1

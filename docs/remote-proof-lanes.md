@@ -47,6 +47,8 @@ Not every remote workflow is authoritative in the same way.
    - `just honey-devshell`
    - `just honey-run honey -- <command...>`
    - `just honey-proof-env`
+   - `just honey-openxr-status`
+   - `just honey-openxr-smoke`
 4. Inspect the live remote surface with `just remote-proof-surface` and
    `just remote-proof-runs`.
 5. Dispatch bounded remote checks when needed:
@@ -89,6 +91,13 @@ The repo now has a thin explicit remote-dev/operator lane for working from
 - `just honey-proof-env`
   - print the remote repo path, runtime dir, key IPC sockets, and current
     user-service activity
+- `just honey-openxr-status`
+  - run the repo-owned OpenXR wrapper in status-only mode on `honey`
+  - this does not start services or launch an OpenXR client
+- `just honey-openxr-smoke`
+  - run the repo-owned OpenXR wrapper against the active Monado runtime
+  - this can launch `hello_xr` or another OpenXR client, so use it only when
+    the compositor/Monado path is intentionally active
 
 This lane is for live host work such as:
 

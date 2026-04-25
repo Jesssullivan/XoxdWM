@@ -426,14 +426,59 @@ three ways:
 - the current installed proof no longer needs `MONADO_SERVICE_BIN` or the
   literal IPC shim
 
+## Repo-Owned OpenXR Operator Wrapper
+
+The follow-up operator surface now lives in the repo instead of in an
+unstructured SSH command:
+
+- `packaging/scripts/exwm-vr-openxr-smoke`
+- packaged, when `--with monado_integration` is enabled, as:
+  - `/usr/libexec/exwm-vr/openxr-smoke`
+- remote helpers from `neo`:
+  - `just honey-openxr-status`
+  - `just honey-openxr-smoke`
+
+The status mode is intentionally non-disruptive. It reports:
+
+- `XDG_RUNTIME_DIR`
+- `XR_RUNTIME_JSON`
+- `wayland-0`, `ewwm-ipc.sock`, and `monado_comp_ipc` socket presence
+- `exwm-vr-compositor.service` and `exwm-vr-monado.service` activity when
+  `systemctl --user` is available
+- the OpenXR client that would be used
+
+This closes the "undocumented client invocation" part of the repeatability
+gap, but it does not yet prove client provenance. Until `hello_xr` is packaged
+or replaced, the wrapper still resolves the current host-local
+`/usr/local/bin/hello_xr` build on `honey`.
+
+A non-disruptive status-only run from `neo` on `2026-04-25` found the current
+post-reboot host state:
+
+- active runtime JSON:
+  - `/etc/xdg/openxr/1/active_runtime.json`
+  - target: `/usr/share/openxr/1/openxr_monado.json`
+- sockets:
+  - `wayland-0`: missing
+  - `ewwm-ipc.sock`: missing
+  - `monado_comp_ipc`: missing
+- user services:
+  - `exwm-vr-compositor.service`: inactive
+  - `exwm-vr-monado.service`: inactive
+- resolved client:
+  - `/usr/local/bin/hello_xr -g Vulkan`
+
+That is a clean preflight state for a future bounded rerun, not a new VR
+session proof.
+
 ## What This Does Not Yet Prove
 
 - a repeated installed operator lane on `honey`
 - a successful first-frame or long-running XR session path
 - that stale Monado IPC sockets from the older local lane are handled
   automatically in every operator path
-- that the proof uses a packaged Rocky client-tool lane instead of the current
-  local `/usr/local/bin/hello_xr` build
+- that the proof uses a packaged Rocky client-tool lane instead of the
+  wrapper-resolved local `/usr/local/bin/hello_xr` build
 - that XoxdWM itself is ready to be called a stable trusted XR bridge on `honey`
 
 ## Next Gate
@@ -443,8 +488,8 @@ three ways:
   supported host configuration surface for `honey`
 - keep the Monado-side `~/.config/exwm-vr/monado.env` path as the supported
   host configuration surface for `honey`
-- make stale `/run/user/1000/monado_comp_ipc` cleanup or prevention explicit in
-  operator automation
+- keep stale `/run/user/1000/monado_comp_ipc` cleanup explicit in the Monado
+  launcher and use `just honey-openxr-status` before disruptive VR reruns
 - either package the current `hello_xr` proof tool for Rocky or replace it
   with another durable client-tool lane
 - keep the older fallback `VK_ERROR_SURFACE_LOST_KHR` crash categorized as a
