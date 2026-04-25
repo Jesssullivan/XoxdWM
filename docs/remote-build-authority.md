@@ -121,6 +121,29 @@ Current truth from that repo:
   active upstreamable split; SMI, NUMA, tuned-profile, and rollback validation
   remain Dell-7810/XoxdWM operator surfaces rather than kernel-patch carry
 
+### `Jesssullivan/Dell-7810`
+
+The local sibling repo at `/Users/jess/git/Dell-7810` is the Dell Precision
+7810 host-evidence authority for `honey`.
+
+Relevant references there:
+
+- [docs/platform/rt-research-contract.md](</Users/jess/git/Dell-7810/docs/platform/rt-research-contract.md>)
+- [docs/tracking/rt-smi-numa-chapel-focus-2026-04-25.md](</Users/jess/git/Dell-7810/docs/tracking/rt-smi-numa-chapel-focus-2026-04-25.md>)
+- [docs/platform/authority-map.md](</Users/jess/git/Dell-7810/docs/platform/authority-map.md>)
+- [docs/platform/xoxdwm-symbiosis-touchpoints.md](</Users/jess/git/Dell-7810/docs/platform/xoxdwm-symbiosis-touchpoints.md>)
+
+What those docs make explicit:
+
+- Dell-7810 owns BIOS, SMI, RT/NUMA, reset, fan, enclosure, and Chapel host
+  probe evidence for `honey`
+- XoxdWM may consume that evidence as a named-host precondition, but XoxdWM
+  should not restate Dell raw measurements as software proof
+- XoxdWM owns downstream software-benefit claims, especially `C4` RT benefit
+  claims
+- generic-lane Chapel evidence exists in Dell-7810, while RT-lane Chapel
+  evidence remains a Dell follow-up before any software-side claim should use it
+
 ### `tinyland-inc/GloriousFlywheel`
 
 The local sibling repo at `/Users/jess/git/GloriousFlywheel` is the runner and
