@@ -124,7 +124,7 @@ jobs:
   cross-aarch64:
     name: Cross-compile aarch64
     runs-on: ${{ vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
-    timeout-minutes: 65
+    timeout-minutes: 25
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -145,7 +145,7 @@ jobs:
         continue-on-error: true
         run: |
           set +e
-          timeout 55m nix build .#packages.aarch64-linux.compositor-headless
+          timeout 20m nix build .#packages.aarch64-linux.compositor-headless
           rc=$?
           set -e
           echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
