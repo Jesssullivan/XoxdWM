@@ -57,6 +57,9 @@ then reconcile trackers, then widen repeatability work.
   so completed evidence no longer looks open.
 - [x] Keep `TIN-346` open until `honey` VR proof is repeatable, not just
   one-shot.
+- [x] Split the packaged OpenXR smoke-client blocker into `TIN-595` so the
+  next workstream can replace devshell or `/usr/local/bin/hello_xr`
+  dependence with an installed Rocky-compatible artifact.
 - [x] Keep `TIN-398` as the cross-repo honey RT/kernel posture lane.
 - [x] Treat `/private/tmp/xoxdwm-host-contract` as duplicate/equivalent work
   unless a later audit finds missing content.

@@ -138,6 +138,7 @@
                         "rocky-test.yml"
                         "packaging.yml"
                         "monado-companion.yml"
+                        "openxr-smoke-client.yml"
                         "vr-hardware.yml"))
       (should (string-match-p (regexp-quote workflow) doc))
       (should (file-exists-p
@@ -150,6 +151,7 @@
                       "remote-monado-package"
                       "remote-vr-smoke"
                       "remote-package"
+                      "remote-openxr-smoke-client-package"
                       "honey-shell"
                       "honey-devshell"
                       "honey-run"

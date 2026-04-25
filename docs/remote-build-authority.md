@@ -54,6 +54,7 @@ Do not turn `honey` into the Bazel control plane by default. Use `honey` for:
 - live XR/runtime proof
 - package install and host validation
 - systemd, OpenXR, Monado, DRM, and connector debugging
+- installed OpenXR smoke-client validation after a package is built
 
 Use `rockies` Bazel surfaces for:
 
@@ -169,6 +170,9 @@ Current truth from that repo:
   GloriousFlywheel actions, because GitHub resolves `uses:` actions before
   fallback step gating can protect them; `.github/actions/ensure-nix` carries
   the minimal local consumer shim
+- `openxr-smoke-client.yml` is an XoxdWM-owned companion RPM lane for the
+  Khronos `hello_xr` smoke client; it proves package buildability, while
+  installed `honey` runtime proof still belongs to named-host operator runs
 - `tinyland-inc/GloriousFlywheel#413` is the current tracker for proving
   `Jesssullivan/XoxdWM` can reach the shared `tinyland-nix` lane without
   recreating repo-shaped runner labels

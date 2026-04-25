@@ -1,0 +1,115 @@
+name: OpenXR Smoke Client RPM
+
+on:
+  push:
+    paths:
+      - '.github/workflows/openxr-smoke-client.yml'
+      - 'packaging/rpm/exwm-vr-openxr-smoke-client.spec'
+      - 'packaging/scripts/exwm-vr-openxr-smoke'
+  pull_request:
+    paths:
+      - '.github/workflows/openxr-smoke-client.yml'
+      - 'packaging/rpm/exwm-vr-openxr-smoke-client.spec'
+      - 'packaging/scripts/exwm-vr-openxr-smoke'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package-openxr-smoke-client:
+    name: Package OpenXR Smoke Client RPM
+    runs-on: ubuntu-latest
+    container: rockylinux/rockylinux:10
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install rpmbuild dependencies
+        run: |
+          dnf install -y \
+            'dnf-command(config-manager)' \
+            'https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm'
+          dnf config-manager --set-enabled crb || dnf config-manager setopt crb.enabled=1
+          dnf install -y \
+            bash curl tar gzip rpm-build rpmdevtools cmake ninja-build \
+            gcc-c++ python3 pkgconf-pkg-config openxr-devel \
+            vulkan-headers vulkan-loader-devel mesa-libGL-devel \
+            libX11-devel libXrandr-devel libXxf86vm-devel \
+            binutils cpio
+
+      - name: Set up rpmbuild tree
+        run: rpmdev-setuptree
+
+      - name: Download OpenXR SDK source tarball
+        run: |
+          set -euo pipefail
+          SDK_COMMIT=$(sed -n 's/^%global sdk_commit[[:space:]]*//p' packaging/rpm/exwm-vr-openxr-smoke-client.spec | head -1)
+          if [ -z "$SDK_COMMIT" ]; then
+            echo "Failed to parse OpenXR SDK commit from spec" >&2
+            exit 1
+          fi
+          curl -fsSL \
+            -o "$HOME/rpmbuild/SOURCES/OpenXR-SDK-Source-${SDK_COMMIT}.tar.gz" \
+            "https://github.com/KhronosGroup/OpenXR-SDK-Source/archive/${SDK_COMMIT}.tar.gz"
+
+      - name: Build OpenXR smoke client RPM
+        run: |
+          rpmbuild -bb --nodeps \
+            --define "_topdir $HOME/rpmbuild" \
+            packaging/rpm/exwm-vr-openxr-smoke-client.spec
+
+      - name: Validate OpenXR smoke client RPM
+        run: |
+          set -euo pipefail
+          RPM=$(find "$HOME/rpmbuild/RPMS" \
+            -name 'exwm-vr-openxr-smoke-client-[0-9]*.rpm' \
+            ! -name '*-debuginfo-*.rpm' \
+            ! -name '*-debugsource-*.rpm' \
+            | sort | head -1)
+          if [ -z "$RPM" ]; then
+            echo "No exwm-vr-openxr-smoke-client RPM found in rpmbuild output" >&2
+            exit 1
+          fi
+
+          for path in \
+            /usr/bin/exwm-vr-hello-xr \
+            /usr/libexec/exwm-vr/hello_xr
+          do
+            rpm -qpl "$RPM" | grep -Fx "$path" >/dev/null || {
+              echo "Missing expected payload path in OpenXR smoke client RPM: $path" >&2
+              exit 1
+            }
+          done
+          rpm -qplv "$RPM" \
+            | grep -F '/usr/bin/exwm-vr-hello-xr -> ../libexec/exwm-vr/hello_xr' >/dev/null || {
+              echo "OpenXR smoke client command symlink is not relative" >&2
+              exit 1
+            }
+
+          mkdir -p /tmp/openxr-rpm-validate
+          pushd /tmp/openxr-rpm-validate >/dev/null
+          rpm2cpio "$RPM" | cpio -idmv ./usr/libexec/exwm-vr/hello_xr >/dev/null 2>&1
+          if readelf -d usr/libexec/exwm-vr/hello_xr | grep -Eq '\((RPATH|RUNPATH)\)'; then
+            echo "hello_xr embeds an RPATH/RUNPATH; expected host runtime linking" >&2
+            exit 1
+          fi
+          if readelf -d usr/libexec/exwm-vr/hello_xr | grep -q '/nix/store\|rpmbuild/BUILD'; then
+            echo "hello_xr embeds a build-local RUNPATH; expected host runtime linking" >&2
+            exit 1
+          fi
+          popd >/dev/null
+
+      - name: Collect RPMs
+        run: |
+          mkdir -p rpms/
+          find "$HOME/rpmbuild/RPMS" -name '*.rpm' -exec cp {} rpms/ \;
+          ls -la rpms/
+
+      - name: Upload RPMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: openxr-smoke-client-rpm
+          path: 'rpms/*.rpm'
+          retention-days: 7
