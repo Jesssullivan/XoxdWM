@@ -96,6 +96,20 @@
              (expand-file-name "docs/remote-proof-lanes.md"
                                truth-surface-test--root)))))
 
+(ert-deftest truth-surface/readme-links-hygiene-minisprint ()
+  "README should link the current hygiene mini-sprint plan."
+  (let ((readme (truth-surface-test--read-file "README.md"))
+        (doc (truth-surface-test--read-file
+              "docs/hygiene-minisprint-2026-04-25.md")))
+    (should (string-match-p "docs/hygiene-minisprint-2026-04-25\\.md" readme))
+    (should (string-match-p "GloriousFlywheel" doc))
+    (should (string-match-p "rockies" doc))
+    (should (string-match-p "repo-shaped runner taxonomy is debt" doc))
+    (should (string-match-p "Do not stop `rke2`" doc))
+    (should-not
+     (string-match-p "monado-beyond` is not yet installed"
+                     readme))))
+
 (ert-deftest truth-surface/public-guides-link-remote-authority-surface ()
   "Public guides should route readers to the remote authority docs."
   (dolist (relative '("docs/installation-quickstart.md"
