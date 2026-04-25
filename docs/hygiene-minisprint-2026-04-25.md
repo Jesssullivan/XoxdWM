@@ -31,9 +31,9 @@ then reconcile trackers, then widen repeatability work.
   Current check finding: PR #34 head `19b0cec` has green core Rocky, Nix,
   native-deps, Monado companion, and VM integration lanes. Self-hosted fast
   jobs are intentionally skipped by the reachability gate. The remaining
-  `Cross-compile aarch64` result is a secondary-target hosted Nix build timeout,
-  now treated as informational with a bounded step timeout instead of allowing a
-  job-level timeout to leave the PR in `cancelled`.
+  `Cross-compile aarch64` and `Cross-compile s390x` are secondary-target
+  hosted Nix builds, now treated as informational with bounded step timeouts
+  instead of allowing job-level timeouts to leave the PR in `cancelled`.
 - [x] Verify the `tinyland-nix` migration on the next PR #34 head; if those
   jobs still queue, track it as GloriousFlywheel/repo-enrollment infrastructure,
   not XoxdWM product failure. The follow-up owner-boundary issue is
@@ -155,8 +155,8 @@ Current facts:
   head, not a known local or Rocky runtime failure. Hosted Rocky/package lanes
   are green, docs-only CI lanes are skipped by path filters, self-hosted-only
   jobs are intentionally skipped unless GloriousFlywheel reachability is proven,
-  and aarch64 cross-build is explicitly informational while the hosted/shared
-  cache path is too slow for that secondary target.
+  and aarch64/s390x cross-builds are explicitly informational while the
+  hosted/shared cache path is too slow for those secondary targets.
 - The earlier concrete reachability root cause was owner/scope mismatch:
   `Jesssullivan` is a GitHub user account, `Jesssullivan/XoxdWM` exposed zero
   accessible repo-level self-hosted runners, and GloriousFlywheel's current

@@ -11,6 +11,7 @@ on:
       - 'nix/**'
       - 'flake.nix'
       - 'flake.lock'
+      - '.github/workflows/multi-arch.yml'
   pull_request:
     branches: [main, dev]
     paths:
@@ -20,6 +21,7 @@ on:
       - 'nix/**'
       - 'flake.nix'
       - 'flake.lock'
+      - '.github/workflows/multi-arch.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -168,7 +170,8 @@ jobs:
   cross-s390x:
     name: Cross-compile s390x
     runs-on: ${{ vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
-    timeout-minutes: 60
+    timeout-minutes: 25
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -186,13 +189,20 @@ jobs:
       - name: Build s390x headless compositor
         id: s390x_build
         continue-on-error: true
-        run: nix build .#packages.s390x-linux.compositor-headless
+        run: |
+          set +e
+          timeout 20m nix build .#packages.s390x-linux.compositor-headless
+          rc=$?
+          set -e
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          exit "$rc"
 
       - name: Note non-blocking s390x status
         if: always()
         run: |
-          if [ "${{ steps.s390x_build.outcome }}" = "failure" ]; then
+          if [ "${{ steps.s390x_build.outcome }}" != "success" ]; then
             echo "s390x cross-build is informational only: current nixpkgs/LLVM compiler-rt toolchain is failing upstream on s390x." >> "$GITHUB_STEP_SUMMARY"
+            echo "Observed exit code: ${{ steps.s390x_build.outputs.exit_code }}" >> "$GITHUB_STEP_SUMMARY"
             echo "Treating s390x as non-blocking until the upstream toolchain issue clears."
           fi
 

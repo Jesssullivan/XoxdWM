@@ -50,7 +50,7 @@ Snapshot date: 2026-04-25
   - non-hardware self-hosted Nix workflows now target the shared `tinyland-nix` capability lane
   - current PR #34 no longer has unexplained `tinyland-nix` queues on the latest head; `tinyland-inc/GloriousFlywheel#413` remains the shared-lane reachability/enrollment tracker for turning that capability back on intentionally
   - fresh workflow selection now requires `GF_SHARED_RUNNERS_REACHABLE=true` before choosing `tinyland-nix`; until that proof variable is set, PR checks fall back to hosted Linux or skip self-hosted-only jobs instead of creating known-unreachable queues
-  - `Cross-compile aarch64` is classified as a secondary-target informational lane while the hosted/shared cache path is too slow; x86_64 Rocky/runtime proof remains the release-critical lane
+  - `Cross-compile aarch64` and `Cross-compile s390x` are classified as secondary-target informational lanes while the hosted/shared cache path is too slow; x86_64 Rocky/runtime proof remains the release-critical lane
   - the remaining Honey / VR hardware lanes now key off explicit `USE_VR_HARDWARE` opt-in instead of `github.repository == 'tinyland-inc/XoxdWM'`
   - runner inventory and repo enrollment are still separate infrastructure facts, not XoxdWM runtime support claims
   - the named remote lane map is now explicit: `runner-health.yml`, `self-hosted-fast.yml`, `rocky-test.yml`, `packaging.yml`, and `vr-hardware.yml`
