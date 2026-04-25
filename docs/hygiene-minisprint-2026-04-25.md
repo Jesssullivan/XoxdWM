@@ -26,10 +26,14 @@ Linear coordination:
 Use this as the sprint todo list. The order matters: stabilize truth first,
 then reconcile trackers, then widen repeatability work.
 
-- [ ] Let XoxdWM PR #34 checks settle on the latest pushed head, then classify
+- [x] Let XoxdWM PR #34 checks settle on the latest pushed head, then classify
   every non-green result as required, waived, cancelled-noise, or real blocker.
-  Current queue finding: PR #34 head `b74e72c` has nine queued shared-runner
-  jobs requesting `tinyland-nix` with no assigned `runner_name`.
+  Current check finding: PR #34 head `19b0cec` has green core Rocky, Nix,
+  native-deps, Monado companion, and VM integration lanes. Self-hosted fast
+  jobs are intentionally skipped by the reachability gate. The remaining
+  `Cross-compile aarch64` result is a secondary-target hosted Nix build timeout,
+  now treated as informational with a bounded step timeout instead of allowing a
+  job-level timeout to leave the PR in `cancelled`.
 - [x] Verify the `tinyland-nix` migration on the next PR #34 head; if those
   jobs still queue, track it as GloriousFlywheel/repo-enrollment infrastructure,
   not XoxdWM product failure. The follow-up owner-boundary issue is
@@ -69,8 +73,12 @@ then reconcile trackers, then widen repeatability work.
   Attic, Bazel remote cache, runner lifecycle, and dogfood proof.
 - [x] Keep XoxdWM docs as consumer-facing references to remote-build authority,
   not copied GloriousFlywheel operator implementation.
-- [ ] Treat the local `linux-xr` checkout as a no-ingest surface until its
-  dirty worktree and 22-commit upstream lag are intentionally reconciled.
+- [x] Treat the local `linux-xr` checkout as a no-ingest surface until its
+  dirty worktree and 22-commit upstream lag are intentionally reconciled. The
+  safe ingestion lane is now `/Volumes/linux-xr-cs/linux-xr`, a case-sensitive
+  clone aligned to `xr/main`; linux-xr PR #23 merged the carry hygiene patch at
+  `35ccbe2`, closed the stale cadence/posture issues, and left upstreamable
+  follow-ups in `tinyland-inc/linux-xr#24` and `#25`.
 - [ ] Keep Dell reset, PSU, management-display, and `rke2` safety constraints in
   Dell-7810 authority surfaces, with only software-facing implications mirrored
   here.
@@ -143,16 +151,17 @@ Current facts:
 - Local full test surface: `just test` passes `1936/1936`
 - Dhall boot validation passes via `nix shell nixpkgs#dhall --command just
   boot-validate`
-- PR #34 instability is currently check-state instability on the fresh pushed
-  head, not a known local test failure. Hosted Rocky/package lanes are green,
-  docs-only CI lanes are skipped by path filters, and the remaining queued
-  self-hosted/Nix/multi-arch jobs now request `tinyland-nix` with no assigned
-  runner.
-- The concrete reachability root cause is owner/scope mismatch: `Jesssullivan`
-  is a GitHub user account, `Jesssullivan/XoxdWM` exposes zero accessible
-  repo-level self-hosted runners, and GloriousFlywheel's current personal
-  compatibility lane is anchored to `Jesssullivan/jesssullivan.github.io`, not
-  XoxdWM.
+- PR #34 instability is currently check-state semantics on the fresh pushed
+  head, not a known local or Rocky runtime failure. Hosted Rocky/package lanes
+  are green, docs-only CI lanes are skipped by path filters, self-hosted-only
+  jobs are intentionally skipped unless GloriousFlywheel reachability is proven,
+  and aarch64 cross-build is explicitly informational while the hosted/shared
+  cache path is too slow for that secondary target.
+- The earlier concrete reachability root cause was owner/scope mismatch:
+  `Jesssullivan` is a GitHub user account, `Jesssullivan/XoxdWM` exposed zero
+  accessible repo-level self-hosted runners, and GloriousFlywheel's current
+  personal compatibility lane was anchored to `Jesssullivan/jesssullivan.github.io`,
+  not XoxdWM. PR #34 now avoids queuing those jobs by default.
 - A second failure mode was exposed after hosted fallback replaced queued
   shared-runner jobs: nested or direct references to the GloriousFlywheel
   `setup-flywheel` action are not resolvable from this personal repo before job
@@ -163,7 +172,7 @@ Tasks:
 
 1. Keep README, status, and support-matrix language aligned around installed
    `monado-beyond`.
-2. Keep the current PR #34 `tinyland-nix` queue explicitly classified as
+2. Keep any future PR #34 `tinyland-nix` queue explicitly classified as
    shared-lane reachability debt through GloriousFlywheel.
 3. Require `GF_SHARED_RUNNERS_REACHABLE=true` before any future PR #34 head
    selects `tinyland-nix`; otherwise use hosted Linux fallback or skip
@@ -294,9 +303,12 @@ Current facts:
   merge-conflict pass before it is merge-ready.
 - `tinyland-inc/GloriousFlywheel#413` tracks the XoxdWM `tinyland-nix`
   reachability/enrollment blocker.
-- The local `linux-xr` checkout is behind `origin/xr/main` by 22 commits and
-  has dirty kernel-tree edits; it is not a safe ingestion source for this
-  sprint until explicitly reconciled.
+- The original local `linux-xr` checkout on the Darwin filesystem remains a
+  no-ingest surface because Linux case-colliding paths can show false dirty
+  kernel-tree edits. Use the case-sensitive `/Volumes/linux-xr-cs/linux-xr`
+  clone for linux-xr work. That clone is clean on `xr/main` after PR #23
+  (`35ccbe2`), with upstreamable carry follow-ups tracked in linux-xr #24 and
+  #25.
 - `rockies` PR #121 has visible green checks but still shows blocked because it
   is draft and review-required.
 - `rockies` PR #125 is blocked by one Budgie display-persistence VM execution

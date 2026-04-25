@@ -124,7 +124,7 @@ jobs:
   cross-aarch64:
     name: Cross-compile aarch64
     runs-on: ${{ vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
-    timeout-minutes: 60
+    timeout-minutes: 65
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
@@ -141,11 +141,29 @@ jobs:
           token: ${{ secrets.ATTIC_TOKEN }}
 
       - name: Build aarch64 headless compositor
-        run: nix build .#packages.aarch64-linux.compositor-headless
+        id: aarch64_build
+        continue-on-error: true
+        run: |
+          set +e
+          timeout 55m nix build .#packages.aarch64-linux.compositor-headless
+          rc=$?
+          set -e
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          exit "$rc"
 
       - name: Verify binary architecture
+        if: steps.aarch64_build.outcome == 'success'
         run: |
           file result/bin/ewwm-compositor | grep -i aarch64
+
+      - name: Note non-blocking aarch64 status
+        if: always()
+        run: |
+          if [ "${{ steps.aarch64_build.outcome }}" != "success" ]; then
+            echo "aarch64 cross-build is informational until the shared runner/cache path is fast enough for this secondary target." >> "$GITHUB_STEP_SUMMARY"
+            echo "Observed exit code: ${{ steps.aarch64_build.outputs.exit_code }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "Treating aarch64 as non-blocking; x86_64 Rocky/runtime proof remains the release-critical lane."
+          fi
 
   cross-s390x:
     name: Cross-compile s390x
