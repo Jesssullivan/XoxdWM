@@ -36,6 +36,14 @@
   (expand-file-name "packaging/scripts/exwm-vr-monado-launch"
                     (expand-file-name ".." (file-name-directory load-file-name))))
 
+(defconst honey-substrate--openxr-smoke-script
+  (expand-file-name "packaging/scripts/exwm-vr-openxr-smoke"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
+(defconst honey-substrate--exwm-vr-spec
+  (expand-file-name "packaging/rpm/exwm-vr.spec"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
 (defconst honey-substrate--remote-authority-doc
   (expand-file-name "docs/remote-build-authority.md"
                     (expand-file-name ".." (file-name-directory load-file-name))))
@@ -86,6 +94,35 @@
       (should (string-match-p (regexp-quote "rm -f \"${socket_path}\"") script))
       (should (string-match-p (regexp-quote "/usr/bin/monado-service") script))
       (should (string-match-p (regexp-quote "/usr/local/bin/monado-service") script)))))
+
+(ert-deftest honey-substrate/openxr-smoke-wrapper-keeps-client-proof-bounded ()
+  "The OpenXR smoke wrapper should expose status-only and bounded client runs."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--openxr-smoke-script)
+    (let ((script (buffer-string)))
+      (should (string-match-p (regexp-quote "--status-only") script))
+      (should (string-match-p (regexp-quote "EXWM_VR_OPENXR_CLIENT") script))
+      (should (string-match-p (regexp-quote "EXWM_VR_OPENXR_TIMEOUT") script))
+      (should (string-match-p (regexp-quote "XDG_RUNTIME_DIR") script))
+      (should (string-match-p (regexp-quote "XR_RUNTIME_JSON") script))
+      (should (string-match-p (regexp-quote "runtime_name=") script))
+      (should (string-match-p (regexp-quote "runtime_library_path=") script))
+      (should (string-match-p (regexp-quote "exwm_vr_compositor_service") script))
+      (should (string-match-p (regexp-quote "exwm_vr_monado_service") script))
+      (should (string-match-p (regexp-quote "/usr/local/bin/hello_xr") script))
+      (should (string-match-p (regexp-quote "timeout \"$timeout_seconds\"") script))
+      (should (string-match-p (regexp-quote "monado_comp_ipc") script))
+      (should (string-match-p (regexp-quote "openxr_smoke=passed_after_ready_timeout") script)))))
+
+(ert-deftest honey-substrate/exwm-vr-monado-package-installs-openxr-smoke-wrapper ()
+  "The opt-in Monado subpackage should carry the repo-owned OpenXR smoke wrapper."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--exwm-vr-spec)
+    (let ((spec (buffer-string)))
+      (should (string-match-p (regexp-quote "Requires:       bash") spec))
+      (should (string-match-p (regexp-quote "Requires:       coreutils") spec))
+      (should (string-match-p (regexp-quote "packaging/scripts/exwm-vr-openxr-smoke") spec))
+      (should (string-match-p (regexp-quote "%{_libexecdir}/%{project_name}/openxr-smoke") spec)))))
 
 (ert-deftest honey-substrate/monado-companion-lane-keeps-rocky-deps-honest ()
   "The Monado companion RPM lane should not depend on unavailable Rocky libuvc packaging."
@@ -211,6 +248,9 @@
       (should (string-match-p "^honey-devshell host=\"honey\"" justfile))
       (should (string-match-p "^honey-run host=\"honey\"" justfile))
       (should (string-match-p "^honey-proof-env host=\"honey\"" justfile))
+      (should (string-match-p "^honey-openxr-status host=\"honey\"" justfile))
+      (should (string-match-p "^honey-openxr-smoke host=\"honey\"" justfile))
+      (should-not (string-match-p (regexp-quote "extra=\"${extra#--}\"") justfile))
       (should (string-match-p "remote_repo_path := \"/home/jess/XoxdWM\"" justfile))
       (should (string-match-p "cd {{remote_repo_path}}" justfile))
       (should (string-match-p "nix develop --command" justfile))

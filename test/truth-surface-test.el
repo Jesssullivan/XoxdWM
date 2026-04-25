@@ -153,7 +153,9 @@
                       "honey-shell"
                       "honey-devshell"
                       "honey-run"
-                      "honey-proof-env"))
+                      "honey-proof-env"
+                      "honey-openxr-status"
+                      "honey-openxr-smoke"))
       (should (string-match-p
                (format "^%s\\b" (regexp-quote recipe))
                justfile)))

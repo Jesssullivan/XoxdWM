@@ -651,6 +651,25 @@ honey-proof-env host="honey":
     systemctl --user is-active exwm-vr-compositor.service exwm-vr-monado.service 2>/dev/null || true
     REMOTE
 
+[group('ci')]
+honey-openxr-status host="honey":
+    just honey-run {{host}} -- './packaging/scripts/exwm-vr-openxr-smoke --status-only'
+
+[group('ci')]
+honey-openxr-smoke host="honey" *args="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    extra="$(cat <<'EOF'
+    {{args}}
+    EOF
+    )"
+    extra="${extra#-- }"
+    cmd="./packaging/scripts/exwm-vr-openxr-smoke"
+    if [[ -n "${extra}" ]]; then
+        cmd="${cmd} ${extra}"
+    fi
+    just honey-run "{{host}}" -- "${cmd}"
+
 # ── nix ────────────────────────────────────────────────
 
 [group('nix')]

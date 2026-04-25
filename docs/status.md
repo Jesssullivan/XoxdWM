@@ -19,8 +19,9 @@ Snapshot date: 2026-04-25
 - `hello_xr -g Vulkan` on `honey` now reaches `xrCreateInstance`, `xrGetSystem`, `Bigscreen Beyond`, `READY`, and two eye swapchains at `3561x3561`.
 - The active blockers on `honey` are now productization and repeatability, not missing lease support:
   - compositor-side `DP-2` designation and Monado direct-mode settings now both have supported host config surfaces, and `monado-beyond` is installed as a real host package on `honey`
-  - the package-default `exwm-vr-monado.service` now runs `/usr/bin/monado-service` without `MONADO_SERVICE_BIN`, but stale `monado_comp_ipc` cleanup should still be explicit in launcher and operator docs
-  - the current client-tool proof still uses a local `/usr/local/bin/hello_xr` build rather than a packaged Rocky operator tool
+  - the package-default `exwm-vr-monado.service` now runs `/usr/bin/monado-service` without `MONADO_SERVICE_BIN`, and the packaged launcher clears dead `monado_comp_ipc` sockets before launching when no `monado-service` is active
+  - the repo now carries `packaging/scripts/exwm-vr-openxr-smoke`, plus `just honey-openxr-status` and `just honey-openxr-smoke`, so the OpenXR client invocation is repo-owned instead of an undocumented SSH one-liner
+  - the current client-tool proof still resolves to a local `/usr/local/bin/hello_xr` build rather than a packaged Rocky operator tool
   - the proof has been captured once, not yet as a repeated operator lane
 - `yoga` now has `exwm-vr-0.5.4-1.el10`, `exwm-vr-compositor-0.5.4-1.el10`, and `exwm-vr-elisp-0.5.4-1.el10` installed.
 - `yoga` validated the earlier named-host package line: the compositor binary links cleanly, a bounded runtime succeeds with `seatd`, and Wayland/DRM/libinput startup is confirmed.
@@ -46,9 +47,9 @@ Snapshot date: 2026-04-25
   - self-hosted fast CI: heavy checks on all pushes, including non-code work
 - Shared self-hosted CI is being reconciled against the GloriousFlywheel runner
   contract:
-  - `Jesssullivan/XoxdWM#29` removed the shared-path fork gate and passed on an ephemeral `xoxdwm-nix` runner; PR #34 has since migrated non-hardware self-hosted jobs to the shared `tinyland-nix` capability lane
+  - `Jesssullivan/XoxdWM#29` removed the shared-path fork gate and passed on an ephemeral `xoxdwm-nix` runner; merged PR #34 migrated non-hardware self-hosted jobs to the shared `tinyland-nix` capability lane
   - non-hardware self-hosted Nix workflows now target the shared `tinyland-nix` capability lane
-  - current PR #34 no longer has unexplained `tinyland-nix` queues on the latest head; `tinyland-inc/GloriousFlywheel#413` remains the shared-lane reachability/enrollment tracker for turning that capability back on intentionally
+  - PR #34 merged without unexplained `tinyland-nix` queues on its final head; `tinyland-inc/GloriousFlywheel#413` remains the shared-lane reachability/enrollment tracker for turning that capability back on intentionally
   - fresh workflow selection now requires `GF_SHARED_RUNNERS_REACHABLE=true` before choosing `tinyland-nix`; until that proof variable is set, PR checks fall back to hosted Linux or skip self-hosted-only jobs instead of creating known-unreachable queues
   - `Cross-compile aarch64` and `Cross-compile s390x` are classified as secondary-target informational lanes while the hosted/shared cache path is too slow; x86_64 Rocky/runtime proof remains the release-critical lane
   - the remaining Honey / VR hardware lanes now key off explicit `USE_VR_HARDWARE` opt-in instead of `github.repository == 'tinyland-inc/XoxdWM'`
@@ -76,7 +77,7 @@ Snapshot date: 2026-04-25
 
 ## Immediate Priorities
 
-1. Make stale `monado_comp_ipc` cleanup or prevention explicit in launcher behavior and `honey` operator docs.
+1. Preserve the now-explicit `monado_comp_ipc` cleanup path in the launcher and keep the `honey` OpenXR status wrapper as the safe preflight.
 2. Preserve the new installed `monado-beyond` host lane on `honey` and rerun it enough times to call it repeatable instead of one-shot.
 3. Replace the current local `/usr/local/bin/hello_xr` proof tool on `honey` with a packaged or otherwise durable Rocky-facing client-tool path.
 4. Keep the Rocky base package lane green while leaving Monado, SELinux, and BCI as separate follow-on concerns.

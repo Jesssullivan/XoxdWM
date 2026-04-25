@@ -117,6 +117,8 @@ Current truth from that repo:
   `35ccbe2`
 - linux-xr PR #26 reconciled Dell host-validation wording at merge commit
   `f991999`
+- linux-xr PR #28 refreshed DSC upstream status at merge commit `323597c`;
+  treat the DSC carry as partial upstream overlap, not wholly absent upstream
 - DisplayID DSC BPP and the Bigscreen Beyond non-desktop quirk remain the
   active upstreamable split; SMI, NUMA, tuned-profile, and rollback validation
   remain Dell-7810/XoxdWM operator surfaces rather than kernel-patch carry

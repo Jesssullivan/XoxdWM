@@ -28,12 +28,12 @@ then reconcile trackers, then widen repeatability work.
 
 - [x] Let XoxdWM PR #34 checks settle on the latest pushed head, then classify
   every non-green result as required, waived, cancelled-noise, or real blocker.
-  Current check finding: PR #34 head `19b0cec` has green core Rocky, Nix,
-  native-deps, Monado companion, and VM integration lanes. Self-hosted fast
-  jobs are intentionally skipped by the reachability gate. The remaining
-  `Cross-compile aarch64` and `Cross-compile s390x` are secondary-target
-  hosted Nix builds, now treated as informational with bounded step timeouts
-  instead of allowing job-level timeouts to leave the PR in `cancelled`.
+  Final check finding: PR #34 merged at `28e8073` from head `72ba290c`; core
+  Rocky, Nix, native-deps, Monado companion, multi-arch, VM integration, and
+  Greptile lanes were green. Self-hosted fast jobs are intentionally skipped by
+  the reachability gate. Secondary cross-target hosted Nix builds are treated
+  as informational with bounded step timeouts instead of allowing job-level
+  timeouts to leave the PR in `cancelled`.
 - [x] Verify the `tinyland-nix` migration on the next PR #34 head; if those
   jobs still queue, track it as GloriousFlywheel/repo-enrollment infrastructure,
   not XoxdWM product failure. The follow-up owner-boundary issue is
@@ -47,11 +47,11 @@ then reconcile trackers, then widen repeatability work.
   before step gating is enough to protect hosted fallback jobs, so XoxdWM now
   carries a minimal local `ensure-nix` consumer shim while GloriousFlywheel
   remains substrate authority.
-- [ ] Reconcile XoxdWM GitHub issues `#10`, `#11`, `#12`, `#13`, `#20`, and
-  `#22` against PR #34 evidence. Triage comments are posted; closures remain
-  gated on PR #34 stabilization. Current closure candidates are `#10`, `#12`,
-  and scope-limited `#13`; `#11`, `#20`, and `#22` should stay open or be
-  re-scoped.
+- [ ] Reconcile XoxdWM GitHub issues `#11`, `#20`, and `#22` against merged
+  PR #34/#35 evidence and the follow-on OpenXR wrapper work. Older MVP issues
+  `#10`, `#12`, and `#13` have already been closed or retired; `#11`, `#20`,
+  and `#22` remain open because they track live runner reachability, repeatable
+  honey VR proof, and yoga local-session promotion.
 - [x] Decide and retire or close stale XoxdWM Greptile canary PR `#27`.
 - [x] Update Linear `TIN-341`, `TIN-342`, `TIN-343`, `TIN-344`, and `TIN-345`
   so completed evidence no longer looks open.
@@ -261,14 +261,15 @@ Current facts:
   surface.
 - `monado-beyond` is installed on-host and `/usr/bin/monado-service` can reach
   direct-mode proof without `MONADO_SERVICE_BIN`.
-- The current client proof still depends on a local `/usr/local/bin/hello_xr`
-  tool.
+- The repo now has `packaging/scripts/exwm-vr-openxr-smoke` plus
+  `just honey-openxr-status` / `just honey-openxr-smoke`, but the current
+  client proof still resolves to a local `/usr/local/bin/hello_xr` tool.
 - The proof was captured once and torn down.
 
 Tasks:
 
-1. Make stale `monado_comp_ipc` cleanup explicit in launcher behavior and
-   operator docs.
+1. Preserve stale `monado_comp_ipc` cleanup in launcher behavior and keep the
+   OpenXR status wrapper as the safe preflight.
 2. Replace local `/usr/local/bin/hello_xr` dependency with a packaged or
    durable Rocky-facing client-tool path.
 3. Rerun the installed `honey` path enough times to classify it as repeatable.
@@ -296,18 +297,17 @@ Current facts:
   lanes such as `tinyland-nix`, `tinyland-nix-heavy`, `tinyland-nix-kvm`,
   `tinyland-nix-gpu`, and `tinyland-dind`.
 - Repo-shaped runner taxonomy is debt, not the target model.
-- GloriousFlywheel PR #408 is the current public-alpha visibility-gate surface
-  at head `eceec84`. Its checks are green except the intentional cross-org
-  canary skip; GitHub currently reports unknown mergeability, so it still needs
-  a deliberate PR state check before it is merge-ready.
-- `tinyland-inc/GloriousFlywheel#413` tracks the XoxdWM `tinyland-nix`
-  reachability/enrollment blocker.
+- GloriousFlywheel PR #408 has merged at head `eceec84` after the public-alpha
+  dogfood contract checks passed and the cross-org canary stayed intentionally
+  skipped.
+- `tinyland-inc/GloriousFlywheel#413` is now the live XoxdWM `tinyland-nix`
+  reachability/enrollment proof blocker.
 - The original local `linux-xr` checkout on the Darwin filesystem remains a
   no-ingest surface because Linux case-colliding paths can show false dirty
   kernel-tree edits. Use the case-sensitive `/Volumes/linux-xr-cs/linux-xr`
   clone for linux-xr work. That clone is clean on `xr/main` after PR #23
-  (`35ccbe2`) and PR #26 (`f991999`), with upstreamable carry follow-ups tracked
-  in linux-xr #24 and #25.
+  (`35ccbe2`), PR #26 (`f991999`), and PR #28 (`323597c`), with upstreamable
+  carry follow-ups tracked in linux-xr #24 and #25.
 - `rockies` PR #121 has visible green checks but still shows blocked because it
   requires review.
 - `rockies` PR #125 has visible green checks, including the Budgie
@@ -323,8 +323,8 @@ Tasks:
    not release truth by itself.
 4. In XoxdWM, keep remote-build docs pointed at GloriousFlywheel and
    `rockies`, without adding fake local Bazel wrappers.
-5. Keep GloriousFlywheel PR #408 and issue #413 as the active substrate
-   tracking surfaces instead of copying runner/cache implementation here.
+5. Keep GloriousFlywheel issue #413 as the active substrate tracking surface
+   now that PR #408 has merged; do not copy runner/cache implementation here.
 6. Record the runner/cache substrate map in one place:
    GloriousFlywheel for implementation, `rockies` for composition planning,
    XoxdWM for runtime proof consumption.

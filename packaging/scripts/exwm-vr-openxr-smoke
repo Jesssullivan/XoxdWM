@@ -1,0 +1,242 @@
+#!/usr/bin/env bash
+# Bounded OpenXR client smoke wrapper for EXWM-VR/Monado host checks.
+
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: exwm-vr-openxr-smoke [options] [--] [client args...]
+
+Options:
+  --status-only             Print runtime/client status without launching a client.
+  --client PATH             Use a specific OpenXR client binary.
+  --timeout SECONDS         Bound client runtime. Default: 20. Use 0 to disable.
+  -h, --help                Show this help.
+
+Environment:
+  XDG_RUNTIME_DIR           Defaults to /run/user/$(id -u).
+  XR_RUNTIME_JSON           Defaults to /etc/xdg/openxr/1/active_runtime.json.
+  EXWM_VR_OPENXR_CLIENT     Default client path when --client is not provided.
+  EXWM_VR_OPENXR_TIMEOUT    Default timeout when --timeout is not provided.
+  EXWM_VR_OPENXR_ACCEPT_TIMEOUT_AFTER_READY=1
+                            Treat a timeout as success if READY/client markers
+                            are present in captured client output.
+EOF
+}
+
+status_only=0
+client_override="${EXWM_VR_OPENXR_CLIENT:-}"
+timeout_seconds="${EXWM_VR_OPENXR_TIMEOUT:-20}"
+accept_timeout_after_ready="${EXWM_VR_OPENXR_ACCEPT_TIMEOUT_AFTER_READY:-0}"
+client_args=()
+
+while (($#)); do
+    case "$1" in
+        --status-only)
+            status_only=1
+            shift
+            ;;
+        --client)
+            if (($# < 2)); then
+                echo "ERROR: --client requires a path" >&2
+                exit 64
+            fi
+            client_override="$2"
+            shift 2
+            ;;
+        --timeout)
+            if (($# < 2)); then
+                echo "ERROR: --timeout requires seconds" >&2
+                exit 64
+            fi
+            timeout_seconds="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        --)
+            shift
+            client_args+=("$@")
+            break
+            ;;
+        *)
+            client_args+=("$1")
+            shift
+            ;;
+    esac
+done
+
+if ! [[ "$timeout_seconds" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: timeout must be an integer number of seconds" >&2
+    exit 64
+fi
+
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+export XR_RUNTIME_JSON="${XR_RUNTIME_JSON:-/etc/xdg/openxr/1/active_runtime.json}"
+
+resolve_client() {
+    local candidate
+
+    if [[ -n "$client_override" ]]; then
+        if [[ -x "$client_override" ]]; then
+            printf '%s\n' "$client_override"
+            return 0
+        fi
+        if command -v "$client_override" >/dev/null 2>&1; then
+            command -v "$client_override"
+            return 0
+        fi
+        return 1
+    fi
+
+    for candidate in \
+        hello_xr \
+        /usr/local/bin/hello_xr \
+        /usr/bin/hello_xr \
+        openxr-info \
+        /usr/bin/openxr-info \
+        xrgears \
+        /usr/bin/xrgears
+    do
+        if [[ "$candidate" = */* ]]; then
+            [[ -x "$candidate" ]] && printf '%s\n' "$candidate" && return 0
+        elif command -v "$candidate" >/dev/null 2>&1; then
+            command -v "$candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+client_path="$(resolve_client || true)"
+client_name=""
+if [[ -n "$client_path" ]]; then
+    client_name="$(basename "$client_path")"
+fi
+
+if ((${#client_args[@]} == 0)) && [[ "$client_name" = "hello_xr" ]]; then
+    client_args=(-g Vulkan)
+fi
+
+socket_status() {
+    local path="$1"
+    local name="$2"
+
+    if [[ -S "$path" ]]; then
+        printf '%s=present\n' "$name"
+    else
+        printf '%s=missing\n' "$name"
+    fi
+}
+
+runtime_json_value() {
+    local key="$1"
+
+    sed -nE "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\"([^\"]*)\".*/\\1/p" "$XR_RUNTIME_JSON" 2>/dev/null | head -1
+}
+
+service_status() {
+    local unit="$1"
+    local name="$2"
+    local state="unavailable"
+
+    if command -v systemctl >/dev/null 2>&1; then
+        state="$(systemctl --user is-active "$unit" 2>/dev/null || true)"
+        [[ -n "$state" ]] || state="unknown"
+    fi
+
+    printf '%s=%s\n' "$name" "$state"
+}
+
+print_status() {
+    echo "host=$(hostname 2>/dev/null || echo unknown)"
+    echo "uid=$(id -u)"
+    echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
+    echo "XR_RUNTIME_JSON=$XR_RUNTIME_JSON"
+
+    if [[ -e "$XR_RUNTIME_JSON" ]]; then
+        echo "runtime_json=present"
+        if command -v readlink >/dev/null 2>&1; then
+            echo "runtime_json_target=$(readlink -f "$XR_RUNTIME_JSON" 2>/dev/null || readlink "$XR_RUNTIME_JSON" 2>/dev/null || echo unknown)"
+        fi
+        echo "runtime_name=$(runtime_json_value name)"
+        echo "runtime_library_path=$(runtime_json_value library_path)"
+    else
+        echo "runtime_json=missing"
+    fi
+
+    socket_status "$XDG_RUNTIME_DIR/wayland-0" "wayland_socket"
+    socket_status "$XDG_RUNTIME_DIR/ewwm-ipc.sock" "ewwm_ipc"
+    socket_status "$XDG_RUNTIME_DIR/monado_comp_ipc" "monado_ipc"
+
+    service_status "exwm-vr-compositor.service" "exwm_vr_compositor_service"
+    service_status "exwm-vr-monado.service" "exwm_vr_monado_service"
+
+    if [[ -n "$client_path" ]]; then
+        echo "openxr_client=$client_path"
+        if ((${#client_args[@]})); then
+            printf 'openxr_client_args='
+            printf '%q ' "${client_args[@]}"
+            printf '\n'
+        else
+            echo "openxr_client_args="
+        fi
+    else
+        echo "openxr_client=missing"
+    fi
+}
+
+print_status
+
+if ((status_only)); then
+    exit 0
+fi
+
+if [[ ! -e "$XR_RUNTIME_JSON" ]]; then
+    echo "ERROR: OpenXR runtime JSON is missing: $XR_RUNTIME_JSON" >&2
+    exit 66
+fi
+
+if [[ -z "$client_path" ]]; then
+    echo "ERROR: no OpenXR smoke client found. Set EXWM_VR_OPENXR_CLIENT or install hello_xr/openxr-info/xrgears." >&2
+    exit 127
+fi
+
+run_log="$(mktemp "${TMPDIR:-/tmp}/exwm-vr-openxr-smoke.XXXXXX.log")"
+cleanup() {
+    rm -f "$run_log"
+}
+trap cleanup EXIT
+
+echo "running=${client_path}"
+set +e
+if ((timeout_seconds == 0)); then
+    "$client_path" "${client_args[@]}" 2>&1 | tee "$run_log"
+    rc=${PIPESTATUS[0]}
+else
+    if ! command -v timeout >/dev/null 2>&1; then
+        echo "ERROR: timeout command not found; set EXWM_VR_OPENXR_TIMEOUT=0 to run unbounded." >&2
+        exit 127
+    fi
+    timeout "$timeout_seconds" "$client_path" "${client_args[@]}" 2>&1 | tee "$run_log"
+    rc=${PIPESTATUS[0]}
+fi
+set -e
+
+if ((rc == 0)); then
+    echo "openxr_smoke=passed"
+    exit 0
+fi
+
+if ((rc == 124)) && [[ "$accept_timeout_after_ready" = "1" ]]; then
+    if grep -Eqi "READY|Head:|swapchain|xrGetSystem" "$run_log"; then
+        echo "openxr_smoke=passed_after_ready_timeout"
+        exit 0
+    fi
+fi
+
+echo "openxr_smoke=failed rc=$rc" >&2
+exit "$rc"
