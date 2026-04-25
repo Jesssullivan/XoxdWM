@@ -246,6 +246,7 @@
       (should (string-match-p "^honey-proof-env host=\"honey\"" justfile))
       (should (string-match-p "^honey-openxr-status host=\"honey\"" justfile))
       (should (string-match-p "^honey-openxr-smoke host=\"honey\"" justfile))
+      (should-not (string-match-p (regexp-quote "extra=\"${extra#--}\"") justfile))
       (should (string-match-p "remote_repo_path := \"/home/jess/XoxdWM\"" justfile))
       (should (string-match-p "cd {{remote_repo_path}}" justfile))
       (should (string-match-p "nix develop --command" justfile))

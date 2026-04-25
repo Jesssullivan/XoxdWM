@@ -664,7 +664,6 @@ honey-openxr-smoke host="honey" *args="":
     EOF
     )"
     extra="${extra#-- }"
-    extra="${extra#--}"
     cmd="./packaging/scripts/exwm-vr-openxr-smoke"
     if [[ -n "${extra}" ]]; then
         cmd="${cmd} ${extra}"
