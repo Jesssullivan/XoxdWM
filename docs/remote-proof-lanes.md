@@ -57,6 +57,21 @@ Not every remote workflow is authoritative in the same way.
 6. Treat `yoga` and `honey` host evidence as the only basis for support-matrix
    or status promotion.
 
+## Shared-Runner Reachability Gate
+
+For non-hardware Nix lanes, `USE_SELFHOSTED=true` is no longer enough by
+itself. XoxdWM only selects `tinyland-nix` when
+`GF_SHARED_RUNNERS_REACHABLE=true` is also set.
+
+Until that proof variable is set:
+
+- mixed workflows use hosted Linux fallback instead of queuing forever
+- self-hosted-only fast lanes skip
+- GloriousFlywheel issue `#413` remains the owner-boundary and ARC
+  reachability tracker
+- this repo must not recreate repo-shaped `xoxdwm-*` runner labels to make the
+  queue disappear
+
 ## `neo` To `honey` Operator Lane
 
 The repo now has a thin explicit remote-dev/operator lane for working from

@@ -49,6 +49,7 @@ Snapshot date: 2026-04-25
   - `Jesssullivan/XoxdWM#29` removed the shared-path fork gate and passed on an ephemeral `xoxdwm-nix` runner; PR #34 has since migrated non-hardware self-hosted jobs to the shared `tinyland-nix` capability lane
   - non-hardware self-hosted Nix workflows now target the shared `tinyland-nix` capability lane
   - current PR #34 `tinyland-nix` jobs are queued with no assigned runner, so `tinyland-inc/GloriousFlywheel#413` tracks shared-lane reachability/enrollment rather than XoxdWM product failure
+  - fresh workflow selection now also requires `GF_SHARED_RUNNERS_REACHABLE=true` before choosing `tinyland-nix`; until that proof variable is set, PR checks fall back to hosted Linux or skip self-hosted-only jobs instead of creating known-unreachable queues
   - the remaining Honey / VR hardware lanes now key off explicit `USE_VR_HARDWARE` opt-in instead of `github.repository == 'tinyland-inc/XoxdWM'`
   - runner inventory and repo enrollment are still separate infrastructure facts, not XoxdWM runtime support claims
   - the named remote lane map is now explicit: `runner-health.yml`, `self-hosted-fast.yml`, `rocky-test.yml`, `packaging.yml`, and `vr-hardware.yml`

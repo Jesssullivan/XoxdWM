@@ -13,20 +13,21 @@ concurrency:
 jobs:
   nix-runner:
     name: Nix Runner Health
-    # Health checks target the shared GloriousFlywheel Nix capability lane, not
-    # a repo-shaped label that can silently lose runner enrollment.
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
+    # Health checks target the shared GloriousFlywheel Nix capability lane only
+    # after this repo has proved reachability. Before that, hosted Linux keeps
+    # the workflow honest instead of leaving jobs queued without runners.
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
       - uses: DeterminateSystems/nix-installer-action@main
       - uses: tinyland-inc/GloriousFlywheel/.github/actions/setup-flywheel@main
-        if: vars.USE_SELFHOSTED == 'true'
+        if: vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true'
         with:
           attic-cache: ${{ env.ATTIC_CACHE || 'main' }}
       - name: Ensure Nix daemon is reachable
-        if: vars.USE_SELFHOSTED == 'true'
+        if: vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true'
         shell: bash
         run: |
           set -euo pipefail

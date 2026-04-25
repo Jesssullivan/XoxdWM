@@ -34,6 +34,10 @@ then reconcile trackers, then widen repeatability work.
   jobs still queue, track it as GloriousFlywheel/repo-enrollment infrastructure,
   not XoxdWM product failure. The follow-up owner-boundary issue is
   `tinyland-inc/GloriousFlywheel#413`.
+- [x] Add a reachability proof gate so `USE_SELFHOSTED=true` no longer sends
+  jobs to `tinyland-nix` unless `GF_SHARED_RUNNERS_REACHABLE=true` is also set.
+  Until then, mixed lanes use hosted Linux fallback and self-hosted-only lanes
+  skip.
 - [ ] Reconcile XoxdWM GitHub issues `#10`, `#11`, `#12`, `#13`, `#20`, and
   `#22` against PR #34 evidence. Triage comments are posted; closures remain
   gated on PR #34 stabilization. Current closure candidates are `#10`, `#12`,
@@ -139,15 +143,21 @@ Current facts:
   docs-only CI lanes are skipped by path filters, and the remaining queued
   self-hosted/Nix/multi-arch jobs now request `tinyland-nix` with no assigned
   runner.
+- The concrete reachability root cause is owner/scope mismatch: `Jesssullivan`
+  is a GitHub user account, `Jesssullivan/XoxdWM` exposes zero accessible
+  repo-level self-hosted runners, and GloriousFlywheel's current personal
+  compatibility lane is anchored to `Jesssullivan/jesssullivan.github.io`, not
+  XoxdWM.
 
 Tasks:
 
 1. Keep README, status, and support-matrix language aligned around installed
    `monado-beyond`.
-2. Let the current PR #34 `tinyland-nix` jobs run or explicitly classify them
-   as shared-lane reachability blockers through GloriousFlywheel.
-3. Decide whether self-hosted/Nix/multi-arch lanes are required for this PR or
-   only follow-on confidence once the shared runner path is reachable.
+2. Keep the current PR #34 `tinyland-nix` queue explicitly classified as
+   shared-lane reachability debt through GloriousFlywheel.
+3. Require `GF_SHARED_RUNNERS_REACHABLE=true` before any future PR #34 head
+   selects `tinyland-nix`; otherwise use hosted Linux fallback or skip
+   self-hosted-only jobs.
 4. Preserve `yoga` and `honey` support language as `Smoke`, not `Proven`.
 5. Keep `just truth-lint` green after every doc truth change.
 6. Before merge, run the relevant local cheap checks from `neo`:

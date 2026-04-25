@@ -20,14 +20,14 @@ concurrency:
 jobs:
   build:
     name: Nix Build
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
       - uses: ./.github/actions/ensure-nix
         with:
-          self_hosted: ${{ vars.USE_SELFHOSTED }}
+          self_hosted: ${{ vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true' }}
           attic_cache: ${{ env.ATTIC_CACHE || 'main' }}
       - name: Verify Nix
         run: nix --version

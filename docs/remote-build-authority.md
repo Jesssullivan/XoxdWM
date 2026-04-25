@@ -124,6 +124,9 @@ Current truth from that repo:
   capability lane instead of the stale `xoxdwm-nix` repo-shaped label
 - a queued shared-runner job with no `runner_name` is an enrollment, owner
   boundary, or ARC reachability signal, not an XoxdWM product proof failure
+- workflows only select `tinyland-nix` when both `USE_SELFHOSTED` and
+  `GF_SHARED_RUNNERS_REACHABLE` are `true`; otherwise they use hosted Linux
+  fallback or skip self-hosted-only lanes
 - `tinyland-inc/GloriousFlywheel#413` is the current tracker for proving
   `Jesssullivan/XoxdWM` can reach the shared `tinyland-nix` lane without
   recreating repo-shaped runner labels
