@@ -77,8 +77,8 @@ then reconcile trackers, then widen repeatability work.
   dirty worktree and 22-commit upstream lag are intentionally reconciled. The
   safe ingestion lane is now `/Volumes/linux-xr-cs/linux-xr`, a case-sensitive
   clone aligned to `xr/main`; linux-xr PR #23 merged the carry hygiene patch at
-  `35ccbe2`, closed the stale cadence/posture issues, and left upstreamable
-  follow-ups in `tinyland-inc/linux-xr#24` and `#25`.
+  `35ccbe2`, PR #26 merged the Dell host-authority wording at `f991999`, and
+  upstreamable follow-ups remain in `tinyland-inc/linux-xr#24` and `#25`.
 - [ ] Keep Dell reset, PSU, management-display, and `rke2` safety constraints in
   Dell-7810 authority surfaces, with only software-facing implications mirrored
   here.
@@ -296,31 +296,29 @@ Current facts:
   lanes such as `tinyland-nix`, `tinyland-nix-heavy`, `tinyland-nix-kvm`,
   `tinyland-nix-gpu`, and `tinyland-dind`.
 - Repo-shaped runner taxonomy is debt, not the target model.
-- The local GloriousFlywheel preservation branch is clean and pushed at
-  `79dfc8f`; PR #408 is the current public-alpha visibility-gate surface.
-  Its checks are green except the intentional cross-org canary skip, but
-  GitHub still reports merge state `DIRTY`, so it needs a deliberate
-  merge-conflict pass before it is merge-ready.
+- GloriousFlywheel PR #408 is the current public-alpha visibility-gate surface
+  at head `eceec84`. Its checks are green except the intentional cross-org
+  canary skip; GitHub currently reports unknown mergeability, so it still needs
+  a deliberate PR state check before it is merge-ready.
 - `tinyland-inc/GloriousFlywheel#413` tracks the XoxdWM `tinyland-nix`
   reachability/enrollment blocker.
 - The original local `linux-xr` checkout on the Darwin filesystem remains a
   no-ingest surface because Linux case-colliding paths can show false dirty
   kernel-tree edits. Use the case-sensitive `/Volumes/linux-xr-cs/linux-xr`
   clone for linux-xr work. That clone is clean on `xr/main` after PR #23
-  (`35ccbe2`), with upstreamable carry follow-ups tracked in linux-xr #24 and
-  #25.
+  (`35ccbe2`) and PR #26 (`f991999`), with upstreamable carry follow-ups tracked
+  in linux-xr #24 and #25.
 - `rockies` PR #121 has visible green checks but still shows blocked because it
-  is draft and review-required.
-- `rockies` PR #125 is blocked by one Budgie display-persistence VM execution
-  smoke failure; the observed failure is a Nix VM derivation killed by signal 9
-  after VM boot began.
+  requires review.
+- `rockies` PR #125 has visible green checks, including the Budgie
+  display-persistence VM execution smoke, but remains draft and review-required.
 
 Tasks:
 
-1. In `rockies`, either request/review PR #121 and mark it ready, or leave it
-   explicitly blocked on draft/review state.
-2. In `rockies`, rerun PR #125 only when the KVM/shared-runner pool is healthy;
-   if signal 9 reproduces, add diagnostics and a bounded retry policy there.
+1. In `rockies`, request/review PR #121 or leave it explicitly blocked on
+   review state.
+2. In `rockies`, move PR #125 out of draft only after the project owner is ready
+   to promote the now-green Budgie display-persistence evidence.
 3. Ensure `rockies` docs keep Bazel as orchestration/control-plane validation,
    not release truth by itself.
 4. In XoxdWM, keep remote-build docs pointed at GloriousFlywheel and

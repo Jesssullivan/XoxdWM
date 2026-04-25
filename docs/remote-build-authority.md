@@ -115,6 +115,8 @@ Current truth from that repo:
 - kernel carry patches are owned in `linux-xr` under `xr/patches`
 - linux-xr PR #23 reconciled the current carry hygiene at merge commit
   `35ccbe2`
+- linux-xr PR #26 reconciled Dell host-validation wording at merge commit
+  `f991999`
 - DisplayID DSC BPP and the Bigscreen Beyond non-desktop quirk remain the
   active upstreamable split; SMI, NUMA, tuned-profile, and rollback validation
   remain Dell-7810/XoxdWM operator surfaces rather than kernel-patch carry
