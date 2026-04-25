@@ -113,7 +113,7 @@ By the end of the sprint:
 Current facts:
 
 - Main checkout: `codex/reality-authority-surface`
-- Current pushed sprint head: `9ba8b01`
+- Current pushed sprint head: `adb259f`
 - Active PR: <https://github.com/Jesssullivan/XoxdWM/pull/34>
 - Local truth lint: `just truth-lint` passes `18/18` after the sprint doc
   guardrail
