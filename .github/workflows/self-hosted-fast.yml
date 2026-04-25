@@ -1,8 +1,8 @@
 name: Self-Hosted Fast CI
 
-# Fast CI path for self-hosted ARC runners with pre-installed Nix
-# and warm Attic caches. Only runs when USE_SELFHOSTED is enabled;
-# ci.yml handles the ubuntu-latest fallback path.
+# Fast CI path for shared GloriousFlywheel Nix runners with warm cache hints.
+# Only runs when USE_SELFHOSTED is enabled; ci.yml handles the ubuntu-latest
+# fallback path.
 
 on:
   push:
@@ -38,7 +38,7 @@ jobs:
   fast-check:
     name: Fast Check (self-hosted)
     if: vars.USE_SELFHOSTED == 'true'
-    runs-on: xoxdwm-nix
+    runs-on: tinyland-nix
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -97,7 +97,7 @@ jobs:
   fast-build:
     name: Fast Build (self-hosted)
     if: vars.USE_SELFHOSTED == 'true'
-    runs-on: xoxdwm-nix
+    runs-on: tinyland-nix
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4

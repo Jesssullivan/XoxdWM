@@ -68,7 +68,7 @@ For PREEMPT_RT specifically, use the Dell claim ladder:
 | --- | --- | --- |
 | Lightweight CI on code changes | Smoke | Kept as primary CI surface. |
 | Rocky Linux test | Smoke | Workflow exists and the current branch proof lane is green: run `24776895510` passed both `Rocky Linux 10 Build & Test` and `Rocky Linux 10 + Nix` on `2026-04-22`. |
-| Self-hosted fast CI | Smoke | Shared `xoxdwm-nix` lane now runs on `Jesssullivan/XoxdWM`; repo-level runner inventory is still opaque, but the path is proven. |
+| Self-hosted fast CI | Smoke | The stale `xoxdwm-nix` repo-shaped lane is no longer treated as current authority; self-hosted Nix workflows now target the shared `tinyland-nix` GloriousFlywheel capability lane, with enrollment/scheduling tracked separately from product proof. |
 | VR hardware-in-the-loop CI | Design | Honey-backed jobs now require explicit `USE_VR_HARDWARE=true` instead of a fork-shaped repo-name gate. The lane is not yet claimed as active on the canonical repo by default. |
 | Scheduled runner health | Smoke | Reduced to weekly to avoid daily noise dominating repo health; the VR runner check is explicit opt-in. |
 

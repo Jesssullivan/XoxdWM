@@ -120,8 +120,10 @@ Relevant references:
 
 Current truth from that repo:
 
-- `Jesssullivan/XoxdWM` has a real repo-owned runner authority surface again
-- the `xoxdwm-nix` runner exists as a repo-scoped self-hosted lane
+- XoxdWM self-hosted Nix workflows target the shared `tinyland-nix`
+  capability lane instead of the stale `xoxdwm-nix` repo-shaped label
+- a queued `xoxdwm-nix` job with no `runner_name` is an enrollment or label
+  mismatch signal, not an XoxdWM product proof failure
 - Bazel remote cache and Attic live here as acceleration layers, not as
   publication truth by themselves
 

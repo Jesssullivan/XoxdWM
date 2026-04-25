@@ -1,6 +1,6 @@
 # XoxdWM Remote Proof Lanes
 
-Snapshot date: 2026-04-22
+Snapshot date: 2026-04-25
 
 This document names the remote workflow and host lanes that actually matter when
 you are operating XoxdWM from `neo`.
@@ -14,8 +14,8 @@ runtime claim.
 
 Not every remote workflow is authoritative in the same way.
 
-- Repo-owned CI and cache lanes prove that this repo still builds, evaluates, or
-  runs tests on the shared remote substrate.
+- Repo-side CI and cache lanes prove that this repo still builds, evaluates, or
+  runs tests on the shared GloriousFlywheel remote substrate.
 - Rocky container lanes provide bounded Rocky userspace smoke, but they are not
   the same as named-host proof on `yoga` or `honey`.
 - Honey hardware lanes provide bounded host-side GPU and VR evidence, but they
@@ -28,11 +28,11 @@ Not every remote workflow is authoritative in the same way.
 
 | Lane | Workflow / Surface | Runner | What It Proves | What It Does Not Prove |
 | --- | --- | --- | --- | --- |
-| Shared runner health | [.github/workflows/runner-health.yml](../.github/workflows/runner-health.yml) | `xoxdwm-nix`, optional `honey` | repo-owned self-hosted runner, Nix, and Attic path are alive | Rocky desktop runtime or named-host compositor success |
-| Shared fast CI | [.github/workflows/self-hosted-fast.yml](../.github/workflows/self-hosted-fast.yml) | `xoxdwm-nix`, optional `honey` | shared self-hosted fast path still works on the canonical repo | full Rocky support or a stable VR deployment |
-| Nix build and cache | [.github/workflows/nix-cache.yml](../.github/workflows/nix-cache.yml), [.github/workflows/cache-warm.yml](../.github/workflows/cache-warm.yml) | `xoxdwm-nix` | key Nix outputs still realize on the repo-owned remote lane | named-host runtime truth |
+| Shared runner health | [.github/workflows/runner-health.yml](../.github/workflows/runner-health.yml) | `tinyland-nix`, optional `honey` | shared GloriousFlywheel runner, Nix, and Attic path are alive | Rocky desktop runtime or named-host compositor success |
+| Shared fast CI | [.github/workflows/self-hosted-fast.yml](../.github/workflows/self-hosted-fast.yml) | `tinyland-nix`, optional `honey` | shared self-hosted fast path still works on the canonical repo | full Rocky support or a stable VR deployment |
+| Nix build and cache | [.github/workflows/nix-cache.yml](../.github/workflows/nix-cache.yml), [.github/workflows/cache-warm.yml](../.github/workflows/cache-warm.yml) | `tinyland-nix` | key Nix outputs still realize on the shared remote lane | named-host runtime truth |
 | Rocky userspace smoke | [.github/workflows/rocky-test.yml](../.github/workflows/rocky-test.yml) | `ubuntu-latest` with `rockylinux:10` container | bounded Rocky userspace and headless build smoke | `yoga`, `honey`, or custom Rockies build authority |
-| Release packaging | [.github/workflows/packaging.yml](../.github/workflows/packaging.yml) | mixed: `xoxdwm-nix` and hosted Rocky container jobs | release artifact production and bounded RPM metadata validation | deployed host truth or full VR package integration |
+| Release packaging | [.github/workflows/packaging.yml](../.github/workflows/packaging.yml) | mixed: `tinyland-nix` and hosted Rocky container jobs | release artifact production and bounded RPM metadata validation | deployed host truth or full VR package integration |
 | Monado companion packaging | [.github/workflows/monado-companion.yml](../.github/workflows/monado-companion.yml) | hosted Rocky container job | bounded Rocky RPM production for the companion Monado runtime lane | named-host proof or proof that the base compositor RPM now bundles Monado |
 | Honey VR hardware | [.github/workflows/vr-hardware.yml](../.github/workflows/vr-hardware.yml) and `fast-vr` in [.github/workflows/self-hosted-fast.yml](../.github/workflows/self-hosted-fast.yml) | `[self-hosted, honey]` | GPU, DRM, Monado, and bounded VR smoke when hardware lanes are explicitly enabled | stable deployed XoxdWM VR desktop on `honey` |
 | External Rocky control plane | sibling repos [rockies](</Users/jess/git/rockies>), [linux-xr](</Users/jess/git/linux-xr>), and [GloriousFlywheel](</Users/jess/git/GloriousFlywheel>) | external | Rocky composition policy, kernel packaging, and runner/cache substrate | XoxdWM implementation truth by themselves |

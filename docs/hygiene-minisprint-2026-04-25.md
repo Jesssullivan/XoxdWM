@@ -28,26 +28,31 @@ then reconcile trackers, then widen repeatability work.
 
 - [ ] Let XoxdWM PR #34 checks settle on the latest pushed head, then classify
   every non-green result as required, waived, cancelled-noise, or real blocker.
+  Current queue finding: stale `xoxdwm-nix` jobs have no assigned runner.
+- [ ] Verify the `tinyland-nix` migration on the next PR #34 head; if those
+  jobs still queue, track it as GloriousFlywheel/repo-enrollment infrastructure,
+  not XoxdWM product failure.
 - [ ] Reconcile XoxdWM GitHub issues `#10`, `#11`, `#12`, `#13`, `#20`, and
-  `#22` against PR #34 evidence.
-- [ ] Decide and retire or close stale XoxdWM Greptile canary PR `#27`.
-- [ ] Update Linear `TIN-341`, `TIN-342`, `TIN-343`, `TIN-344`, and `TIN-345`
+  `#22` against PR #34 evidence. Triage comments are posted; closures remain
+  gated on PR #34 stabilization.
+- [x] Decide and retire or close stale XoxdWM Greptile canary PR `#27`.
+- [x] Update Linear `TIN-341`, `TIN-342`, `TIN-343`, `TIN-344`, and `TIN-345`
   so completed evidence no longer looks open.
-- [ ] Keep `TIN-346` open until `honey` VR proof is repeatable, not just
+- [x] Keep `TIN-346` open until `honey` VR proof is repeatable, not just
   one-shot.
-- [ ] Keep `TIN-398` as the cross-repo honey RT/kernel posture lane.
-- [ ] Treat `/private/tmp/xoxdwm-host-contract` as duplicate/equivalent work
+- [x] Keep `TIN-398` as the cross-repo honey RT/kernel posture lane.
+- [x] Treat `/private/tmp/xoxdwm-host-contract` as duplicate/equivalent work
   unless a later audit finds missing content.
-- [ ] For `rockies` PR #121, identify whether the blocker is only draft/review
+- [x] For `rockies` PR #121, identify whether the blocker is only draft/review
   state or a hidden merge requirement.
 - [ ] For `rockies` PR #125, rerun the KVM VM smoke once if allowed; if the
   signal-9 failure reproduces, patch diagnostics and a bounded retry policy in
   `rockies`, not XoxdWM.
-- [ ] Preserve or branch dirty local GloriousFlywheel work before using it as an
-  ingestion source.
-- [ ] Keep GloriousFlywheel as the implementation authority for ARC runners,
+- [x] Preserve or branch dirty local GloriousFlywheel work before using it as an
+  ingestion source. Preserved on `tinyland-inc/GloriousFlywheel#408`.
+- [x] Keep GloriousFlywheel as the implementation authority for ARC runners,
   Attic, Bazel remote cache, runner lifecycle, and dogfood proof.
-- [ ] Keep XoxdWM docs as consumer-facing references to remote-build authority,
+- [x] Keep XoxdWM docs as consumer-facing references to remote-build authority,
   not copied GloriousFlywheel operator implementation.
 - [ ] Keep Dell reset, PSU, management-display, and `rke2` safety constraints in
   Dell-7810 authority surfaces, with only software-facing implications mirrored

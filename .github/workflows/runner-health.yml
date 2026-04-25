@@ -13,9 +13,9 @@ concurrency:
 jobs:
   nix-runner:
     name: Nix Runner Health
-    # Keep health checks on the same repo-owned label that already proves the
-    # live self-hosted path on main.
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'xoxdwm-nix' || 'ubuntu-latest' }}
+    # Health checks target the shared GloriousFlywheel Nix capability lane, not
+    # a repo-shaped label that can silently lose runner enrollment.
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5

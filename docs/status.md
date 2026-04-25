@@ -44,10 +44,12 @@ Snapshot date: 2026-04-22
   - Rocky test: optional `sccache` setup step
   - Nix cache workflow: attempting to install Nix on a pre-provisioned self-hosted runner
   - self-hosted fast CI: heavy checks on all pushes, including non-code work
-- Shared self-hosted CI now proves out on the canonical repo:
-  - `Jesssullivan/XoxdWM#29` removed the shared-path fork gate and passed on an ephemeral `xoxdwm-nix` runner
+- Shared self-hosted CI is being reconciled against the GloriousFlywheel runner
+  contract:
+  - `Jesssullivan/XoxdWM#29` removed the shared-path fork gate and passed on an ephemeral `xoxdwm-nix` runner, but current PR #34 jobs using that label are queued with no assigned runner
+  - non-hardware self-hosted Nix workflows now target the shared `tinyland-nix` capability lane
   - the remaining Honey / VR hardware lanes now key off explicit `USE_VR_HARDWARE` opt-in instead of `github.repository == 'tinyland-inc/XoxdWM'`
-  - the repo-level Actions runners API still reports `0` accessible runners on both repos, so runner inventory is still somewhat opaque even though the live shared path works
+  - runner inventory and repo enrollment are still separate infrastructure facts, not XoxdWM runtime support claims
   - the named remote lane map is now explicit: `runner-health.yml`, `self-hosted-fast.yml`, `rocky-test.yml`, `packaging.yml`, and `vr-hardware.yml`
 
 ## What This Repo Is Good For Right Now
