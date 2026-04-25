@@ -50,7 +50,8 @@ By the end of the sprint:
 - XoxdWM PR #34 is either merge-ready or has a short, explicit blocker list.
 - XoxdWM README, status, support matrix, GitHub issues, and Linear issues agree
   on what is `Smoke`, `Design`, and not claimed.
-- The `codex/xoxdwm-host-contract` worktree is either integrated or retired.
+- The `codex/xoxdwm-host-contract` worktree is retired or documented as a
+  duplicate/equivalent patch surface.
 - `rockies` has a clear status for PR #121 and PR #125, especially the Budgie
   display-persistence VM failure.
 - GloriousFlywheel remains the named shared substrate for ARC runners, Attic,
@@ -128,17 +129,19 @@ Current facts:
 - Side worktree: `/private/tmp/xoxdwm-host-contract`
 - Unique commit: `7150bcf dhall: extract Dell host facts and timing posture`
 - Diff surface: `justfile` plus `packaging/dhall/*`
-- It overlaps the Dell/XoxdWM host authority boundary and is not currently in
-  the active PR.
+- The patch content is already effectively present on the active branch:
+  `git cherry codex/reality-authority-surface codex/xoxdwm-host-contract`
+  marks `7150bcf` with `-`, and path history shows the equivalent active
+  commit as `a7029e6 dhall: extract Dell host facts and timing posture`.
+- The remaining work is worktree hygiene, not re-ingestion.
 
 Tasks:
 
-1. Review the commit against current `3acf7de`.
-2. Decide whether XoxdWM should carry the Dhall consumer copy now.
-3. If yes, cherry-pick or rebase it onto PR #34 and validate `just
-   boot-validate` plus truth lint.
-4. If no, retire the worktree or move the idea to Dell-7810 where the host
-   evidence authority lives.
+1. Validate the active Dhall consumer surface with `just boot-validate`.
+2. Retire or annotate `/private/tmp/xoxdwm-host-contract` so future audits do
+   not treat `7150bcf` as missing work.
+3. Keep the Dell/XoxdWM authority split explicit: Dell-7810 owns host
+   evidence; XoxdWM may carry a consumer copy for boot/config generation.
 
 Acceptance:
 
