@@ -4,6 +4,11 @@ Deploy EXWM-VR (XoxdWM) on Rocky Linux 10 with Nix managing the compositor,
 Emacs, and user configuration. Rocky provides the stable kernel, drivers, and
 SELinux policy; Nix manages reproducible packages and systemd user services.
 
+This guide is for Rocky / Linux target hosts. It is not the default authority
+path from `neo`. For the repo-wide authority split and current remote proof
+lanes, read [remote-build-authority.md](remote-build-authority.md) and
+[remote-proof-lanes.md](remote-proof-lanes.md) first.
+
 ## Prerequisites
 
 ### Tier 1: Headless (s390x, CI, containers)
@@ -157,9 +162,13 @@ home-manager switch
 This generates:
 - `~/.config/exwm-vr/config.el` — Elisp configuration
 - `~/.config/qutebrowser/exwm-vr-theme.py` — Qutebrowser theme
-- `~/.config/systemd/user/ewwm-compositor.service` (if systemd.enable)
-- `~/.config/systemd/user/ewwm-emacs.service` (if systemd.enable)
-- `~/.config/systemd/user/ewwm-session.target` (if systemd.enable)
+
+When `programs.exwm-vr.systemd.enable = true`, the module generates
+`exwm-vr-*` user units and keeps compatibility aliases for the older
+`ewwm-*` names during the transition:
+- `~/.config/systemd/user/exwm-vr-compositor.service` (if systemd.enable)
+- `~/.config/systemd/user/exwm-vr-emacs.service` (if systemd.enable)
+- `~/.config/systemd/user/exwm-vr.target` (if systemd.enable)
 
 ## 4. Config variable mapping
 
@@ -176,7 +185,7 @@ Nix option keys use `snake_case` and are converted to Elisp `kebab-case`:
 
 Any `snake_case` key in `programs.exwm-vr.config` is automatically converted.
 
-## 5. Build packages manually
+## 5. Build packages manually on a Linux target
 
 If not using systemd services, build packages directly:
 
@@ -257,38 +266,39 @@ After `home-manager switch` with `systemd.enable = true`:
 systemctl --user daemon-reload
 
 # Start the full session
-systemctl --user start ewwm-session.target
+systemctl --user start exwm-vr.target
 
 # Check status
-systemctl --user status ewwm-compositor.service
-systemctl --user status ewwm-emacs.service
+systemctl --user status exwm-vr-compositor.service
+systemctl --user status exwm-vr-emacs.service
 
 # View logs
-journalctl --user -u ewwm-compositor.service -f
-journalctl --user -u ewwm-emacs.service -f
+journalctl --user -u exwm-vr-compositor.service -f
+journalctl --user -u exwm-vr-emacs.service -f
 
 # Stop everything
-systemctl --user stop ewwm-session.target
+systemctl --user stop exwm-vr.target
 
 # Enable auto-start on login
-systemctl --user enable ewwm-session.target
+systemctl --user enable exwm-vr.target
 ```
 
 ### Without home-manager
 
-Copy the packaged service files:
+Copy the packaged display-manager service files and keep their `exwm-vr-*`
+names:
 
 ```bash
 mkdir -p ~/.config/systemd/user
-cp packaging/systemd/exwm-vr-compositor.service ~/.config/systemd/user/ewwm-compositor.service
-cp packaging/systemd/exwm-vr-emacs.service ~/.config/systemd/user/ewwm-emacs.service
-cp packaging/systemd/exwm-vr.target ~/.config/systemd/user/ewwm-session.target
+cp packaging/systemd/exwm-vr-compositor.service ~/.config/systemd/user/exwm-vr-compositor.service
+cp packaging/systemd/exwm-vr-emacs.service ~/.config/systemd/user/exwm-vr-emacs.service
+cp packaging/systemd/exwm-vr.target ~/.config/systemd/user/exwm-vr.target
 
 # Edit ExecStart paths to point to Nix store results
-vim ~/.config/systemd/user/ewwm-compositor.service
+vim ~/.config/systemd/user/exwm-vr-compositor.service
 
 systemctl --user daemon-reload
-systemctl --user start ewwm-session.target
+systemctl --user start exwm-vr.target
 ```
 
 ## 8. Headless server deployment
@@ -337,7 +347,7 @@ nix flake update --flake ~/.config/home-manager
 home-manager switch
 
 # Restart services to pick up new binaries
-systemctl --user restart ewwm-session.target
+systemctl --user restart exwm-vr.target
 ```
 
 ### Pinning a version
@@ -410,7 +420,7 @@ sudo dnf install -y \
 
 ```bash
 # Check the journal for errors
-journalctl --user -u ewwm-compositor.service --no-pager -n 50
+journalctl --user -u exwm-vr-compositor.service --no-pager -n 50
 
 # Common issues:
 # 1. No DRM device access -> add user to video group

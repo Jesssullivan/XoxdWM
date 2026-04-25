@@ -28,7 +28,6 @@ BuildRequires:  mesa-libEGL-devel
 BuildRequires:  mesa-libGL-devel
 BuildRequires:  mesa-vulkan-drivers
 BuildRequires:  libusb1-devel
-BuildRequires:  libuvc-devel
 BuildRequires:  hidapi-devel
 BuildRequires:  libXrandr-devel
 BuildRequires:  libxkbcommon-devel
@@ -51,6 +50,9 @@ headset on AMD GPUs under Wayland (DRM lease via Sway).
 %build
 %cmake -G Ninja \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DXRT_HAVE_LIBUVC=OFF \
+    -DXRT_BUILD_DRIVER_UVC=OFF \
+    -DXRT_BUILD_DRIVER_RIFT_SENSOR=OFF \
     -DXRT_BUILD_DRIVER_STEAMVR_LIGHTHOUSE=ON \
     -DXRT_FEATURE_STEAMVR_PLUGIN=ON
 %cmake_build
@@ -73,13 +75,15 @@ fi
 %doc README.md
 %{_bindir}/monado-service
 %{_bindir}/monado-cli
+%{_bindir}/monado-ctl
+%{_includedir}/monado/monado.h
+%{_userunitdir}/monado.service
+%{_userunitdir}/monado.socket
 %{_libdir}/libopenxr_monado.so*
 %{_libdir}/libmonado*.so*
 %{_datadir}/openxr/1/openxr_monado.json
-# Include any installed cmake/pkgconfig files
-%{_libdir}/pkgconfig/monado*.pc
-%{_libdir}/cmake/monado*/
+%{_datadir}/steamvr-monado/
 
 %changelog
-* Mon Mar 10 2026 EXWM-VR <noreply@example.com> - 0.0.1-1
+* Tue Mar 10 2026 EXWM-VR <noreply@example.com> - 0.0.1-1
 - Initial package: Monado with SteamVR Lighthouse for Bigscreen Beyond

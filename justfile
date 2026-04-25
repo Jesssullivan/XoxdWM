@@ -4,9 +4,11 @@
 set dotenv-load
 
 project_root := justfile_directory()
-core_el := `find lisp/core -name '*.el' -not -name '*-pkg.el' -not -name '*-autoloads.el' 2>/dev/null | sort`
-vr_el := `find lisp/vr -name '*.el' 2>/dev/null | sort`
-ext_el := `find lisp/ext -name '*.el' 2>/dev/null | sort`
+xoxdwm_repo := "Jesssullivan/XoxdWM"
+remote_repo_path := "/home/jess/XoxdWM"
+core_el := `find lisp/core -name '*.el' -not -name '*-pkg.el' -not -name '*-autoloads.el' 2>/dev/null | sort | paste -sd ' ' -`
+vr_el := `find lisp/vr -name '*.el' 2>/dev/null | sort | paste -sd ' ' -`
+ext_el := `find lisp/ext -name '*.el' 2>/dev/null | sort | paste -sd ' ' -`
 all_el := core_el + " " + vr_el + " " + ext_el
 load_flags := "-L " + project_root + "/lisp/core -L " + project_root + "/lisp/vr -L " + project_root + "/lisp/ext"
 
@@ -48,8 +50,16 @@ test-integration:
     @echo "Running integration tests..."
     emacs --batch \
         {{load_flags}} \
-        -l "{{project_root}}/test/run-tests.el" \
-        --eval '(ert-run-tests-batch-and-exit "week.*-integration")'
+        --eval '(setq ewwm-test-selector "week.*-integration")' \
+        -l "{{project_root}}/test/run-tests.el"
+
+[group('test')]
+truth-lint:
+    @echo "Running truth-surface tests..."
+    emacs --batch \
+        {{load_flags}} \
+        --eval '(setq ewwm-test-selector "^truth-surface/")' \
+        -l "{{project_root}}/test/run-tests.el"
 
 [group('test')]
 test-all: test test-compositor test-integration
@@ -300,6 +310,11 @@ deploy-verify host="honey":
     VERIFY
 
 # ── kernel (linux-xr) ─────────────────────────────────
+#
+# Boundary:
+# - linux-xr owns kernel RPM release and installer semantics.
+# - Dell-7810 owns BIOS, SMI, NUMA, tuned, rollback, and RT host acceptance.
+# - XoxdWM owns downstream XR/runtime proof after the host is prepared.
 
 linux_xr_repo := "tinyland-inc/linux-xr"
 
@@ -311,6 +326,9 @@ beyond-kernel-install host tag variant="generic":
     #!/usr/bin/env bash
     set -euo pipefail
     echo "=== Installing kernel-xr ({{variant}}) {{tag}} on {{host}} ==="
+    if [[ "{{variant}}" == "rt" ]]; then
+        echo "NOTE: RT install is not RT promotion. Use Dell-7810 host evidence before making RT default for regular use."
+    fi
     rm -rf /tmp/kernel-xr-rpms && mkdir -p /tmp/kernel-xr-rpms
     case "{{variant}}" in
         rt)      PATTERN="kernel-xr-rt-*.x86_64.rpm" ;;
@@ -505,6 +523,133 @@ release-notes:
 [group('ci')]
 ci: lint-elisp build test
     @echo "CI passed."
+
+[group('ci')]
+remote-proof-surface:
+    @echo "XoxdWM remote proof surface"
+    @echo ""
+    @echo "Local control plane on neo:"
+    @echo "  just truth-lint"
+    @echo "  just test"
+    @echo "  nix flake check --no-build"
+    @echo ""
+    @echo "Shared remote lanes:"
+    @echo "  runner-health.yml      tinyland-nix only when GF_SHARED_RUNNERS_REACHABLE=true"
+    @echo "  self-hosted-fast.yml   shared fast CI only after reachability proof"
+    @echo "  nix-cache.yml          Nix build/cache; hosted fallback until shared proof"
+    @echo "  cache-warm.yml         scheduled cache and cross-target warming"
+    @echo "  rocky-test.yml         bounded Rocky container smoke"
+    @echo "  packaging.yml          release artifact lane, not named-host support truth"
+    @echo "  monado-companion.yml   companion Monado RPM lane, not host proof"
+    @echo "  vr-hardware.yml        honey hardware and VR smoke, opt-in only"
+    @echo ""
+    @echo "Docs:"
+    @echo "  docs/remote-build-authority.md"
+    @echo "  docs/remote-proof-lanes.md"
+
+[group('ci')]
+remote-proof-runs limit="5":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    gh auth status >/dev/null 2>&1 || {
+        echo "gh auth is required for remote-proof-runs"
+        exit 1
+    }
+    workflows=(
+        runner-health.yml
+        self-hosted-fast.yml
+        nix-cache.yml
+        cache-warm.yml
+        rocky-test.yml
+        packaging.yml
+        monado-companion.yml
+        vr-hardware.yml
+    )
+    for workflow in "${workflows[@]}"; do
+        echo "=== $workflow ==="
+        gh run list -R "{{xoxdwm_repo}}" --workflow "$workflow" --limit "{{limit}}" \
+            --json databaseId,workflowName,status,conclusion,displayTitle,headBranch,event,createdAt,url \
+            --jq '.[] | "\(.databaseId)\t\(.workflowName)\t\(.status)\t\(.conclusion // "-")\t\(.event)\t\(.headBranch)\t\(.createdAt)\t\(.url)"'
+        echo
+    done
+
+[group('ci')]
+remote-run-watch run_id:
+    gh run watch "{{run_id}}" -R "{{xoxdwm_repo}}"
+
+[group('ci')]
+remote-runner-health:
+    gh workflow run runner-health.yml -R "{{xoxdwm_repo}}"
+    @echo "Triggered. Watch with: just remote-proof-runs"
+
+[group('ci')]
+remote-cache-warm:
+    gh workflow run cache-warm.yml -R "{{xoxdwm_repo}}"
+    @echo "Triggered. Watch with: just remote-proof-runs"
+
+[group('ci')]
+remote-vr-smoke suite="smoke":
+    gh workflow run vr-hardware.yml -R "{{xoxdwm_repo}}" -f test-suite="{{suite}}"
+    @echo "Triggered. Watch with: just remote-proof-runs"
+
+[group('ci')]
+remote-package version:
+    gh workflow run packaging.yml -R "{{xoxdwm_repo}}" -f version="{{version}}"
+    @echo "Triggered. Watch with: just remote-proof-runs"
+
+[group('ci')]
+remote-monado-package:
+    gh workflow run monado-companion.yml -R "{{xoxdwm_repo}}"
+    @echo "Triggered. Watch with: just remote-proof-runs"
+
+[group('ci')]
+honey-shell host="honey":
+    @echo "Opening shell on {{host}} in {{remote_repo_path}}..."
+    ssh -t jess@{{host}} "cd {{remote_repo_path}} && exec \${SHELL:-bash} -l"
+
+[group('ci')]
+honey-devshell host="honey":
+    @echo "Opening nix dev shell on {{host}} in {{remote_repo_path}}..."
+    ssh -t jess@{{host}} "cd {{remote_repo_path}} && export XDG_RUNTIME_DIR=\${XDG_RUNTIME_DIR:-/run/user/\$(id -u)} && exec nix develop"
+
+[group('ci')]
+honey-run host="honey" *args="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cmd="$(cat <<'EOF'
+    {{args}}
+    EOF
+    )"
+    cmd="${cmd#-- }"
+    cmd="${cmd#--}"
+    if [[ -z "${cmd}" ]]; then
+        echo "Usage: just honey-run {{host}} -- <command...>"
+        exit 1
+    fi
+    cmd_b64="$(printf '%s' "${cmd}" | base64 | tr -d '\n')"
+    ssh jess@{{host}} bash -s -- "${cmd_b64}" <<'REMOTE'
+    set -euo pipefail
+    cd "{{remote_repo_path}}"
+    export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    cmd="$(printf '%s' "$1" | base64 --decode)"
+    exec nix develop --command bash -lc "$cmd"
+    REMOTE
+
+[group('ci')]
+honey-proof-env host="honey":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh jess@{{host}} bash -s <<'REMOTE'
+    set -euo pipefail
+    cd "{{remote_repo_path}}"
+    export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    echo "repo=$(pwd)"
+    echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
+    test -S "$XDG_RUNTIME_DIR/wayland-0" && echo "wayland_socket=present" || echo "wayland_socket=missing"
+    test -S "$XDG_RUNTIME_DIR/ewwm-ipc.sock" && echo "ewwm_ipc=present" || echo "ewwm_ipc=missing"
+    test -S "$XDG_RUNTIME_DIR/monado_comp_ipc" && echo "monado_ipc=present" || echo "monado_ipc=missing"
+    systemctl --user is-active exwm-vr-compositor.service exwm-vr-monado.service 2>/dev/null || true
+    REMOTE
 
 # ── nix ────────────────────────────────────────────────
 
@@ -823,21 +968,40 @@ bios-verify host="honey":
     ssh jess@{{host}} "sudo dmidecode -t bios | grep -E 'Vendor|Version|Release|Revision|Date'"
 
 # Deploy tuned profile for BCI/VR workloads to remote host.
+# Prefer the Dell-owned T7810 profile when the sibling repo is present.
 [group('bios')]
 bios-tuned-deploy host="honey":
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "=== Deploying xr-bci tuned profile to {{host}} ==="
-    scp -r "{{project_root}}/packaging/tuned/xr-bci" jess@{{host}}:/tmp/
-    ssh jess@{{host}} "echo 'tinyland' | sudo -S bash -c 'cp -r /tmp/xr-bci /etc/tuned/ && tuned-adm profile xr-bci && echo Done: && tuned-adm active'"
+    profile_dir="{{project_root}}/packaging/tuned/xr-bci"
+    profile_name="xr-bci"
+    dell_profile="{{project_root}}/../Dell-7810/packaging/tuned/t7810-low-latency"
+    if [[ -d "${dell_profile}" ]]; then
+        profile_dir="${dell_profile}"
+        profile_name="t7810-low-latency"
+        echo "=== Deploying Dell-7810-owned ${profile_name} tuned profile to {{host}} ==="
+    else
+        echo "=== Deploying legacy XoxdWM ${profile_name} tuned profile to {{host}} ==="
+    fi
+    scp -r "${profile_dir}" jess@{{host}}:/tmp/
+    ssh jess@{{host}} "echo 'tinyland' | sudo -S bash -c 'cp -r /tmp/${profile_name} /etc/tuned/ && tuned-adm profile ${profile_name} && echo Done: && tuned-adm active'"
 
 # Run SMI validation on remote host (characterize hardware latency).
+# Prefer the Dell-owned validator when the sibling repo is present.
 [group('bios')]
 smi-validate host="honey" *args="":
     #!/usr/bin/env bash
     set -euo pipefail
     echo "=== SMI Validation on {{host}} ==="
-    scp "{{project_root}}/packaging/scripts/smi-validate" jess@{{host}}:/tmp/
+    validator="{{project_root}}/packaging/scripts/smi-validate"
+    dell_validator="{{project_root}}/../Dell-7810/scripts/platform/smi-validate"
+    if [[ -x "${dell_validator}" ]]; then
+        validator="${dell_validator}"
+        echo "Using Dell-7810-owned SMI validator."
+    else
+        echo "Using legacy XoxDWM SMI validator."
+    fi
+    scp "${validator}" jess@{{host}}:/tmp/smi-validate
     ssh jess@{{host}} "chmod +x /tmp/smi-validate && echo 'tinyland' | sudo -S /tmp/smi-validate {{args}}"
 
 # ── rollout ─────────────────────────────────────────
@@ -1070,6 +1234,8 @@ boot-validate:
     echo "=== Dhall validation ==="
     PASS=0; TOTAL=0
     for f in \
+        packaging/dhall/HostFacts.dhall \
+        packaging/dhall/HostTiming.dhall \
         packaging/dhall/Platform.dhall \
         packaging/dhall/KernelConfig.dhall \
         packaging/dhall/BootParams.dhall \

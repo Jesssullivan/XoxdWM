@@ -8,7 +8,9 @@ PartOf=exwm-vr.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/emacs --fg-daemon=exwm-vr -l ewwm
+ExecStart=/usr/bin/emacs --fg-daemon=exwm-vr --quick --load /usr/share/exwm-vr/exwm-vr-session-init.el
+SuccessExitStatus=15
+Environment=WAYLAND_DISPLAY=wayland-0
 Environment=QT_QPA_PLATFORM=wayland
 Environment=MOZ_ENABLE_WAYLAND=1
 Environment=_JAVA_AWT_WM_NONREPARENTING=1

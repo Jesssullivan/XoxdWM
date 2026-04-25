@@ -52,6 +52,7 @@ let
 
   # Monado environment file for the systemd service
   monadoEnvFile = pkgs.writeText "monado-env" (concatStringsSep "\n" [
+    "# Temporary Wayland window fallback until DRM lease is wired."
     "XRT_COMPOSITOR_FORCE_WAYLAND=1"
     "XRT_COMPOSITOR_WAYLAND_CONNECTOR=${mcfg.connector}"
     "STEAMVR_LH_ENABLE=1"
@@ -305,12 +306,13 @@ in {
       ];
 
       # ── Compositor systemd user service ─────────────────────────────
-      systemd.user.services.ewwm-compositor = {
-        description = "EWWM Wayland Compositor";
+      systemd.user.services."exwm-vr-compositor" = {
+        description = "EXWM-VR Wayland Compositor";
         documentation = [ "https://github.com/Jesssullivan/XoxdWM" ];
+        aliases = [ "ewwm-compositor.service" ];
 
         wantedBy = [ "graphical-session.target" ];
-        before = [ "ewwm-emacs.service" ];
+        before = [ "exwm-vr-emacs.service" ];
 
         environment = {
           XDG_CURRENT_DESKTOP = "EXWM-VR";
@@ -332,12 +334,13 @@ in {
       };
 
       # ── Emacs systemd user service ──────────────────────────────────
-      systemd.user.services.ewwm-emacs = {
-        description = "EWWM Emacs Window Manager Brain";
+      systemd.user.services."exwm-vr-emacs" = {
+        description = "EXWM-VR Emacs Window Manager Brain";
         documentation = [ "https://github.com/Jesssullivan/XoxdWM" ];
+        aliases = [ "ewwm-emacs.service" ];
 
-        requires = [ "ewwm-compositor.service" ];
-        after = [ "ewwm-compositor.service" ];
+        requires = [ "exwm-vr-compositor.service" ];
+        after = [ "exwm-vr-compositor.service" ];
         wantedBy = [ "graphical-session.target" ];
 
         environment = {
@@ -364,10 +367,11 @@ in {
       };
 
       # ── Session target ──────────────────────────────────────────────
-      systemd.user.targets.ewwm-session = {
-        description = "EWWM-VR Session";
-        requires = [ "ewwm-compositor.service" "ewwm-emacs.service" ];
-        after = [ "ewwm-compositor.service" "ewwm-emacs.service" ];
+      systemd.user.targets."exwm-vr" = {
+        description = "EXWM-VR Session";
+        aliases = [ "ewwm-session.target" ];
+        requires = [ "exwm-vr-compositor.service" "exwm-vr-emacs.service" ];
+        after = [ "exwm-vr-compositor.service" "exwm-vr-emacs.service" ];
         wantedBy = [ "graphical-session.target" ];
       };
     }
@@ -384,7 +388,7 @@ in {
         pkgs.openxr-loader
       ] ++ optional (cfg.vr.runtime == "monado") pkgs.monado;
 
-      systemd.user.services.ewwm-compositor.environment = {
+      systemd.user.services."exwm-vr-compositor".environment = {
         XR_RUNTIME_JSON = xrRuntimeJson.${cfg.vr.runtime};
       };
 
@@ -447,7 +451,7 @@ in {
         SUBSYSTEM=="video4linux", ATTR{idVendor}=="2df1", MODE="0664", TAG+="uaccess"
       '';
 
-      systemd.user.services.ewwm-compositor.environment = {
+      systemd.user.services."exwm-vr-compositor".environment = {
         EWWM_EYE_TRACKING_BACKEND = cfg.eyeTracking.backend;
       };
     })
@@ -464,12 +468,13 @@ in {
       '';
 
       # BrainFlow data-acquisition service
-      systemd.user.services.ewwm-brainflow = {
-        description = "EWWM BrainFlow BCI Data Acquisition";
+      systemd.user.services."exwm-vr-brainflow" = {
+        description = "EXWM-VR BrainFlow BCI Data Acquisition";
         documentation = [ "https://brainflow.readthedocs.io" ];
+        aliases = [ "ewwm-brainflow.service" ];
 
-        after = [ "ewwm-compositor.service" ];
-        wantedBy = [ "ewwm-session.target" ];
+        after = [ "exwm-vr-compositor.service" ];
+        wantedBy = [ "exwm-vr.target" ];
 
         environment = {
           BRAINFLOW_BOARD_ID = brainflowBoardId.${cfg.bci.device};

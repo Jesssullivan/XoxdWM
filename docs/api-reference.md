@@ -1,6 +1,10 @@
-# EXWM-VR: API Reference
+# XoxdWM API Reference
 
-**Version 0.1.0** | Public functions, variables, hooks, and IPC messages
+Reference inventory for public functions, variables, hooks, and IPC messages.
+
+This file is an API reference, not the current support promise. For named-host
+truth and build/runtime authority, read [support-matrix.md](support-matrix.md)
+and [status.md](status.md) first.
 
 ---
 

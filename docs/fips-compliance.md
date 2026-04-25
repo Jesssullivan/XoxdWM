@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document assesses the cryptographic operations present in the EXWM-VR
+This document assesses the cryptographic operations present in the XoxdWM
 stack and identifies FIPS 140-3 compatible code paths for deployment in
 regulated environments (US federal agencies, FISMA-compliant systems).
 

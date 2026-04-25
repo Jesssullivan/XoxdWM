@@ -13,6 +13,12 @@
 #   Build via GloriousFlywheel ARC runners, cache via Attic.
 #   RPMs are built by the linux-xr CI pipeline, not this derivation.
 #
+# Authority boundary:
+#   This file is a consumer/convenience Nix surface for XR development.
+#   Canonical Rocky RPM builds live in tinyland-inc/linux-xr.
+#   Dell T7810 BIOS, SMI, NUMA, tuned, and RT host evidence lives in
+#   Jesssullivan/Dell-7810.
+#
 # Usage (NixOS):
 #   boot.kernelPackages = pkgs.linuxPackages_xr;
 #
@@ -59,7 +65,8 @@ let
     # DRM lease support (Monado VR compositor)
     DRM = yes;
 
-    # SMI mitigation (from Dell T7810 BIOS A34 firmware RE)
+    # Kernel support needed by the Dell-owned SMI/latency evidence lane.
+    # Do not treat this Nix config as the raw T7810 host measurement ledger.
     HWLAT_TRACER = yes;         # in-kernel hardware latency tracer
     TRACER_SNAPSHOT = yes;       # snapshot support for latency capture
     X86_MSR = yes;               # /dev/msr for SMI_COUNT (MSR 0x34)

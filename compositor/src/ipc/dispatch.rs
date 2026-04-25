@@ -289,9 +289,10 @@ fn handle_hello(
     let pid_field = peer_pid
         .map(|p| format!(" :peer-pid {}", p))
         .unwrap_or_default();
+    let xwayland_flag = if cfg!(feature = "xwayland") { "t" } else { "nil" };
     Some(format!(
-        "(:type :hello :id {} :version 1 :server \"ewwm-compositor\" :features (:xwayland t :vr {}){})",
-        msg_id, vr_flag, pid_field
+        "(:type :hello :id {} :version 1 :server \"ewwm-compositor\" :features (:xwayland {} :vr {}){})",
+        msg_id, xwayland_flag, vr_flag, pid_field
     ))
 }
 

@@ -1,8 +1,8 @@
 name: Self-Hosted Fast CI
 
-# Fast CI path for self-hosted ARC runners with pre-installed Nix
-# and warm Attic caches. Only runs when USE_SELFHOSTED is enabled;
-# ci.yml handles the ubuntu-latest fallback path.
+# Fast CI path for shared GloriousFlywheel Nix runners with warm cache hints.
+# Only runs when USE_SELFHOSTED is enabled and GloriousFlywheel reachability is
+# explicitly proven; ci.yml handles the ubuntu-latest fallback path.
 
 on:
   push:
@@ -37,8 +37,8 @@ concurrency:
 jobs:
   fast-check:
     name: Fast Check (self-hosted)
-    if: vars.USE_SELFHOSTED == 'true'
-    runs-on: xoxdwm-nix
+    if: vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true'
+    runs-on: tinyland-nix
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -96,8 +96,8 @@ jobs:
 
   fast-build:
     name: Fast Build (self-hosted)
-    if: vars.USE_SELFHOSTED == 'true'
-    runs-on: xoxdwm-nix
+    if: vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true'
+    runs-on: tinyland-nix
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -140,7 +140,7 @@ jobs:
     name: Fast VR Smoke (self-hosted)
     # Hardware-in-the-loop smoke is opt-in and should follow runner capability,
     # not which repo name happened to own the lane historically.
-    if: vars.USE_SELFHOSTED == 'true' && vars.USE_VR_HARDWARE == 'true'
+    if: vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true' && vars.USE_VR_HARDWARE == 'true'
     needs: fast-build
     runs-on: [self-hosted, honey]
     timeout-minutes: 10

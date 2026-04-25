@@ -32,14 +32,14 @@ jobs:
   # ── Nix build (self-hosted) ──────────────────────────────
   nix-build:
     name: Nix Build (wlroots + sway)
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'xoxdwm-nix' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
       - uses: ./.github/actions/ensure-nix
         with:
-          self_hosted: ${{ vars.USE_SELFHOSTED }}
+          self_hosted: ${{ vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true' }}
           attic_cache: ${{ env.ATTIC_CACHE || 'main' }}
       - uses: ryanccn/attic-action@v0
         if: env.ATTIC_SERVER != ''
@@ -64,40 +64,54 @@ jobs:
             fi
           done
 
-  # ── RPM build (Ubuntu container with cross-build) ────────
+  # ── RPM build (Rocky-native container) ───────────────────
   rpm-build:
     name: RPM Build (wlroots + sway)
     runs-on: ubuntu-latest
+    container:
+      image: rockylinux/rockylinux:10
+      options: --user root
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: /usr/bin/bash -e {0}
+    env:
+      HOME: /root
+      PATH: /usr/lib64/ccache:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      CCACHE_DIR: /root/.ccache
     steps:
       - uses: actions/checkout@v4
 
       - name: Install build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            rpm ccache \
-            meson ninja-build gcc pkg-config \
-            libwayland-dev wayland-protocols \
-            libdrm-dev libegl-dev libgbm-dev libgl-dev \
-            libinput-dev libxkbcommon-dev \
-            libpixman-1-dev libseat-dev \
-            libxcb1-dev libxcb-composite0-dev libxcb-icccm4-dev \
-            libxcb-render0-dev libxcb-res0-dev libxcb-xinput-dev \
-            xwayland hwdata \
-            libjson-c-dev libpango1.0-dev libcairo2-dev \
-            libgdk-pixbuf-2.0-dev libpcre2-dev libevdev-dev \
+          dnf install -y \
+            'dnf-command(config-manager)' \
+            'https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm'
+          dnf config-manager --set-enabled crb || dnf config-manager setopt crb.enabled=1
+          dnf install -y \
+            bash rpm-build rpmdevtools gcc gcc-c++ make cpio binutils \
+            ccache meson ninja-build pkgconf-pkg-config \
+            wayland-devel wayland-protocols-devel \
+            libdrm-devel mesa-libEGL-devel mesa-libgbm-devel \
+            mesa-libGL-devel libglvnd-devel \
+            libinput-devel libxkbcommon-devel libevdev-devel \
+            pixman-devel libseat-devel \
+            libxcb-devel xcb-util-wm-devel \
+            json-c-devel pango-devel cairo-devel gdk-pixbuf2-devel \
+            pcre2-devel \
+            xorg-x11-server-Xwayland xorg-x11-server-Xwayland-devel \
+            hwdata hwdata-devel \
             scdoc
 
       - name: Setup ccache
         run: |
-          echo "/usr/lib/ccache" >> "$GITHUB_PATH"
-          mkdir -p ~/.ccache
-          echo "max_size = 500M" > ~/.ccache/ccache.conf
+          mkdir -p "$CCACHE_DIR"
+          ccache --set-config=max_size=500M
+          ccache -z || true
 
       - uses: actions/cache@v4
         with:
-          path: ~/.ccache
+          path: /root/.ccache
           key: ccache-native-deps-${{ github.sha }}
           restore-keys: ccache-native-deps-
 
@@ -137,10 +151,16 @@ jobs:
       - name: Install wlroots-beyond locally for sway build
         run: |
           # Install the just-built wlroots into a prefix sway can find
-          WLROOTS_RPM=$(find ~/rpmbuild/RPMS -name 'wlroots-beyond-[0-9]*.rpm' | head -1)
-          WLROOTS_DEVEL_RPM=$(find ~/rpmbuild/RPMS -name 'wlroots-beyond-devel-*.rpm' | head -1)
+          WLROOTS_RPM=$(find ~/rpmbuild/RPMS \
+            -name 'wlroots-beyond-[0-9]*.rpm' \
+            ! -name '*-debuginfo-*.rpm' \
+            ! -name '*-debugsource-*.rpm' \
+            | sort | head -1)
+          WLROOTS_DEVEL_RPM=$(find ~/rpmbuild/RPMS \
+            -name 'wlroots-beyond-devel-*.rpm' \
+            | sort | head -1)
           if [ -n "$WLROOTS_RPM" ] && [ -n "$WLROOTS_DEVEL_RPM" ]; then
-            sudo rpm -ivh --nodeps --force "$WLROOTS_RPM" "$WLROOTS_DEVEL_RPM"
+            rpm -ivh --nodeps --force "$WLROOTS_RPM" "$WLROOTS_DEVEL_RPM"
           else
             echo "Warning: wlroots RPMs not found, sway build may fail"
           fi

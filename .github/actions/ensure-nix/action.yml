@@ -10,6 +10,18 @@ inputs:
     description: Preferred Attic cache name for self-hosted flywheel setup.
     required: false
     default: "main"
+  attic_server:
+    description: Optional Attic endpoint override.
+    required: false
+    default: ""
+  attic_public_key:
+    description: Optional Attic public key for Nix substituter reads.
+    required: false
+    default: ""
+  bazel_cache:
+    description: Optional Bazel remote cache endpoint override.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -22,11 +34,98 @@ runs:
       if: ${{ inputs.self_hosted == 'true' }}
       uses: DeterminateSystems/nix-installer-action@main
 
-    - name: Setup self-hosted cache hints
-      if: ${{ inputs.self_hosted == 'true' }}
-      uses: tinyland-inc/GloriousFlywheel/.github/actions/setup-flywheel@main
-      with:
-        attic-cache: ${{ inputs.attic_cache }}
+    - name: Setup cache hints
+      shell: bash
+      env:
+        XOXDWM_SELF_HOSTED: ${{ inputs.self_hosted }}
+        XOXDWM_ATTIC_SERVER: ${{ inputs.attic_server }}
+        XOXDWM_ATTIC_CACHE: ${{ inputs.attic_cache }}
+        XOXDWM_ATTIC_PUBLIC_KEY: ${{ inputs.attic_public_key }}
+        XOXDWM_BAZEL_CACHE: ${{ inputs.bazel_cache }}
+      run: |
+        set -euo pipefail
+
+        write_env() {
+          if [ -z "${GITHUB_ENV:-}" ]; then
+            echo "::error::GITHUB_ENV is not set; ensure-nix must run inside GitHub Actions"
+            exit 1
+          fi
+
+          echo "$1" >>"$GITHUB_ENV"
+        }
+
+        valid_bazel_endpoint() {
+          local endpoint="$1"
+
+          if [[ $endpoint == *'${'* ]] || [[ $endpoint == *'}'* ]]; then
+            echo "::warning::Bazel cache endpoint is a literal shell placeholder; ignoring it"
+            return 1
+          fi
+
+          if [[ $endpoint =~ (attic-cache-dev|fuzzy-dev|attic\.dev-cluster|attic\.tinyland) ]]; then
+            echo "::warning::Bazel cache endpoint uses a stale out-of-contract host; ignoring it"
+            return 1
+          fi
+
+          if [[ ! $endpoint =~ ^(grpc|grpcs|http|https):// ]]; then
+            echo "::warning::Bazel cache endpoint must start with grpc://, grpcs://, http://, or https://; ignoring it"
+            return 1
+          fi
+
+          return 0
+        }
+
+        attic_cache="${XOXDWM_ATTIC_CACHE:-${ATTIC_CACHE:-main}}"
+        attic_public_key="${XOXDWM_ATTIC_PUBLIC_KEY:-${ATTIC_PUBLIC_KEY:-}}"
+        bazel_endpoint=""
+
+        if [ "${XOXDWM_SELF_HOSTED:-false}" = "true" ]; then
+          attic_url="${XOXDWM_ATTIC_SERVER:-${ATTIC_SERVER:-http://attic.nix-cache.svc.cluster.local}}"
+          attic_host="${attic_url#http://}"
+          attic_host="${attic_host#https://}"
+          attic_host="${attic_host%%/*}"
+          attic_host="${attic_host%%:*}"
+
+          if ! command -v getent >/dev/null 2>&1; then
+            echo "::warning::getent is unavailable; cannot verify Attic cache DNS ($attic_host)"
+          elif getent hosts "$attic_host" >/dev/null 2>&1; then
+            write_env "ATTIC_SERVER=$attic_url"
+            echo "::notice::Attic cache reachable at $attic_url"
+          else
+            echo "::warning::Attic cache DNS unreachable ($attic_host); running without Attic cache"
+          fi
+
+          bazel_endpoint="${XOXDWM_BAZEL_CACHE:-${BAZEL_REMOTE_CACHE:-grpc://bazel-cache.nix-cache.svc.cluster.local:9092}}"
+        else
+          if [ -n "${XOXDWM_ATTIC_SERVER:-}" ]; then
+            write_env "ATTIC_SERVER=$XOXDWM_ATTIC_SERVER"
+          fi
+
+          bazel_endpoint="${XOXDWM_BAZEL_CACHE:-${BAZEL_REMOTE_CACHE:-}}"
+        fi
+
+        write_env "ATTIC_CACHE=$attic_cache"
+
+        if [ -n "$attic_public_key" ]; then
+          write_env "ATTIC_PUBLIC_KEY=$attic_public_key"
+        fi
+
+        if [ -n "$bazel_endpoint" ] && valid_bazel_endpoint "$bazel_endpoint"; then
+          write_env "BAZEL_REMOTE_CACHE=$bazel_endpoint"
+          write_env "GF_BAZEL_SUBSTRATE_MODE=shared-cache-backed"
+        else
+          write_env "BAZEL_REMOTE_CACHE="
+          write_env "GF_BAZEL_SUBSTRATE_MODE=compatibility-local-only"
+        fi
+
+    - name: Add Nix to PATH
+      shell: bash
+      run: |
+        for nixbin in /nix/var/nix/profiles/default/bin "$HOME/.nix-profile/bin"; do
+          if [ -d "$nixbin" ]; then
+            echo "$nixbin" >> "$GITHUB_PATH"
+          fi
+        done
 
     - name: Ensure Nix daemon is reachable
       if: ${{ inputs.self_hosted == 'true' }}

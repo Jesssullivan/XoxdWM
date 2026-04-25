@@ -1,6 +1,10 @@
-# EXWM-VR: Eye Tracking Guide
+# XoxdWM Eye Tracking Guide
 
-**Version 0.1.0** | Eye tracking setup, calibration, and usage
+Reference guide for eye-tracking setup, calibration, and usage.
+
+This guide documents subsystem design and implementation surfaces. Treat
+named-host support as whatever is called out in [support-matrix.md](support-matrix.md)
+and [status.md](status.md).
 
 ---
 
@@ -449,7 +453,7 @@ timestamp,blink_rate,saccade_amplitude,tracking_quality,fatigue_level
 
 ## Privacy Considerations
 
-EWWM-VR eye tracking is designed with privacy as a core principle:
+XoxdWM eye tracking is designed with privacy as a core principle:
 
 ### Local-Only Processing
 

@@ -1,11 +1,10 @@
 -- BootParams.dhall — Generate kernel boot parameters from platform definition
 --
--- Composes RT-safe boot parameters based on:
---   - PCH SMI characteristics (from firmware RE)
---   - CPU errata (TSC-deadline, C-state behavior)
---   - Workload requirements (BCI isolation, VR frame timing)
+-- Composes reusable boot-parameter fragments from a narrower host-timing
+-- surface plus workload requirements.
 
 let Platform = (./Platform.dhall).Platform
+let HostTiming = ./HostTiming.dhall
 
 let Workload =
       { name : Text
@@ -19,73 +18,44 @@ let Workload =
 let bciWorkload
     : Workload
     = { name = "BCI/VR"
-      , isolatedCores = "2-7"
-      , housekeepingCores = "0-1"
+      , isolatedCores = HostTiming.workloadDefaults.isolatedCores
+      , housekeepingCores = HostTiming.workloadDefaults.housekeepingCores
       , requireRT = True
       , requireTSC = True
-      , idlePoll = True
+      , idlePoll = HostTiming.workloadDefaults.idlePoll
       }
 
-let smiMitigationParams =
-      \(platform : Platform) ->
-        let base =
-              [ "tsc=nowatchdog"
-              , "nosoftlockup"
-              , "intel_pstate=disable"
-              , "processor.max_cstate=1"
-              , "intel_idle.max_cstate=0"
-              , "nmi_watchdog=0"
-              , "mce=ignore_ce"
-              ]
+let smiMitigationText =
+      \(platform : Platform) -> HostTiming.smiMitigationText platform.cpu.tscReliable
 
-        let tscParam =
-              if    platform.cpu.tscReliable
-              then  [ "clocksource=tsc" ]
-              else  [ "clocksource=hpet" ]
-
-        in  base # tscParam
-
-let workloadParams =
+let workloadText =
       \(w : Workload) ->
-        let isolation =
-              [ "isolcpus=managed_irq,domain,${w.isolatedCores}"
-              , "nohz_full=${w.isolatedCores}"
-              , "rcu_nocbs=${w.isolatedCores}"
-              , "irqaffinity=${w.housekeepingCores}"
-              ]
+        HostTiming.workloadIsolationText w.isolatedCores w.housekeepingCores w.idlePoll
 
-        let idle = if w.idlePoll then [ "idle=poll" ] else [] : List Text
+let runtimeText =
+      \(w : Workload) -> HostTiming.runtimeIsolationText w.housekeepingCores
 
-        in  isolation # idle
+let hardwareText = HostTiming.gpuDisplayText
 
-let hardwareParams =
-      [ "amdgpu.modeset=1"
-      , "amdgpu.dc=1"
-      , "amdgpu.dcdebugmask=0x10"
-      ]
+let debugText = HostTiming.debugText
 
-let debugParams =
-      [ "earlyprintk=vga,keep"
-      , "ignore_loglevel"
-      , "initcall_debug"
-      , "nosmp"
-      , "nosoftlockup"
-      ]
-
-let allParams =
+let allText =
       \(platform : Platform) ->
         \(workload : Workload) ->
-          let smi = smiMitigationParams platform
+          "${smiMitigationText platform} ${workloadText workload} ${hardwareText}"
 
-          let work = workloadParams workload
-
-          in  smi # work # hardwareParams
+let xrText =
+      \(platform : Platform) ->
+        \(workload : Workload) ->
+          "${allText platform workload} ${runtimeText workload}"
 
 in  { Workload
     , bciWorkload
-    , smiMitigationParams
-    , workloadParams
-    , hardwareParams
-    , debugParams
-    , allParams
+    , smiMitigationText
+    , workloadText
+    , runtimeText
+    , hardwareText
+    , debugText
+    , allText
+    , xrText
     }

@@ -132,6 +132,7 @@ xwayland enable
 exec_always export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/bus
 
 # Monado / OpenXR
+# Temporary Wayland window fallback; not true DRM lease direct mode.
 exec_always export XRT_COMPOSITOR_FORCE_WAYLAND=1
 exec_always export XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2
 

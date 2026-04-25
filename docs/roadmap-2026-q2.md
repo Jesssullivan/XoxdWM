@@ -1,6 +1,11 @@
 # XoxdWM Roadmap: Q2 2026
 
-This document is the execution-side counterpart to the support matrix.
+This document is the execution-side counterpart to the repo truth surface.
+For the full audit-to-execution model, also read
+[reality-driven-development-arc-2026-q2.md](reality-driven-development-arc-2026-q2.md).
+For the milestone and iteration split that separates `yoga` 2D closure from
+`honey` substrate work and the later XoxdWM smoke, also read
+[grounded-milestone-plan-2026-q2.md](grounded-milestone-plan-2026-q2.md).
 
 ## Epic 1: Reality Audit And Support Surface
 
@@ -9,7 +14,7 @@ Goal: keep the public repo honest.
 Acceptance:
 
 - root README exists and points to current status docs
-- support matrix is maintained
+- support matrix, status, and reality-check docs stay aligned
 - install docs distinguish package availability from named-host validation
 - aspirational subsystems are not described as supported by default
 
@@ -33,8 +38,12 @@ Goal: produce a documented install path for the compositor on a real Rocky 10 la
 Current reality:
 
 - `yoga` has a validated one-time `kernel-xr` boot path.
-- `yoga` still has no installed Monado/OpenXR/XoxdWM userspace stack.
-- the current public `v0.5.0` Rocky RPM is not yet a usable named-host install path
+- `yoga` now has the public Rocky packages installed and a bounded compositor startup path with `seatd`.
+- `yoga` now has a one-time SDDM greeter-path proof via `sddm-autologin` on
+  `seat0`; the refreshed packaged unit now carries the `SuccessExitStatus=15`
+  stop-path fix, so the remaining follow-on is repeatability and, if desired,
+  recording a manual session selection pass.
+- Monado/OpenXR userspace on `yoga` is not the current gate for the desktop/dev MVP.
 
 Acceptance:
 
@@ -44,20 +53,26 @@ Acceptance:
 - rollback path is documented if package install fails
 - SELinux hardening is tracked as a follow-on package path rather than a gate on the first named-host compositor RPM
 
-## Epic 4: `honey` VR Smoke Path
+## Epic 4: `honey` XR Substrate And XoxdWM Smoke
 
-Goal: prove a minimal VR lifecycle on the current kernel host.
+Goal: prove the XR substrate on the current kernel host, then record the first
+honest XoxdWM smoke on that substrate.
 
 Current reality:
 
-- `honey` has a proven generic `linux-xr` default and a one-time verified RT lane.
-- `honey` has a Monado runtime manifest and `monado-service`, but not the OpenXR client tooling or compositor deployment needed for a real smoke path.
+- `honey` has a proven generic `linux-xr` default, while RT host validation now lives in Dell-7810 and XR-side RT benefit remains a separate downstream proof item.
+- `honey` now has branch-scoped `exwm-vr-0.5.4-1.el10` packages installed and a bounded named-host XoxdWM compositor startup.
+- `honey` now has an explicit active OpenXR runtime file plus a host-local Monado service override for the Beyond / `DP-2` path.
+- `honey` now has a one-shot direct-mode proof from the installed compositor package surface, a staged `monado-beyond` companion RPM proof from run `24804821792`, and an installed-host `monado-beyond` follow-up from run `24807084915` that reaches active `/usr/bin/monado-service` plus eye swapchain creation. The remaining gap is turning that into a repeatable operator lane with explicit stale-socket handling and a more durable client-tool path than the current local `/usr/local/bin/hello_xr` build.
 - the Honey-backed workflows are now capability-gated, but the canonical repo is still not claiming an always-on hardware runner surface by default
 
 Acceptance:
 
-- Monado and required userspace are installed and documented
-- an OpenXR client tool path exists and is documented on-host
-- HMD enumeration is observed as expected, or the lack of attached VR hardware is explicitly recorded as the blocker
-- compositor starts on the target host
-- one smoke path for DRM lease / OpenXR startup is recorded in repo docs
+- substrate acceptance:
+  - Monado and required userspace are installed and documented
+  - an OpenXR client tool path exists and is documented on-host
+  - HMD enumeration is observed as expected, or the lack of attached VR hardware is explicitly recorded as the blocker
+  - the trusted bridge path on `honey` is explicit
+- smoke acceptance:
+  - compositor starts on the target host
+  - one smoke path for DRM lease / OpenXR startup is recorded in repo docs

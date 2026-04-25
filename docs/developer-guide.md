@@ -1,6 +1,11 @@
-# EXWM-VR: Developer Guide
+# XoxdWM Developer Guide
 
-**Version 0.1.0** | Architecture, building, extending, and contributing
+Reference guide for architecture, build surfaces, and extension work.
+
+This file is a developer reference, not the operational support promise. For
+named-host truth and build/runtime authority, read [support-matrix.md](support-matrix.md)
+and [status.md](status.md) first. For the external Rocky/Linux build-control
+plane, read [remote-build-authority.md](remote-build-authority.md).
 
 ---
 
@@ -23,7 +28,7 @@
 
 ## Architecture Overview
 
-EWWM-VR is a split-brain architecture: Emacs is the window management
+XoxdWM is a split-brain architecture: Emacs is the window management
 brain (layout, policy, keybinds), and a Rust compositor (Smithay) is the
 pixel engine. They communicate over a Unix domain socket using
 length-prefixed s-expressions.
@@ -31,7 +36,7 @@ length-prefixed s-expressions.
 ```
 +=======================+
 |     Emacs (pgtk)      |  User's primary interface
-|  ewwm.el (WM logic)  |  47 Elisp modules (layout/workspace/VR/BCI)
+|  ewwm.el (WM logic)  |  Elisp WM logic across layout/workspace/VR/BCI
 +-----------+-----------+
             |
     Unix socket IPC (s-expression, length-prefixed)
@@ -83,28 +88,46 @@ length-prefixed s-expressions.
 
 ## Building from Source
 
+Routine build and runtime authority should come from Rocky / Linux remote lanes.
+Local work on `neo` / Darwin is useful for docs, Elisp, and headless sanity
+checks, but macOS is not a product target for XoxdWM. The external authority
+split is documented in [remote-build-authority.md](remote-build-authority.md).
+The current repo-owned remote workflow map lives in
+[remote-proof-lanes.md](remote-proof-lanes.md).
+
 ### Prerequisites
 
-- Nix with flakes enabled (recommended)
-- Or: Rust nightly, Emacs 30+ (pgtk), Wayland development libraries
+- authoritative Rocky / Linux remote build entrypoint from the external toolchain
+- or, for secondary reproduction/debug work on Linux targets: Rust nightly,
+  Emacs 30+ (pgtk), and Wayland development libraries
 
-### Nix (Recommended)
+### Authoritative Rocky / Linux Remote Builds
+
+Use the external Bazel / remote-build toolchain and Rocky 10.1 build surfaces
+for build authority, release truth, and runtime validation. This repository does
+not currently vendor that remote-build configuration, so the exact entrypoints
+live outside this tree.
+
+Use this repo locally on `neo` for:
+
+- docs and truth-surface edits
+- Elisp and headless logic review
+- cheap sanity checks such as `just truth-lint` and `just test`
+
+### Local Control-Plane Sanity On `neo`
 
 ```bash
-# Enter development shell
-nix develop
-
-# Build compositor
-cargo build --manifest-path compositor/Cargo.toml
-
-# Byte-compile Elisp
-just build
-
-# Run tests
-just test
+# Truth-surface and deterministic logic checks
+nix develop --command just truth-lint
+nix develop --command just test
+nix flake check --no-build
 ```
 
-### Manual (Without Nix)
+If you need live remote workflow state from `neo`, use the commands documented
+in [remote-proof-lanes.md](remote-proof-lanes.md) instead of treating local
+Darwin builds as the default authority path.
+
+### Direct Linux Builds On Target Hosts (Secondary / Reproduction Only)
 
 ```bash
 # Install Rust nightly
@@ -141,7 +164,7 @@ nix build .#packages.s390x-linux.compositor
 ### OCI Container Images
 
 ```bash
-# Build container for headless deployment
+# Build container for headless deployment on Linux build surfaces
 nix build .#packages.x86_64-linux.oci-headless
 ```
 
@@ -177,7 +200,7 @@ exwm/
 |       +-- ipc/
 |       |   +-- mod.rs           IPC module root
 |       |   +-- server.rs        Unix socket server, client management
-|       |   +-- dispatch.rs      Message dispatch (176 match arms)
+|       |   +-- dispatch.rs      Message dispatch and IPC routing
 |       +-- vr/
 |           +-- mod.rs           VR module root, feature gating
 |           +-- openxr_state.rs  OpenXR session lifecycle (behind vr flag)
@@ -206,24 +229,24 @@ exwm/
 |           +-- fatigue_eeg.rs   EEG fatigue monitoring
 +-- lisp/
 |   +-- core/                    Original EXWM modules (X11)
-|   +-- vr/                      47 ewwm-* modules (Wayland/VR/BCI)
+|   +-- vr/                      Ewwm Wayland/VR/BCI modules
 |   +-- ext/                     Extension framework
-+-- test/                        63 ERT test files
++-- test/                        ERT test suite
 +-- nix/
 |   +-- modules/                 NixOS modules (exwm-vr.nix, monado.nix)
 |   +-- home-manager/            Home Manager module
 +-- packaging/
 |   +-- rpm/                     RPM spec (7 subpackages)
 |   +-- selinux/                 SELinux policy (3 domains)
-|   +-- systemd/                 5 user units + target
+|   +-- systemd/                 user units + target
 |   +-- desktop/                 .desktop entry + session wrapper
 |   +-- udev/                    udev rules
 |   +-- userscripts/             JS userscripts for Qutebrowser
 +-- docs/                        Documentation
-+-- .github/workflows/           CI (multi-arch.yml, ert-tests.yml)
++-- .github/workflows/           GitHub Actions workflows
 +-- flake.nix                    Nix flake
 +-- justfile                     Task runner
-+-- PLAN.md                      20-week implementation plan
++-- docs/reality-driven-development-arc-2026-q2.md  execution plan
 ```
 
 ---
@@ -769,10 +792,13 @@ EEG Hardware -> BrainFlow Daemon -> Compositor (Rust)
 # All ERT tests
 just test
 
-# Specific test file
+# Truth-surface drift checks
+just truth-lint
+
+# Selected test subset
 emacs --batch -L lisp/core -L lisp/vr -L lisp/ext \
-  -l test/run-tests.el -l test/ewwm-bci-core-test.el \
-  -f ert-run-tests-batch-and-exit
+  --eval '(setq ewwm-test-selector "ewwm-bci-core")' \
+  -l test/run-tests.el
 
 # Rust unit tests
 cargo test --manifest-path compositor/Cargo.toml
@@ -784,7 +810,7 @@ cargo test --manifest-path compositor/Cargo.toml \
 
 ### Test File Inventory
 
-The project currently has 63 ERT test files in `test/`:
+The project has a large ERT test surface in `test/`, including:
 
 - **Core**: `ewwm-core-test.el`, `ewwm-ipc-test.el`,
   `ewwm-manage-test.el`, `exwm-core-test.el`,

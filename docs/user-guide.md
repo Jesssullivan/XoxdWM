@@ -1,9 +1,13 @@
-# EXWM-VR User Guide
+# XoxdWM User Guide
 
-**Version 0.1.0** | **EWWM (Emacs Wayland Window Manager)**
+Reference guide for installation, operation, and subsystem workflows.
 
-A VR-first transhuman Emacs window manager built on Smithay, OpenXR, and
-the full Emacs ecosystem.
+This document is broader than the currently validated support surface. For
+named-host truth and Rocky / Linux build authority, read
+[support-matrix.md](support-matrix.md) and [status.md](status.md) first.
+For the external authority split and the current repo-owned remote workflow map,
+read [remote-build-authority.md](remote-build-authority.md) and
+[remote-proof-lanes.md](remote-proof-lanes.md).
 
 ---
 
@@ -63,7 +67,7 @@ the full Emacs ecosystem.
 
 ### Flake-based Installation
 
-Add EXWM-VR to your flake inputs:
+Add XoxdWM to your flake inputs:
 
 ```nix
 {
@@ -126,16 +130,19 @@ For per-user configuration:
 }
 ```
 
-### Building from Flake
+### Linux Build Outputs From The Flake
+
+These commands are for Linux targets, CI, or explicit remote build lanes. Do
+not treat them as the default authority path from `neo`.
 
 ```bash
-# Build the compositor
+# Build the compositor on a Linux build surface
 nix build .#packages.x86_64-linux.compositor
 
-# Build headless variant (s390x, CI)
+# Build headless variant
 nix build .#packages.x86_64-linux.compositor-headless
 
-# Enter development shell
+# Enter the Linux-oriented development shell
 nix develop
 
 # Build OCI container image
@@ -182,40 +189,83 @@ sudo semodule -l | grep exwm
 
 ### systemd Services
 
-EXWM-VR uses user-level systemd units:
+The RPM-packaged Rocky session uses user-level `exwm-vr-*` systemd units:
 
 ```bash
 # Enable and start the compositor
-systemctl --user enable ewwm-compositor.service
-systemctl --user start ewwm-compositor.service
+systemctl --user enable exwm-vr-compositor.service
+systemctl --user start exwm-vr-compositor.service
 
-# Enable VR (if applicable)
-systemctl --user enable monado.service
-systemctl --user start monado.service
+# Enable VR (if Monado integration is installed)
+systemctl --user enable exwm-vr-monado.service
+systemctl --user start exwm-vr-monado.service
 
 # Start the full stack
-systemctl --user start ewwm.target
+systemctl --user start exwm-vr.target
 ```
+
+On the packaged Rocky lane, host-specific direct-mode settings now have a
+supported user-scoped config surface instead of requiring arbitrary unit edits:
+
+```bash
+mkdir -p ~/.config/exwm-vr
+
+cat > ~/.config/exwm-vr/compositor.env <<'EOF'
+EWWM_DRM_LEASE_CONNECTORS=DP-2
+EOF
+
+cat > ~/.config/exwm-vr/monado.env <<'EOF'
+# Optional for hosts that still use a local Monado build:
+# MONADO_SERVICE_BIN=/usr/local/bin/monado-service
+XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1
+XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2
+WAYLAND_DISPLAY=wayland-0
+STEAMVR_LH_ENABLE=1
+XRT_COMPOSITOR_COMPUTE=1
+LH_OVERRIDE_IPD_MM=64
+EOF
+
+systemctl --user daemon-reload
+```
+
+The packaged `exwm-vr-compositor.service` reads
+`~/.config/exwm-vr/compositor.env`, and the packaged
+`exwm-vr-monado.service` reads `~/.config/exwm-vr/monado.env`. Its launcher
+defaults to `/usr/bin/monado-service`, but `MONADO_SERVICE_BIN` can point the
+service at a local `/usr/local/bin/monado-service` build on hosts like
+`honey`.
 
 ### Desktop Session
 
-Select "EWWM" from your display manager (GDM, SDDM) session list. The
+Select "EXWM-VR" from your display manager (GDM, SDDM) session list. The
 session wrapper at `/usr/share/wayland-sessions/exwm-vr.desktop` handles
 environment setup, compositor launch, and Emacs startup.
+
+On `yoga`, this greeter-driven session path has now been smoke-validated once
+through SDDM on `seat0` using the installed package surface, and the packaged
+`SuccessExitStatus=15` stop-path fix is now present on-host without a separate
+unit override.
+
+On the packaged Rocky session lane, Emacs starts through the dedicated
+`/usr/share/exwm-vr/exwm-vr-session-init.el` bootstrap. That session entrypoint
+avoids ambient `~/.emacs` / `init.el` state and optionally loads
+`~/.config/exwm-vr/config.el` instead.
 
 ---
 
 ## First Boot Walkthrough
 
-1. **Log in** via display manager selecting the EWWM session
+1. **Log in** via display manager selecting the EXWM-VR session
 2. **Compositor starts**: the Smithay compositor launches and creates the
-   Wayland display socket at `$XDG_RUNTIME_DIR/ewwm-ipc.sock`
-3. **Emacs connects**: Emacs (pgtk) starts and `ewwm-ipc.el` connects
-   to the compositor via the Unix domain socket
-4. **Hello handshake**: Emacs sends `(:type :hello :version 1 :client "ewwm.el")`
+   Wayland display socket at `$XDG_RUNTIME_DIR/wayland-0`
+3. **IPC socket appears**: the compositor also binds its control socket at
+   `$XDG_RUNTIME_DIR/ewwm-ipc.sock`
+4. **Emacs connects**: Emacs (pgtk) starts with `WAYLAND_DISPLAY=wayland-0`
+   and `ewwm-ipc.el` connects to the compositor via the Unix domain socket
+5. **Hello handshake**: Emacs sends `(:type :hello :version 1 :client "ewwm.el")`
    and receives feature flags (VR, XWayland status)
-5. **Workspace ready**: 4 workspaces are initialized; workspace 0 is active
-6. **Launch applications**: `s-r` opens `ewwm-launch`, type an application name
+6. **Workspace ready**: 4 workspaces are initialized; workspace 0 is active
+7. **Launch applications**: `s-r` opens `ewwm-launch`, type an application name
 
 ### Verify the Connection
 
@@ -242,7 +292,9 @@ Monado service, BrainFlow daemon, serial ports, and GPU capabilities.
 
 ## Configuration Reference
 
-All configuration is via Emacs `defcustom` variables. Set them in your
+All configuration is via Emacs `defcustom` variables. On the packaged Rocky
+session lane, place session-specific settings in `~/.config/exwm-vr/config.el`.
+For non-packaged development flows, you can still set them in your regular
 `init.el` or via `M-x customize-group RET ewwm RET`.
 
 ### Core Settings
@@ -524,7 +576,7 @@ Generate filter list configurations via `ewwm-qutebrowser-adblock.el`.
 
 ## Headless Mode
 
-EXWM-VR supports headless operation for s390x, CI pipelines, and remote
+XoxdWM supports headless operation for s390x, CI pipelines, and remote
 sessions.
 
 ### Enabling Headless Mode
@@ -534,7 +586,7 @@ sessions.
 (ewwm-headless-mode)
 ```
 
-Or build the headless compositor:
+Or, on a Linux target, build the headless compositor directly:
 
 ```bash
 cargo build --release --no-default-features
@@ -580,7 +632,7 @@ Then log out and back in.
 Check compositor logs:
 
 ```bash
-journalctl --user -u ewwm-compositor -n 50
+journalctl --user -u exwm-vr-compositor.service -n 50
 ```
 
 Common causes: missing GPU driver, wrong `WLR_RENDERER` setting, or

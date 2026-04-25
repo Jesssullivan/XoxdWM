@@ -1,6 +1,11 @@
-# EXWM-VR: Brain-Computer Interface Guide
+# XoxdWM Brain-Computer Interface Guide
 
-**Version 0.1.0** | BCI setup, calibration, and usage
+Reference guide for BCI setup, calibration, and usage.
+
+This guide documents subsystem design and implementation surfaces. Treat
+named-host support as whatever is called out in [support-matrix.md](support-matrix.md)
+and [status.md](status.md). For the build/control-plane boundary, read
+[remote-build-authority.md](remote-build-authority.md).
 
 ---
 
@@ -25,7 +30,7 @@
 
 ## Overview
 
-EWWM-VR integrates EEG-based brain-computer interface (BCI) input alongside
+XoxdWM integrates EEG-based brain-computer interface (BCI) input alongside
 gaze tracking and hand gestures. The BCI pipeline uses BrainFlow for hardware
 abstraction, with a daemon process bridging the C++ BrainFlow library to the
 Rust compositor via shared memory.
@@ -227,7 +232,7 @@ services.exwm-vr = {
 ### Manual Setup
 
 ```bash
-# Install the daemon (built with the compositor)
+# Install the daemon on a Linux target or remote Linux lane
 nix build .#compositor
 
 # Run manually

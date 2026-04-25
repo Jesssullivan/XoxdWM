@@ -24,6 +24,14 @@
       (insert-file-contents mod-rs)
       (should (search-forward "pub mod drm_lease;" nil t)))))
 
+(ert-deftest week9/handlers-mod-rs-exports-drm-lease ()
+  "handlers/mod.rs declares drm_lease module for full-backend builds."
+  (let* ((root (locate-dominating-file default-directory ".git"))
+         (mod-rs (expand-file-name "compositor/src/handlers/mod.rs" root)))
+    (with-temp-buffer
+      (insert-file-contents mod-rs)
+      (should (search-forward "pub mod drm_lease;" nil t)))))
+
 ;; ── IPC dispatch ────────────────────────────────────────────
 
 (ert-deftest week9/dispatch-has-display-info ()
@@ -159,6 +167,92 @@
     (with-temp-buffer
       (insert-file-contents file)
       (should (search-forward "#[cfg(test)]" nil t)))))
+
+(ert-deftest week9/handler-drm-lease-module-exists ()
+  "Smithay protocol handler module exists for DRM lease wiring."
+  (should (file-exists-p
+           (expand-file-name "compositor/src/handlers/drm_lease.rs"
+                             (locate-dominating-file default-directory ".git")))))
+
+(ert-deftest week9/handler-drm-lease-delegates-smithay-protocol ()
+  "drm_lease handler delegates the Smithay protocol."
+  (let* ((root (locate-dominating-file default-directory ".git"))
+         (file (expand-file-name "compositor/src/handlers/drm_lease.rs" root)))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (should (search-forward "delegate_drm_lease!(EwwmState);" nil t)))))
+
+(ert-deftest week9/state-has-drm-lease-state ()
+  "EwwmState tracks DRM lease protocol state."
+  (let* ((root (locate-dominating-file default-directory ".git"))
+         (file (expand-file-name "compositor/src/state.rs" root)))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (should (search-forward "pub drm_lease_state: Option<DrmLeaseState>" nil t))
+      (goto-char (point-min))
+      (should (search-forward "pub active_drm_leases: Vec<DrmLease>" nil t))
+      (goto-char (point-min))
+      (should (search-forward "pub drm_lease_devices: HashMap<DrmNode, Rc<RefCell<DrmDevice>>>" nil t))
+      (goto-char (point-min))
+      (should (search-forward "pub drm_output_crtcs: HashMap<DrmNode, HashSet<crtc::Handle>>" nil t))
+      (goto-char (point-min))
+      (should (search-forward "pub fn register_drm_lease_device(" nil t))
+      (goto-char (point-min))
+      (should (search-forward "pub fn set_drm_output_crtcs<I>(&mut self, node: DrmNode, crtcs: I)" nil t))
+      (goto-char (point-min))
+      (should (search-forward "pub fn ensure_drm_lease_state(&mut self, node: DrmNode)" nil t)))))
+
+(ert-deftest week9/backend-initializes-drm-lease-state ()
+  "DRM backend initializes the lease global on the primary node."
+  (let* ((root (locate-dominating-file default-directory ".git"))
+         (file (expand-file-name "compositor/src/backend/drm.rs" root)))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (should (search-forward "state.ensure_drm_lease_state(node);" nil t))
+      (should (search-forward "state.register_drm_lease_device(node, gpu.drm.clone());" nil t))
+      (should (search-forward "state.set_drm_output_crtcs(gpu.node, used_crtcs.iter().copied());" nil t)))))
+
+(ert-deftest week9/lease-handler-builds-real-leases ()
+  "Lease handler uses the live DRM backend to build real leases."
+  (let* ((root (locate-dominating-file default-directory ".git"))
+         (file (expand-file-name "compositor/src/handlers/drm_lease.rs" root)))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (should (search-forward "self.drm_lease_devices.get(&node).cloned()" nil t))
+      (goto-char (point-min))
+      (should (search-forward ".drm_output_crtcs" nil t))
+      (goto-char (point-min))
+      (should (search-forward "let mut builder = DrmLeaseBuilder::new(&drm);" nil t))
+      (goto-char (point-min))
+      (should (search-forward "builder.add_crtc(crtc);" nil t))
+      (goto-char (point-min))
+      (should (search-forward "builder.add_plane(primary_plane, claim);" nil t))
+      (goto-char (point-min))
+      (should (search-forward "\"granting DRM lease request\"" nil t)))))
+
+(ert-deftest week9/backend-recognizes-lease-connector-overrides ()
+  "DRM backend recognizes explicit connector override env vars."
+  (let* ((root (locate-dominating-file default-directory ".git"))
+         (file (expand-file-name "compositor/src/backend/drm.rs" root)))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (should (search-forward "\"EWWM_DRM_LEASE_CONNECTORS\"" nil t))
+      (should (search-forward "\"XRT_COMPOSITOR_WAYLAND_CONNECTOR\"" nil t)))))
+
+(ert-deftest week9/backend-skips-lease-candidate-connectors ()
+  "DRM backend reserves lease-designated connectors instead of mapping them."
+  (let* ((root (locate-dominating-file default-directory ".git"))
+         (file (expand-file-name "compositor/src/backend/drm.rs" root)))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (should (search-forward "lease-designated connector, skipping desktop output" nil t))
+      (goto-char (point-min))
+      (should (search-forward "add_connector::<EwwmState>(" nil t))
+      (goto-char (point-min))
+      (should (search-forward "drm_lease_state.withdraw_connector" nil t)))))
 
 ;; ── Cross-module consistency ────────────────────────────────
 

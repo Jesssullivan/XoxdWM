@@ -4,11 +4,15 @@ This quickstart is intentionally narrower than the feature inventory.
 
 - For current support claims, read [Support Matrix](support-matrix.md).
 - For the repo’s current operational status, read [Status](status.md).
-- As of 2026-04-13, the Rocky base compositor package lane is public in `v0.5.1`.
+- For the external Rocky/Linux build authority split, read [Remote Build Authority](remote-build-authority.md).
+- For the current repo-owned remote workflow and host proof lanes, read [Remote Proof Lanes](remote-proof-lanes.md).
+- As of 2026-04-22, the Rocky base compositor package lane is public in `v0.5.1`.
 - `yoga` validated the Rocky RPM install path: the compositor package installs, links cleanly on-host, and can be started in a bounded named-host run with `seatd`.
 - The remaining Rocky follow-on is local session ergonomics on `yoga`, not the base RPM artifact itself.
 - Monado integration and full VR enablement remain separate follow-on work after the base Rocky compositor package path.
 - SELinux hardening and the BrainFlow BCI virtualenv remain separate opt-in package concerns so the base Rocky compositor RPM stays shippable.
+- Authoritative builds belong to Rocky / Linux remote build lanes, not local
+  Darwin builds on `neo`.
 
 ## NixOS (Declarative)
 
@@ -32,10 +36,13 @@ Home Manager (user config):
   imports = [ inputs.xoxdwm.homeManagerModules.exwm-vr ];
   programs.exwm-vr = {
     enable = true;
-    compositor.backend = "auto";
+    compositor.extraArgs = [ "--backend" "drm" ];
   };
 }
 ```
+
+These Nix examples reflect the current module option shapes in the repo.
+They are configuration examples, not named-host proof.
 
 ## Rocky Linux / Fedora (RPM)
 
@@ -51,7 +58,10 @@ Current status:
 
 - `v0.5.1` is public and ships the corrected native Rocky compositor RPM.
 - `yoga` validated package install and bounded runtime on Rocky 10.
-- A polished local login/session path on `yoga` is still follow-on work after the base package lane.
+- `yoga` now also has a one-time SDDM greeter-path proof via `sddm-autologin`
+  on `seat0`; the refreshed packaged unit now carries the stop-path fix, so
+  general session polish and repeatability are the remaining follow-on work
+  after the base package lane.
 - Full VR/OpenXR enablement on Rocky is still a separate follow-on step after the base compositor package path.
 - SELinux policy packaging and the BrainFlow BCI virtualenv are separate follow-on steps after the base compositor package path.
 
@@ -61,7 +71,7 @@ sudo dnf install emacs dbus-daemon seatd xorg-x11-server-Xwayland
 sudo systemctl enable --now seatd
 sudo usermod -aG seat "$USER"
 # Log out and back in so the seat group reaches the local session/user manager.
-# The display-manager or local-launch path is still being hardened on yoga.
+# On yoga, the SDDM greeter path has now been smoke-validated once.
 ```
 
 ## Debian / Ubuntu (DEB)
@@ -71,7 +81,13 @@ curl -LO https://github.com/Jesssullivan/XoxdWM/releases/latest/download/ewwm-co
 sudo apt install ./ewwm-compositor_*_amd64.deb
 ```
 
-## From Source (Any Wayland System)
+## From Source On A Rocky / Linux Target
+
+The authoritative path is the external Rocky remote build toolchain described in
+[remote-build-authority.md](remote-build-authority.md). The manual
+source build below is a reproduction/debug path on a Linux target host, not the
+preferred authority lane and not something to treat as a macOS workflow on
+`neo`.
 
 ```bash
 git clone https://github.com/Jesssullivan/XoxdWM.git
@@ -113,7 +129,14 @@ ewwm-compositor --backend headless --headless-exit-after 5
 emacs --batch -L lisp/core -L lisp/vr -L lisp/ext -l test/run-tests.el
 ```
 
+From `neo`, prefer the remote operator surface before making support claims:
+
+```bash
+just remote-proof-surface
+just remote-proof-runs
+```
+
 ## Named-Host Guidance
 
-- `yoga`: Rocky 10 package install is validated; local session ergonomics are the active follow-on.
+- `yoga`: Rocky 10 package install and a one-time SDDM greeter-path session proof are validated; repeatability and session ergonomics are the active follow-on.
 - `honey`: target VR smoke host, but not currently documented here as a proven XoxdWM deployment.

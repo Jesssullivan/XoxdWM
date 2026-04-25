@@ -19,7 +19,7 @@ env:
 jobs:
   build-binary:
     name: Build Compositor Binary
-    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && 'xoxdwm-nix' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
 
       - uses: ./.github/actions/ensure-nix
         with:
-          self_hosted: ${{ vars.USE_SELFHOSTED }}
+          self_hosted: ${{ vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true' }}
           attic_cache: ${{ env.ATTIC_CACHE || 'main' }}
       - uses: ryanccn/attic-action@v0
         if: env.ATTIC_SERVER != ''
@@ -135,6 +135,7 @@ jobs:
           cp packaging/desktop/exwm-vr.desktop ~/rpmbuild/SOURCES/
           cp packaging/desktop/exwm-vr-session ~/rpmbuild/SOURCES/ 2>/dev/null || true
           cp packaging/desktop/exwm-vr-portals.conf ~/rpmbuild/SOURCES/ 2>/dev/null || true
+          cp packaging/emacs/exwm-vr-session-init.el ~/rpmbuild/SOURCES/ 2>/dev/null || true
 
       - name: Build RPM
         run: |

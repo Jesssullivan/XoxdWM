@@ -1,6 +1,9 @@
 #!/bin/bash
 # dcc-configure-rt — Configure Dell T7810 BIOS for PREEMPT_RT via Dell Command | Configure
 #
+# Canonical version lives in Dell-7810/scripts/platform/dcc-configure-rt.
+# This copy is kept for XoxdWM operational convenience but should not diverge.
+#
 # Uses cctk (Dell Command | Configure CLI) to set BIOS options that eliminate
 # SMI sources identified via firmware RE of BIOS A34.
 #

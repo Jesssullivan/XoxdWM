@@ -72,6 +72,7 @@ Source30:       99-exwm-vr.rules
 Source40:       exwm-vr.desktop
 Source41:       exwm-vr-session
 Source42:       exwm-vr-portals.conf
+Source43:       exwm-vr-session-init.el
 
 BuildArch:      x86_64 aarch64 s390x
 
@@ -360,6 +361,8 @@ install -Dpm 0755 %{SOURCE41} \
     %{buildroot}%{_datadir}/%{project_name}/exwm-vr-session
 install -Dpm 0644 %{SOURCE42} \
     %{buildroot}%{_datadir}/xdg-desktop-portal/exwm-vr-portals.conf
+install -Dpm 0644 %{SOURCE43} \
+    %{buildroot}%{_datadir}/%{project_name}/exwm-vr-session-init.el
 %endif
 
 # --- Headless compositor binary ---
@@ -402,6 +405,8 @@ install -Dpm 0644 %{SOURCE20} \
 %if %{with monado_integration}
 install -Dpm 0644 %{SOURCE21} \
     %{buildroot}%{_userunitdir}/exwm-vr-monado.service
+install -Dpm 0755 packaging/scripts/exwm-vr-monado-launch \
+    %{buildroot}%{_libexecdir}/%{project_name}/monado-launch
 %endif
 install -Dpm 0644 %{SOURCE22} \
     %{buildroot}%{_userunitdir}/exwm-vr-emacs.service
@@ -607,6 +612,7 @@ fi
 %{_datadir}/wayland-sessions/exwm-vr.desktop
 %dir %{_datadir}/%{project_name}
 %{_datadir}/%{project_name}/exwm-vr-session
+%{_datadir}/%{project_name}/exwm-vr-session-init.el
 %{_datadir}/xdg-desktop-portal/exwm-vr-portals.conf
 %dir %{_localstatedir}/lib/%{project_name}
 %endif
@@ -626,6 +632,7 @@ fi
 %files monado
 %license LICENSE
 %{_userunitdir}/exwm-vr-monado.service
+%{_libexecdir}/%{project_name}/monado-launch
 %{_udevrulesdir}/99-exwm-vr.rules
 %dir %{_sysconfdir}/xdg/openxr
 %dir %{_sysconfdir}/xdg/openxr/1

@@ -1,6 +1,6 @@
-# XoxdWM (EXWM-VR) Feature Matrix
+# XoxdWM Feature Matrix
 
-Comprehensive reference for IPC commands, subsystems, and module inventory.
+Broad inventory for IPC commands, subsystems, and module areas.
 
 This document is an inventory, not a support promise. For the current operational truth, read [Support Matrix](support-matrix.md) first.
 
@@ -8,8 +8,10 @@ This document is an inventory, not a support promise. For the current operationa
 
 ## 1. IPC Command Reference
 
-Every command recognized by `compositor/src/ipc/dispatch.rs` is listed below,
-grouped by subsystem.  The match dispatch contains **131 commands** total.
+The dispatcher in `compositor/src/ipc/dispatch.rs` currently contains
+**184 commands** in this checkout. The grouped table below is still being
+reconciled and should not be treated as exhaustive until it is regenerated
+from code.
 
 ### 1.1 Protocol & Core WM (Weeks 3-5)
 
@@ -364,7 +366,7 @@ Notes:
 | ewwm-secrets-totp | TOTP integration for EWWM secrets management | 14 |
 | ewwm-secrets-passkey | WebAuthn/FIDO2 passkey support for EWWM via KeePassXC | 14 |
 | ewwm-vr-secure-input | Secure input mode for EWWM | 14 |
-| ewwm-environment | Environment validation for EXWM-VR | 15 |
+| ewwm-environment | Environment validation for XoxdWM | 15 |
 | ewwm-headless | Headless mode for EWWM | 16 |
 | ewwm-qutebrowser | Qutebrowser integration for EWWM | 17 |
 | ewwm-qutebrowser-ipc | Qutebrowser IPC layer for EWWM | 17 |

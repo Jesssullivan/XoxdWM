@@ -36,13 +36,24 @@ use smithay::{
         shm::ShmState,
         xdg_activation::XdgActivationState,
     },
-    xwayland::xwm::X11Wm,
+};
+#[cfg(feature = "full-backend")]
+use smithay::{
+    backend::drm::{DrmDevice, DrmNode},
+    reexports::drm::control::crtc,
+    wayland::drm_lease::{DrmLease, DrmLeaseState},
+};
+#[cfg(feature = "xwayland")]
+use smithay::{
     wayland::xwayland_shell::XWaylandShellState,
+    xwayland::xwm::X11Wm,
 };
 use std::{
     collections::{HashMap, HashSet},
     sync::{atomic::{AtomicU64, Ordering}, Arc},
 };
+#[cfg(feature = "full-backend")]
+use std::{cell::RefCell, rc::Rc};
 use tracing::info;
 
 use crate::autotype::AutoTypeManager;
@@ -162,8 +173,11 @@ pub struct EwwmState {
     pub foreign_toplevel_state: ForeignToplevelListState,
 
     // XWayland
+    #[cfg(feature = "xwayland")]
     pub xwm: Option<X11Wm>,
+    #[cfg(feature = "xwayland")]
     pub xwayland_shell_state: XWaylandShellState,
+    #[cfg(feature = "xwayland")]
     pub xdisplay: Option<u32>,
 
     // Popups
@@ -212,6 +226,16 @@ pub struct EwwmState {
 
     // Pointer constraints (pointer-constraints-unstable-v1)
     pub pointer_constraints_state: PointerConstraintsState,
+
+    // DRM lease protocol (wp_drm_lease_v1)
+    #[cfg(feature = "full-backend")]
+    pub drm_lease_state: Option<DrmLeaseState>,
+    #[cfg(feature = "full-backend")]
+    pub active_drm_leases: Vec<DrmLease>,
+    #[cfg(feature = "full-backend")]
+    pub drm_lease_devices: HashMap<DrmNode, Rc<RefCell<DrmDevice>>>,
+    #[cfg(feature = "full-backend")]
+    pub drm_output_crtcs: HashMap<DrmNode, HashSet<crtc::Handle>>,
 
     // Focus tracking
     pub focused_surface: Option<u64>,
@@ -281,6 +305,7 @@ impl EwwmState {
         let foreign_toplevel_state = ForeignToplevelListState::new::<Self>(&display_handle);
 
         // XWayland shell protocol (for surface serial matching)
+        #[cfg(feature = "xwayland")]
         let xwayland_shell_state = XWaylandShellState::new::<Self>(&display_handle);
 
         // Pointer constraints (pointer-constraints-unstable-v1)
@@ -289,9 +314,16 @@ impl EwwmState {
 
         let seat = seat_state.new_wl_seat(&display_handle, "ewwm-seat");
 
-        info!("EwwmState initialized (layer-shell, foreign-toplevel, xwayland-shell, \
-               session-lock, idle-notify, idle-inhibit, primary-selection, dmabuf, \
-               cursor-shape, xdg-activation, pointer-constraints)");
+        info!(
+            "EwwmState initialized (layer-shell, foreign-toplevel, session-lock, \
+             idle-notify, idle-inhibit, primary-selection, dmabuf, cursor-shape, \
+             xdg-activation, pointer-constraints{} )",
+            if cfg!(feature = "xwayland") {
+                ", xwayland-shell"
+            } else {
+                ""
+            }
+        );
 
         let ipc_socket_path = IpcServer::default_socket_path();
 
@@ -314,8 +346,11 @@ impl EwwmState {
             cursor_shape_state,
             xdg_activation_state,
             foreign_toplevel_state,
+            #[cfg(feature = "xwayland")]
             xwm: None,
+            #[cfg(feature = "xwayland")]
             xwayland_shell_state,
+            #[cfg(feature = "xwayland")]
             xdisplay: None,
             popups: PopupManager::default(),
             seat,
@@ -337,6 +372,14 @@ impl EwwmState {
             screencopy_state: ScreencopyState::new(),
             output_management_state: OutputManagementState::new(),
             pointer_constraints_state,
+            #[cfg(feature = "full-backend")]
+            drm_lease_state: None,
+            #[cfg(feature = "full-backend")]
+            active_drm_leases: Vec::new(),
+            #[cfg(feature = "full-backend")]
+            drm_lease_devices: HashMap::new(),
+            #[cfg(feature = "full-backend")]
+            drm_output_crtcs: HashMap::new(),
             focused_surface: None,
             cursor_status: CursorImageStatus::Default,
             running: true,
@@ -346,6 +389,47 @@ impl EwwmState {
 }
 
 impl EwwmState {
+    #[cfg(feature = "full-backend")]
+    pub fn ensure_drm_lease_state(&mut self, node: DrmNode) {
+        if self.drm_lease_state.is_some() {
+            return;
+        }
+
+        match DrmLeaseState::new::<Self>(&self.display_handle, &node) {
+            Ok(state) => {
+                info!(?node, "initialized wp_drm_lease_v1 global");
+                self.drm_lease_state = Some(state);
+            }
+            Err(err) => {
+                info!(?node, ?err, "wp_drm_lease_v1 unavailable on this DRM node");
+            }
+        }
+    }
+
+    #[cfg(feature = "full-backend")]
+    pub fn register_drm_lease_device(
+        &mut self,
+        node: DrmNode,
+        drm: Rc<RefCell<DrmDevice>>,
+    ) {
+        self.drm_lease_devices.insert(node, drm);
+    }
+
+    #[cfg(feature = "full-backend")]
+    pub fn unregister_drm_lease_device(&mut self, node: DrmNode) {
+        self.drm_lease_devices.remove(&node);
+        self.drm_output_crtcs.remove(&node);
+    }
+
+    #[cfg(feature = "full-backend")]
+    pub fn set_drm_output_crtcs<I>(&mut self, node: DrmNode, crtcs: I)
+    where
+        I: IntoIterator<Item = crtc::Handle>,
+    {
+        self.drm_output_crtcs
+            .insert(node, crtcs.into_iter().collect());
+    }
+
     /// Look up a Window by its surface_id.
     pub fn find_window(&self, surface_id: u64) -> Option<&Window> {
         self.surface_to_window.get(&surface_id)

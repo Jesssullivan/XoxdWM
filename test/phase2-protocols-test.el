@@ -139,6 +139,36 @@
         (goto-char (point-min))
         (should-not (re-search-forward "^sleep 1$" nil t))))))
 
+(ert-deftest phase2p/session-wrapper-uses-drm-backend-and-wayland-0 ()
+  "Session wrapper should force the packaged Rocky session onto DRM + wayland-0."
+  (let* ((root phase2p-test--project-root)
+         (wrapper (expand-file-name "packaging/desktop/exwm-vr-session" root)))
+    (when (file-exists-p wrapper)
+      (with-temp-buffer
+        (insert-file-contents wrapper)
+        (should (search-forward "EXWM_VR_COMPOSITOR_BACKEND" nil t))
+        (goto-char (point-min))
+        (should (search-forward "EXWM_VR_WAYLAND_SOCKET" nil t))
+        (goto-char (point-min))
+        (should (search-forward "--backend \"${EXWM_VR_COMPOSITOR_BACKEND}\"" nil t))
+        (goto-char (point-min))
+        (should (search-forward "--wayland-socket \"${EXWM_VR_WAYLAND_SOCKET}\"" nil t))
+        (goto-char (point-min))
+        (should-not (search-forward "wayland-1" nil t))))))
+
+(ert-deftest phase2p/session-wrapper-loads-dedicated-emacs-bootstrap ()
+  "Session wrapper should not rely on ambient user init.el state."
+  (let* ((root phase2p-test--project-root)
+         (wrapper (expand-file-name "packaging/desktop/exwm-vr-session" root)))
+    (when (file-exists-p wrapper)
+      (with-temp-buffer
+        (insert-file-contents wrapper)
+        (should (search-forward "--quick" nil t))
+        (goto-char (point-min))
+        (should (search-forward "/usr/share/exwm-vr/exwm-vr-session-init.el" nil t))
+        (goto-char (point-min))
+        (should-not (search-forward "-l ewwm" nil t))))))
+
 (ert-deftest phase2p/desktop-file-has-tryexec ()
   "Desktop file includes TryExec."
   (let* ((root phase2p-test--project-root)
@@ -158,6 +188,60 @@
         (should (search-forward "Type=simple" nil t))
         (goto-char (point-min))
         (should-not (search-forward "Type=notify" nil t))))))
+
+(ert-deftest phase2p/compositor-service-uses-drm-backend-and-wayland-0 ()
+  "Packaged compositor service should keep the Rocky session on DRM + wayland-0."
+  (let* ((root phase2p-test--project-root)
+         (service (expand-file-name "packaging/systemd/exwm-vr-compositor.service" root)))
+    (when (file-exists-p service)
+      (with-temp-buffer
+        (insert-file-contents service)
+        (should (search-forward "ExecStart=/usr/bin/ewwm-compositor --backend drm --wayland-socket wayland-0" nil t))
+        (goto-char (point-min))
+        (should (search-forward "EnvironmentFile=-%h/.config/exwm-vr/compositor.env" nil t))))))
+
+(ert-deftest phase2p/monado-service-supports-user-env ()
+  "Packaged Monado service should support user-scoped EXWM-VR env overrides."
+  (let* ((root phase2p-test--project-root)
+         (service (expand-file-name "packaging/systemd/exwm-vr-monado.service" root)))
+    (when (file-exists-p service)
+      (with-temp-buffer
+        (insert-file-contents service)
+        (should (search-forward "ExecStart=/usr/libexec/exwm-vr/monado-launch" nil t))
+        (goto-char (point-min))
+        (should (search-forward "Environment=XRT_NO_STDIN=TRUE" nil t))
+        (goto-char (point-min))
+        (should (search-forward "Environment=IPC_EXIT_ON_DISCONNECT=OFF" nil t))
+        (goto-char (point-min))
+        (should (search-forward "Environment=WAYLAND_DISPLAY=wayland-0" nil t))
+        (goto-char (point-min))
+        (should (search-forward "EnvironmentFile=-%h/.config/exwm-vr/monado.env" nil t))))))
+
+(ert-deftest phase2p/emacs-service-uses-wayland-0 ()
+  "Packaged Emacs service should target the compositor's fixed Wayland socket."
+  (let* ((root phase2p-test--project-root)
+         (service (expand-file-name "packaging/systemd/exwm-vr-emacs.service" root)))
+    (when (file-exists-p service)
+      (with-temp-buffer
+        (insert-file-contents service)
+        (should (search-forward "Environment=WAYLAND_DISPLAY=wayland-0" nil t))
+        (goto-char (point-min))
+        (should (search-forward "SuccessExitStatus=15" nil t))
+        (goto-char (point-min))
+        (should (search-forward "--quick --load /usr/share/exwm-vr/exwm-vr-session-init.el" nil t))))))
+
+(ert-deftest phase2p/packaged-session-init-enables-ewwm ()
+  "Packaged Rocky session should start ewwm from a dedicated init file."
+  (let* ((root phase2p-test--project-root)
+         (init-file (expand-file-name "packaging/emacs/exwm-vr-session-init.el" root)))
+    (when (file-exists-p init-file)
+      (with-temp-buffer
+        (insert-file-contents init-file)
+        (should (search-forward "(require 'ewwm)" nil t))
+        (goto-char (point-min))
+        (should (search-forward "(ewwm-global-mode 1)" nil t))
+        (goto-char (point-min))
+        (should (search-forward "EXWM_VR_CONFIG_FILE" nil t))))))
 
 (ert-deftest phase2p/session-idle-no-swaymsg ()
   "ewwm-session idle args do not reference swaymsg."

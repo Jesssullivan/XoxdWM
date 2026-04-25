@@ -2,7 +2,7 @@
 
 ## Overview
 
-The EXWM-VR compositor is built on Smithay 0.7 using `GlesRenderer`, which
+The XoxdWM compositor is built on Smithay 0.7 using `GlesRenderer`, which
 requires a working EGL + GBM stack. The compositor obtains a DRM device via
 libseat, creates a GBM device on top of it, and initializes EGL for rendering.
 VR features additionally require DRM lease support and a Vulkan-capable driver

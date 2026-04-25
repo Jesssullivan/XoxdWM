@@ -1,0 +1,100 @@
+name: Monado Companion RPM
+
+on:
+  push:
+    paths:
+      - '.github/workflows/monado-companion.yml'
+      - 'packaging/rpm/monado-beyond.spec'
+  pull_request:
+    paths:
+      - '.github/workflows/monado-companion.yml'
+      - 'packaging/rpm/monado-beyond.spec'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package-monado-rpm:
+    name: Package Monado Companion RPM
+    runs-on: ubuntu-latest
+    container: rockylinux/rockylinux:10
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install rpmbuild dependencies
+        run: |
+          dnf install -y \
+            'dnf-command(config-manager)' \
+            'https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm'
+          dnf config-manager --set-enabled crb
+          dnf install -y \
+            bash curl rpm-build rpmdevtools gcc-c++ cmake ninja-build \
+            eigen3-devel glslang-devel spirv-tools spirv-tools-devel \
+            vulkan-headers vulkan-loader-devel \
+            wayland-devel wayland-protocols-devel libdrm-devel \
+            mesa-libEGL-devel mesa-libGL-devel mesa-vulkan-drivers \
+            libusb1-devel hidapi-devel libXrandr-devel \
+            libxkbcommon-devel libudev-devel pkg-config
+
+      - name: Set up rpmbuild tree
+        run: rpmdev-setuptree
+
+      - name: Download Monado source tarball
+        run: |
+          set -euo pipefail
+          MONADO_COMMIT=$(sed -n 's/^%global monado_commit[[:space:]]*//p' packaging/rpm/monado-beyond.spec | head -1)
+          if [ -z "$MONADO_COMMIT" ]; then
+            echo "Failed to parse monado commit from spec" >&2
+            exit 1
+          fi
+          curl -fsSL \
+            -o "$HOME/rpmbuild/SOURCES/monado-${MONADO_COMMIT}.tar.gz" \
+            "https://gitlab.freedesktop.org/monado/monado/-/archive/${MONADO_COMMIT}/monado-${MONADO_COMMIT}.tar.gz"
+
+      - name: Build Monado RPM
+        run: |
+          rpmbuild -bb --nodeps \
+            --define "_topdir $HOME/rpmbuild" \
+            packaging/rpm/monado-beyond.spec
+
+      - name: Validate Monado RPM contents
+        run: |
+          set -euo pipefail
+          RPM=$(find "$HOME/rpmbuild/RPMS" \
+            -name 'monado-beyond-[0-9]*.rpm' \
+            ! -name '*-debuginfo-*.rpm' \
+            ! -name '*-debugsource-*.rpm' \
+            | sort | head -1)
+          if [ -z "$RPM" ]; then
+            echo "No monado-beyond RPM found in rpmbuild output" >&2
+            exit 1
+          fi
+
+          for path in \
+            /usr/bin/monado-service \
+            /usr/bin/monado-cli \
+            /usr/lib/systemd/user/monado.service \
+            /usr/lib/systemd/user/monado.socket \
+            /usr/share/openxr/1/openxr_monado.json
+          do
+            rpm -qpl "$RPM" | grep -Fx "$path" >/dev/null || {
+              echo "Missing expected payload path in Monado RPM: $path" >&2
+              exit 1
+            }
+          done
+
+      - name: Collect RPMs
+        run: |
+          mkdir -p rpms/
+          find "$HOME/rpmbuild/RPMS" -name '*.rpm' -exec cp {} rpms/ \;
+          ls -la rpms/
+
+      - name: Upload RPMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: monado-companion-rpm
+          path: 'rpms/*.rpm'
+          retention-days: 7

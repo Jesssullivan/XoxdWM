@@ -53,7 +53,7 @@ pkgs.testers.nixosTest {
     };
 
     # Override compositor service for test (headless VM has no graphical-session)
-    systemd.user.services.ewwm-compositor = {
+    systemd.user.services."exwm-vr-compositor" = {
       wantedBy = pkgs.lib.mkForce [ "default.target" ];
       serviceConfig = {
         ExecStart = pkgs.lib.mkForce
@@ -65,7 +65,7 @@ pkgs.testers.nixosTest {
     };
 
     # Emacs user service (override for headless VM)
-    systemd.user.services.ewwm-emacs = {
+    systemd.user.services."exwm-vr-emacs" = {
       wantedBy = pkgs.lib.mkForce [ "default.target" ];
       serviceConfig = {
         ExecStart = pkgs.lib.mkForce (builtins.concatStringsSep " " [
@@ -96,7 +96,10 @@ pkgs.testers.nixosTest {
     machine.wait_for_unit("multi-user.target")
 
     # Phase 1: Compositor boots
-    machine.wait_for_unit("ewwm-compositor.service", "testuser", timeout=30)
+    machine.wait_for_unit("exwm-vr-compositor.service", "testuser", timeout=30)
+    machine.succeed(
+        "systemctl --user -M testuser@ status ewwm-compositor.service >/dev/null"
+    )
     machine.succeed(
         "test -S /run/user/$(id -u testuser)/ewwm-ipc.sock"
     )
@@ -138,7 +141,7 @@ pkgs.testers.nixosTest {
     )
 
     # Phase 5: Emacs daemon boots
-    machine.wait_for_unit("ewwm-emacs.service", "testuser", timeout=60)
+    machine.wait_for_unit("exwm-vr-emacs.service", "testuser", timeout=60)
 
     # Phase 6: emacsclient eval — verify Emacs can load ewwm modules
     uid = machine.succeed("id -u testuser").strip()
@@ -154,10 +157,10 @@ pkgs.testers.nixosTest {
 
     # Phase 7: Clean shutdown
     machine.succeed(
-        "systemctl --user -M testuser@ stop ewwm-emacs.service"
+        "systemctl --user -M testuser@ stop exwm-vr-emacs.service"
     )
     machine.succeed(
-        "systemctl --user -M testuser@ stop ewwm-compositor.service"
+        "systemctl --user -M testuser@ stop exwm-vr-compositor.service"
     )
   '';
 }

@@ -5,7 +5,10 @@ PartOf=exwm-vr.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/ewwm-compositor
+Environment=EXWM_VR_COMPOSITOR_BACKEND=drm
+Environment=EXWM_VR_WAYLAND_SOCKET=wayland-0
+EnvironmentFile=-%h/.config/exwm-vr/compositor.env
+ExecStart=/usr/bin/ewwm-compositor --backend drm --wayland-socket wayland-0
 Restart=on-failure
 RestartSec=3
 Environment=XDG_CURRENT_DESKTOP=EXWM-VR

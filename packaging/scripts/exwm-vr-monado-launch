@@ -1,0 +1,35 @@
+#!/bin/sh
+# Resolve the Monado runtime binary for EXWM-VR service launches.
+
+set -eu
+
+runtime_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+socket_path="${runtime_dir}/monado_comp_ipc"
+
+# Older local Monado lanes can leave a stale IPC socket behind. If no service
+# is currently running, clear the dead path before launching the next runtime.
+if [ -S "${socket_path}" ]; then
+    if ! command -v pgrep >/dev/null 2>&1 || ! pgrep -x monado-service >/dev/null 2>&1; then
+        rm -f "${socket_path}" || true
+    fi
+fi
+
+if [ -n "${MONADO_SERVICE_BIN:-}" ] && [ -x "${MONADO_SERVICE_BIN}" ]; then
+    exec "${MONADO_SERVICE_BIN}" "$@"
+fi
+
+for candidate in \
+    /usr/bin/monado-service \
+    /usr/local/bin/monado-service
+do
+    if [ -x "$candidate" ]; then
+        exec "$candidate" "$@"
+    fi
+done
+
+if command -v monado-service >/dev/null 2>&1; then
+    exec "$(command -v monado-service)" "$@"
+fi
+
+echo "ERROR: monado-service not found. Set MONADO_SERVICE_BIN in ~/.config/exwm-vr/monado.env." >&2
+exit 127

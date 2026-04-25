@@ -7,6 +7,8 @@
 --   - tuned profiles
 --   - SMI validation thresholds
 
+let HostFacts = ./HostFacts.dhall
+
 let SMISource =
       { name : Text
       , smiEnBit : Natural
@@ -36,8 +38,7 @@ let CPU =
       , microcodeFixBios : Text
       }
 
-let NUMANode =
-      { cpus : Text, ramMiB : Natural, distanceSelf : Natural, distanceCross : Natural }
+let NUMANode = HostFacts.NUMANode
 
 let SMIBaseline =
       { worstCaseUs : Natural, periodicRateHz : Double, totalFromBoot : Natural, biosVersion : Text }
@@ -62,6 +63,8 @@ let Platform =
       , numa : List NUMANode
       , smiBaseline : SMIBaseline
       }
+
+let hostFacts = HostFacts.honey
 
 let wellsburg
     : PCH
@@ -123,23 +126,18 @@ let haswellEP
 
 let dellT7810
     : Platform
-    = { name = "honey"
-      , vendor = "Dell"
-      , model = "Precision Tower 7810"
-      , boardId = "0GWHMW"
-      , biosVersion = "A34"
-      , biosSha256 =
-          "6a1c9a01683453881c610c5771fb225a024b1b2122da0cf6f95a43e870a77ff9"
+    = { name = hostFacts.name
+      , vendor = hostFacts.vendor
+      , model = hostFacts.model
+      , boardId = hostFacts.boardId
+      , biosVersion = hostFacts.biosVersion
+      , biosSha256 = hostFacts.biosSha256
       , pch = wellsburg
       , cpu = haswellEP
-      , ramGiB = 220
-      , gpu = "AMD Radeon RX 9070 XT (Navi 48 / RDNA4)"
-      , firmwareModules =
-          { total = 497, dxeDrivers = 270, smmHandlers = 153, peiModules = 72 }
-      , numa =
-          [ { cpus = "0-7,16-23", ramMiB = 131709, distanceSelf = 10, distanceCross = 21 }
-          , { cpus = "8-15,24-31", ramMiB = 98514, distanceSelf = 10, distanceCross = 21 }
-          ]
+      , ramGiB = hostFacts.ramGiB
+      , gpu = hostFacts.gpu
+      , firmwareModules = hostFacts.firmwareModules
+      , numa = hostFacts.numa
       -- SMI baseline measured on BIOS A02; honey now runs A34 (TSC errata fixed)
       , smiBaseline =
           { worstCaseUs = 2523

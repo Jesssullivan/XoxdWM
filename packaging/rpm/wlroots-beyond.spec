@@ -6,10 +6,10 @@
 # Usage:
 #   rpmbuild -bb --define "wlroots_version 0.18.2" wlroots-beyond.spec
 
-%define wlroots_version %{?wlroots_version}%{!?wlroots_version:0.18.2}
+%global wlroots_default_version 0.18.2
 
 Name:           wlroots-beyond
-Version:        %{wlroots_version}
+Version:        %{?wlroots_version}%{!?wlroots_version:%{wlroots_default_version}}
 Release:        1%{?dist}
 Summary:        Patched wlroots with Bigscreen Beyond non-desktop detection
 License:        MIT
@@ -35,7 +35,7 @@ BuildRequires:  pixman-devel
 BuildRequires:  libseat-devel
 BuildRequires:  xcb-util-wm-devel
 BuildRequires:  libxcb-devel
-BuildRequires:  xwayland
+BuildRequires:  xorg-x11-server-Xwayland-devel
 BuildRequires:  hwdata
 
 Provides:       wlroots = %{version}-%{release}
@@ -74,22 +74,25 @@ Headers and pkgconfig files for building against wlroots-beyond.
 %autosetup -n wlroots-%{version} -p1
 
 %build
-%meson -Dxwayland=enabled -Dexamples=false
-%meson_build
+meson setup build \
+    --prefix=%{_prefix} \
+    --libdir=%{_libdir} \
+    -Dxwayland=enabled \
+    -Dexamples=false
+ninja -C build
 
 %install
-%meson_install
+DESTDIR=%{buildroot} ninja -C build install
 
 %files
 %license LICENSE
-%{_libdir}/libwlroots-*.so.*
+%{_libdir}/libwlroots-*.so
 
 %files devel
-%{_includedir}/wlr/
-%{_libdir}/libwlroots-*.so
+%{_includedir}/wlroots-0.18/
 %{_libdir}/pkgconfig/wlroots-*.pc
 
 %changelog
-* Mon Mar 10 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 0.18.2-1
+* Tue Mar 10 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 0.18.2-1
 - Initial wlroots-beyond package
 - Patch: force non_desktop for Bigscreen Beyond VR headsets

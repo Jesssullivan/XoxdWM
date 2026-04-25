@@ -3,12 +3,18 @@
 Test the full XoxdWM stack without VR hardware using QEMU virtual machines
 and Monado's headless simulation mode.
 
+This is a bounded Linux validation guide, not named-host proof and not the
+default authority path from `neo`. For the repo-wide authority split and live
+remote workflow map, read [remote-build-authority.md](remote-build-authority.md)
+and [remote-proof-lanes.md](remote-proof-lanes.md).
+
 ## Why QEMU?
 
 - Validate the full boot sequence (compositor + Emacs + IPC)
 - Test packaging (RPM/DEB installation)
 - CI-friendly (no GPU required with headless backend)
 - Safe environment for development
+- Useful as a secondary smoke lane, not a replacement for `yoga` or `honey`
 
 ## NixOS QEMU VM
 
@@ -52,7 +58,7 @@ qemu-system-x86_64 \
 Test VR features without a real HMD:
 
 ```bash
-# Inside the VM or any Linux system
+# Inside the VM or another Linux system
 export XRT_COMPOSITOR_FORCE_HEADLESS=1
 export MONADO_DRIVER_SIMULATION=1
 

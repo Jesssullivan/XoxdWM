@@ -7,7 +7,9 @@ on:
       - 'compositor/**'
       - 'lisp/**'
       - 'nix/**'
+      - 'docs/**'
       - 'test/**'
+      - 'README.md'
       - 'flake.nix'
       - 'flake.lock'
       - 'justfile'
@@ -19,7 +21,9 @@ on:
       - 'compositor/**'
       - 'lisp/**'
       - 'nix/**'
+      - 'docs/**'
       - 'test/**'
+      - 'README.md'
       - 'flake.nix'
       - 'flake.lock'
       - 'justfile'
@@ -32,13 +36,14 @@ concurrency:
   cancel-in-progress: true
 
 # CI runs on ubuntu-latest with cachix/install-nix-action.
-# Self-hosted runners use self-hosted-fast.yml instead (USE_SELFHOSTED gate).
-# Both workflows trigger on push — they don't overlap.
+# Self-hosted runners use self-hosted-fast.yml only after GloriousFlywheel
+# reachability is explicitly proven. Otherwise this hosted Linux lane remains
+# the non-Darwin fallback.
 
 jobs:
   byte-compile:
     name: Byte Compile
-    if: vars.USE_SELFHOSTED != 'true'
+    if: vars.USE_SELFHOSTED != 'true' || vars.GF_SHARED_RUNNERS_REACHABLE != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -51,7 +56,7 @@ jobs:
 
   ert-test:
     name: ERT Tests
-    if: vars.USE_SELFHOSTED != 'true'
+    if: vars.USE_SELFHOSTED != 'true' || vars.GF_SHARED_RUNNERS_REACHABLE != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -64,7 +69,7 @@ jobs:
 
   lint:
     name: Lint Elisp
-    if: vars.USE_SELFHOSTED != 'true'
+    if: vars.USE_SELFHOSTED != 'true' || vars.GF_SHARED_RUNNERS_REACHABLE != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -75,9 +80,22 @@ jobs:
       - name: Lint Elisp (strict byte-compile)
         run: nix develop --command just lint-elisp
 
+  truth-lint:
+    name: Truth Lint
+    if: vars.USE_SELFHOSTED != 'true' || vars.GF_SHARED_RUNNERS_REACHABLE != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v30
+      - uses: DeterminateSystems/magic-nix-cache-action@v8
+        continue-on-error: true
+      - name: Run truth-surface checks
+        run: nix develop --command just truth-lint
+
   nix-build:
     name: Nix Build
-    if: vars.USE_SELFHOSTED != 'true'
+    if: vars.USE_SELFHOSTED != 'true' || vars.GF_SHARED_RUNNERS_REACHABLE != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -92,7 +110,7 @@ jobs:
 
   boot-validate:
     name: Boot Config (Dhall)
-    if: vars.USE_SELFHOSTED != 'true'
+    if: vars.USE_SELFHOSTED != 'true' || vars.GF_SHARED_RUNNERS_REACHABLE != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -128,7 +146,7 @@ jobs:
 
   changelog-validate:
     name: Changelog Validate
-    if: vars.USE_SELFHOSTED != 'true'
+    if: vars.USE_SELFHOSTED != 'true' || vars.GF_SHARED_RUNNERS_REACHABLE != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -139,4 +157,4 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@v8
         continue-on-error: true
       - name: Validate git-cliff config
-        run: nix develop --command git-cliff --validate cliff.toml
+        run: nix develop --command git-cliff --config cliff.toml --unreleased --strip all --output /tmp/xoxdwm-changelog-check.md

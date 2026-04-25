@@ -6,10 +6,10 @@
 # Usage:
 #   rpmbuild -bb --define "sway_version 1.10" sway-beyond.spec
 
-%define sway_version %{?sway_version}%{!?sway_version:1.10}
+%global sway_default_version 1.10
 
 Name:           sway-beyond
-Version:        %{sway_version}
+Version:        %{?sway_version}%{!?sway_version:%{sway_default_version}}
 Release:        1%{?dist}
 Summary:        Sway compositor built against wlroots-beyond for VR hosts
 License:        MIT
@@ -37,7 +37,7 @@ BuildRequires:  scdoc
 BuildRequires:  libevdev-devel
 
 Requires:       wlroots-beyond%{?_isa} >= 0.18
-Requires:       xwayland
+Requires:       xorg-x11-server-Xwayland
 
 Provides:       sway = %{version}-%{release}
 Provides:       sway%{?_isa} = %{version}-%{release}
@@ -56,11 +56,14 @@ via DRM lease to Monado/SteamVR.
 %autosetup -n sway-%{version} -p1
 
 %build
-%meson -Dxwayland=enabled -Dman-pages=enabled
-%meson_build
+meson setup build \
+    --prefix=%{_prefix} \
+    --libdir=%{_libdir} \
+    -Dman-pages=enabled
+ninja -C build
 
 %install
-%meson_install
+DESTDIR=%{buildroot} ninja -C build install
 
 # Install EXWM-VR sway config drop-in
 install -Dpm 0644 %{SOURCE1} \
@@ -73,9 +76,12 @@ install -Dpm 0644 %{SOURCE1} \
 %{_bindir}/swaynag
 %{_bindir}/swaybar
 %dir %{_sysconfdir}/sway
+%config(noreplace) %{_sysconfdir}/sway/config
 %dir %{_sysconfdir}/sway/config.d
 %config(noreplace) %{_sysconfdir}/sway/config.d/exwm-vr.conf
 %{_datadir}/wayland-sessions/sway.desktop
+%dir %{_datadir}/backgrounds/sway
+%{_datadir}/backgrounds/sway/*.png
 %{_mandir}/man1/sway*.1*
 %{_mandir}/man5/sway*.5*
 %{_mandir}/man7/sway*.7*
@@ -84,7 +90,7 @@ install -Dpm 0644 %{SOURCE1} \
 %{_datadir}/zsh/site-functions/_sway*
 
 %changelog
-* Mon Mar 10 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 1.10-1
+* Tue Mar 10 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 1.10-1
 - Initial sway-beyond package
 - Built against wlroots-beyond with Bigscreen Beyond patches
 - Includes EXWM-VR sway config drop-in
