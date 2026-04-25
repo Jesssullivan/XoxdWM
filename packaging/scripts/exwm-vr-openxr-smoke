@@ -92,6 +92,9 @@ resolve_client() {
     fi
 
     for candidate in \
+        /usr/libexec/exwm-vr/hello_xr \
+        exwm-vr-hello-xr \
+        /usr/bin/exwm-vr-hello-xr \
         hello_xr \
         /usr/local/bin/hello_xr \
         /usr/bin/hello_xr \
@@ -117,9 +120,13 @@ if [[ -n "$client_path" ]]; then
     client_name="$(basename "$client_path")"
 fi
 
-if ((${#client_args[@]} == 0)) && [[ "$client_name" = "hello_xr" ]]; then
-    client_args=(-g Vulkan)
-fi
+case "$client_name" in
+    hello_xr|exwm-vr-hello-xr)
+        if ((${#client_args[@]} == 0)); then
+            client_args=(-g Vulkan)
+        fi
+        ;;
+esac
 
 socket_status() {
     local path="$1"
@@ -201,7 +208,7 @@ if [[ ! -e "$XR_RUNTIME_JSON" ]]; then
 fi
 
 if [[ -z "$client_path" ]]; then
-    echo "ERROR: no OpenXR smoke client found. Set EXWM_VR_OPENXR_CLIENT or install hello_xr/openxr-info/xrgears." >&2
+    echo "ERROR: no OpenXR smoke client found. Set EXWM_VR_OPENXR_CLIENT or install exwm-vr-hello-xr/hello_xr/openxr-info/xrgears." >&2
     exit 127
 fi
 

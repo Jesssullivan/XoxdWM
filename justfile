@@ -541,6 +541,7 @@ remote-proof-surface:
     @echo "  rocky-test.yml         bounded Rocky container smoke"
     @echo "  packaging.yml          release artifact lane, not named-host support truth"
     @echo "  monado-companion.yml   companion Monado RPM lane, not host proof"
+    @echo "  openxr-smoke-client.yml OpenXR smoke client RPM lane, not host proof"
     @echo "  vr-hardware.yml        honey hardware and VR smoke, opt-in only"
     @echo ""
     @echo "Docs:"
@@ -563,6 +564,7 @@ remote-proof-runs limit="5":
         rocky-test.yml
         packaging.yml
         monado-companion.yml
+        openxr-smoke-client.yml
         vr-hardware.yml
     )
     for workflow in "${workflows[@]}"; do
@@ -600,6 +602,11 @@ remote-package version:
 [group('ci')]
 remote-monado-package:
     gh workflow run monado-companion.yml -R "{{xoxdwm_repo}}"
+    @echo "Triggered. Watch with: just remote-proof-runs"
+
+[group('ci')]
+remote-openxr-smoke-client-package:
+    gh workflow run openxr-smoke-client.yml -R "{{xoxdwm_repo}}"
     @echo "Triggered. Watch with: just remote-proof-runs"
 
 [group('ci')]

@@ -34,6 +34,7 @@ Not every remote workflow is authoritative in the same way.
 | Rocky userspace smoke | [.github/workflows/rocky-test.yml](../.github/workflows/rocky-test.yml) | `ubuntu-latest` with `rockylinux:10` container | bounded Rocky userspace and headless build smoke | `yoga`, `honey`, or custom Rockies build authority |
 | Release packaging | [.github/workflows/packaging.yml](../.github/workflows/packaging.yml) | mixed: `tinyland-nix` and hosted Rocky container jobs | release artifact production and bounded RPM metadata validation | deployed host truth or full VR package integration |
 | Monado companion packaging | [.github/workflows/monado-companion.yml](../.github/workflows/monado-companion.yml) | hosted Rocky container job | bounded Rocky RPM production for the companion Monado runtime lane | named-host proof or proof that the base compositor RPM now bundles Monado |
+| OpenXR smoke client packaging | [.github/workflows/openxr-smoke-client.yml](../.github/workflows/openxr-smoke-client.yml) | hosted Rocky container job | bounded Rocky RPM production for the Khronos `hello_xr` smoke-client lane | named-host proof or proof that the package is installed on `honey` |
 | Honey VR hardware | [.github/workflows/vr-hardware.yml](../.github/workflows/vr-hardware.yml) and `fast-vr` in [.github/workflows/self-hosted-fast.yml](../.github/workflows/self-hosted-fast.yml) | `[self-hosted, honey]` | GPU, DRM, Monado, and bounded VR smoke when hardware lanes are explicitly enabled | stable deployed XoxdWM VR desktop on `honey` |
 | External Rocky control plane | sibling repos [rockies](</Users/jess/git/rockies>), [linux-xr](</Volumes/linux-xr-cs/linux-xr>), and [GloriousFlywheel](</Users/jess/git/GloriousFlywheel>) | external | Rocky composition policy, kernel packaging, and runner/cache substrate | XoxdWM implementation truth by themselves |
 
@@ -55,6 +56,7 @@ Not every remote workflow is authoritative in the same way.
    - `just remote-runner-health`
    - `just remote-cache-warm`
    - `just remote-monado-package`
+   - `just remote-openxr-smoke-client-package`
    - `just remote-vr-smoke smoke`
 6. Treat `yoga` and `honey` host evidence as the only basis for support-matrix
    or status promotion.
@@ -130,6 +132,9 @@ and the
 - `packaging.yml` is a release lane, not a support claim.
 - `monado-companion.yml` is the Rocky companion-runtime packaging lane. A green
   run there means the Monado RPM is buildable, not that `honey` is done.
+- `openxr-smoke-client.yml` is the Rocky companion-client packaging lane. A
+  green run there means the smoke client RPM is buildable, not that the
+  installed `honey` operator path has been updated.
 - `vr-hardware.yml` should stay opt-in and capability-gated. A green run there
   is strong evidence, but it is still not the same thing as a repeatable named-host
   user session.

@@ -16,6 +16,14 @@
   (expand-file-name ".github/workflows/monado-companion.yml"
                     (expand-file-name ".." (file-name-directory load-file-name))))
 
+(defconst honey-substrate--openxr-smoke-client-spec
+  (expand-file-name "packaging/rpm/exwm-vr-openxr-smoke-client.spec"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
+(defconst honey-substrate--openxr-smoke-client-workflow
+  (expand-file-name ".github/workflows/openxr-smoke-client.yml"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
 (defconst honey-substrate--native-deps-workflow
   (expand-file-name ".github/workflows/native-deps.yml"
                     (expand-file-name ".." (file-name-directory load-file-name))))
@@ -109,10 +117,40 @@
       (should (string-match-p (regexp-quote "runtime_library_path=") script))
       (should (string-match-p (regexp-quote "exwm_vr_compositor_service") script))
       (should (string-match-p (regexp-quote "exwm_vr_monado_service") script))
+      (should (string-match-p (regexp-quote "/usr/libexec/exwm-vr/hello_xr") script))
+      (should (string-match-p (regexp-quote "exwm-vr-hello-xr") script))
       (should (string-match-p (regexp-quote "/usr/local/bin/hello_xr") script))
       (should (string-match-p (regexp-quote "timeout \"$timeout_seconds\"") script))
       (should (string-match-p (regexp-quote "monado_comp_ipc") script))
       (should (string-match-p (regexp-quote "openxr_smoke=passed_after_ready_timeout") script)))))
+
+(ert-deftest honey-substrate/openxr-smoke-client-rpm-lane-builds-packaged-client ()
+  "The OpenXR smoke client RPM lane should package a repo-managed client path."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--openxr-smoke-client-spec)
+    (let ((spec (buffer-string)))
+      (should (string-match-p (regexp-quote "Name:           exwm-vr-openxr-smoke-client") spec))
+      (should (string-match-p (regexp-quote "KhronosGroup/OpenXR-SDK-Source") spec))
+      (should (string-match-p (regexp-quote "PRESENTATION_BACKEND=xlib") spec))
+      (should (string-match-p (regexp-quote "-DCMAKE_SKIP_RPATH=ON") spec))
+      (should (string-match-p (regexp-quote "../libexec/%{project_name}/hello_xr") spec))
+      (should (string-match-p (regexp-quote "%{_libexecdir}/%{project_name}/hello_xr") spec))
+      (should (string-match-p (regexp-quote "%{_bindir}/exwm-vr-hello-xr") spec))
+      (should (string-match-p (regexp-quote "openxr-libs") spec))
+      (should (string-match-p (regexp-quote "vulkan-loader") spec))))
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--openxr-smoke-client-workflow)
+    (let ((workflow (buffer-string)))
+      (should (string-match-p (regexp-quote "container: rockylinux/rockylinux:10") workflow))
+      (should (string-match-p (regexp-quote "packaging/rpm/exwm-vr-openxr-smoke-client.spec") workflow))
+      (should (string-match-p (regexp-quote "OpenXR-SDK-Source-${SDK_COMMIT}.tar.gz") workflow))
+      (should (string-match-p (regexp-quote "exwm-vr-openxr-smoke-client-[0-9]*.rpm") workflow))
+      (should (string-match-p (regexp-quote "/usr/bin/exwm-vr-hello-xr") workflow))
+      (should (string-match-p (regexp-quote "/usr/bin/exwm-vr-hello-xr -> ../libexec/exwm-vr/hello_xr") workflow))
+      (should (string-match-p (regexp-quote "/usr/libexec/exwm-vr/hello_xr") workflow))
+      (should (string-match-p (regexp-quote "RPATH|RUNPATH") workflow))
+      (should (string-match-p (regexp-quote "! -name '*-debuginfo-*.rpm'") workflow))
+      (should (string-match-p (regexp-quote "! -name '*-debugsource-*.rpm'") workflow)))))
 
 (ert-deftest honey-substrate/exwm-vr-monado-package-installs-openxr-smoke-wrapper ()
   "The opt-in Monado subpackage should carry the repo-owned OpenXR smoke wrapper."
