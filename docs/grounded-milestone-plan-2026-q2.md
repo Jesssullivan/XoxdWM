@@ -128,7 +128,7 @@ Current state on `2026-04-22`:
 - the host evidence for this milestone is recorded in
   [honey-substrate-proof-2026-04-22.md](honey-substrate-proof-2026-04-22.md)
 - `honey` now has an explicit active OpenXR runtime file on-host
-- `honey` now has a one-shot direct-mode proof from the installed package
+- `honey` now has direct-mode proof from the installed package
   surface where `/usr/bin/ewwm-compositor` initializes `wp_drm_lease_v1`,
   reserves `DP-2` via explicit host-side override, and grants a real DRM lease
   to Monado
@@ -137,8 +137,8 @@ Current state on `2026-04-22`:
 - the remaining gap is no longer missing lease support; it is converting this
   installed proof into a repeated operator lane with explicit stale-socket
   handling; the packaged `exwm-vr-openxr-smoke-client` path is now installed
-  on `honey` and selected by status preflight, but it has not yet been used for
-  repeated bounded VR smoke
+  on `honey`, and three bounded smoke passes succeeded in one active service
+  session on `2026-04-25` EDT
 
 ### Milestone 3: `honey` First XoxdWM Smoke On True Substrate
 
@@ -161,7 +161,8 @@ Acceptance:
 
 Current state on `2026-04-22`:
 
-- this milestone now has a one-shot named-host smoke proof
+- this milestone now has named-host smoke proof from the installed package
+  surface
 - the installed `exwm-vr-compositor-0.5.4-1.el10` package on `honey` was
   reinstalled from packaging run `24776900393`, and the current proof no
   longer depends on a staged binary
@@ -171,8 +172,9 @@ Current state on `2026-04-22`:
   also reached active direct-mode Monado plus eye swapchain creation on
   `honey`
 - the remaining work is to make that same path repeatable from the installed
-  package surface with explicit stale-socket handling and the installed
-  `exwm-vr-openxr-smoke-client` path instead of ad hoc host-local binaries
+  package surface across fresh start/stop or reboot cycles with explicit
+  stale-socket handling and the installed `exwm-vr-openxr-smoke-client` path
+  instead of ad hoc host-local binaries
 
 Primary code surfaces:
 

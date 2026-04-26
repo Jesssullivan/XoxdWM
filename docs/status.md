@@ -22,8 +22,8 @@ Snapshot date: 2026-04-25
   - the package-default `exwm-vr-monado.service` now runs `/usr/bin/monado-service` without `MONADO_SERVICE_BIN`, and the packaged launcher clears dead `monado_comp_ipc` sockets before launching when no `monado-service` is active
   - the repo now carries `packaging/scripts/exwm-vr-openxr-smoke`, plus `just honey-openxr-status` and `just honey-openxr-smoke`, so the OpenXR client invocation is repo-owned instead of an undocumented SSH one-liner
   - the `exwm-vr-openxr-smoke-client` RPM from GitHub Actions run `24938791255` is now installed on `honey`, and `just honey-openxr-status` resolves the packaged client path `/usr/libexec/exwm-vr/hello_xr -g Vulkan`
-  - the packaged client has only reached non-disruptive status/preflight so far; it has not yet been used for repeated bounded VR smoke
-  - the proof has been captured once, not yet as a repeated operator lane
+  - on `2026-04-25` EDT, three bounded packaged-client smoke passes succeeded in one active user-service session, each selecting Bigscreen Beyond and creating two `3561x3561` eye swapchains through Monado
+  - this is immediate repeatability evidence, but it is not yet fresh-boot, clean-teardown-cycle, first-frame, or long-running operator proof
 - `yoga` now has `exwm-vr-0.5.4-1.el10`, `exwm-vr-compositor-0.5.4-1.el10`, and `exwm-vr-elisp-0.5.4-1.el10` installed.
 - `yoga` validated the earlier named-host package line: the compositor binary links cleanly, a bounded runtime succeeds with `seatd`, and Wayland/DRM/libinput startup is confirmed.
 - The branch-scoped `0.5.4-1.el10` session payload from GitHub Actions run `24768509226` now has both a staged proof and a real installed-package proof on `yoga`; the installed units reached `active` / `active` / `active`, `ewwm-compositor v0.5.4 starting`, `backend: drm`, `ewwm-ipc: connected`, and `ewwm: initialized` without the old ambient dotfile contamination.
@@ -79,7 +79,7 @@ Snapshot date: 2026-04-25
 ## Immediate Priorities
 
 1. Preserve the now-explicit `monado_comp_ipc` cleanup path in the launcher and keep the `honey` OpenXR status wrapper as the safe preflight.
-2. Preserve the new installed `monado-beyond` host lane on `honey` and rerun it enough times to call it repeatable instead of one-shot.
-3. Use the installed `exwm-vr-openxr-smoke-client` path for repeated honey OpenXR smoke runs and record whether failures are host/substrate, packaging/deployment, or compositor/runtime blockers.
+2. Preserve the new installed `monado-beyond` host lane on `honey` and extend repeatability from one active service session to clean start/stop or fresh-boot cycles.
+3. Keep using the installed `exwm-vr-openxr-smoke-client` path for honey OpenXR smoke runs and record whether failures are host/substrate, packaging/deployment, or compositor/runtime blockers.
 4. Keep the Rocky base package lane green while leaving Monado, SELinux, and BCI as separate follow-on concerns.
 5. Preserve the now-proven `yoga` package/session lane as the 2D reference host while packaging continues to evolve.
