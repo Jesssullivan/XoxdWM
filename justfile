@@ -677,6 +677,60 @@ honey-openxr-smoke host="honey" *args="":
     fi
     just honey-run "{{host}}" -- "${cmd}"
 
+[group('ci')]
+honey-openxr-clean-cycle host="honey" cycles="1" timeout="20":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cycles="{{cycles}}"
+    timeout_seconds="{{timeout}}"
+    if ! [[ "${cycles}" =~ ^[0-9]+$ ]] || (( cycles < 1 )); then
+        echo "ERROR: cycles must be a positive integer" >&2
+        exit 64
+    fi
+    if ! [[ "${timeout_seconds}" =~ ^[0-9]+$ ]]; then
+        echo "ERROR: timeout must be an integer number of seconds" >&2
+        exit 64
+    fi
+    cmd="$(cat <<REMOTE
+    set -euo pipefail
+    cycles="${cycles}"
+    timeout_seconds="${timeout_seconds}"
+    for cycle in \$(seq 1 "\${cycles}"); do
+      printf "== clean cycle %s: before stop ==\\n" "\${cycle}"
+      systemctl --user is-active exwm-vr-compositor.service exwm-vr-emacs.service exwm-vr-monado.service 2>/dev/null || true
+      test -S "\${XDG_RUNTIME_DIR}/wayland-0" && echo "wayland_socket=present" || echo "wayland_socket=missing"
+      test -S "\${XDG_RUNTIME_DIR}/ewwm-ipc.sock" && echo "ewwm_ipc=present" || echo "ewwm_ipc=missing"
+      test -S "\${XDG_RUNTIME_DIR}/monado_comp_ipc" && echo "monado_ipc=present" || echo "monado_ipc=missing"
+
+      printf "== clean cycle %s: stop user services ==\\n" "\${cycle}"
+      systemctl --user stop exwm-vr-monado.service exwm-vr-emacs.service exwm-vr-compositor.service exwm-vr.target || true
+      systemctl --user is-active exwm-vr-compositor.service exwm-vr-emacs.service exwm-vr-monado.service 2>/dev/null || true
+      test -S "\${XDG_RUNTIME_DIR}/wayland-0" && echo "wayland_socket=present" || echo "wayland_socket=missing"
+      test -S "\${XDG_RUNTIME_DIR}/ewwm-ipc.sock" && echo "ewwm_ipc=present" || echo "ewwm_ipc=missing"
+      test -S "\${XDG_RUNTIME_DIR}/monado_comp_ipc" && echo "monado_ipc=present" || echo "monado_ipc=missing"
+
+      printf "== clean cycle %s: start user services ==\\n" "\${cycle}"
+      systemctl --user start exwm-vr.target
+      systemctl --user start exwm-vr-monado.service
+      systemctl --user is-active exwm-vr-compositor.service exwm-vr-emacs.service exwm-vr-monado.service 2>/dev/null || true
+      test -S "\${XDG_RUNTIME_DIR}/wayland-0" && echo "wayland_socket=present" || echo "wayland_socket=missing"
+      test -S "\${XDG_RUNTIME_DIR}/ewwm-ipc.sock" && echo "ewwm_ipc=present" || echo "ewwm_ipc=missing"
+      test -S "\${XDG_RUNTIME_DIR}/monado_comp_ipc" && echo "monado_ipc=present" || echo "monado_ipc=missing"
+
+      printf "== clean cycle %s: packaged smoke ==\\n" "\${cycle}"
+      EXWM_VR_OPENXR_ACCEPT_TIMEOUT_AFTER_READY=1 ./packaging/scripts/exwm-vr-openxr-smoke --timeout "\${timeout_seconds}"
+      printf "== clean cycle %s: after smoke ==\\n" "\${cycle}"
+      systemctl --user is-active exwm-vr-compositor.service exwm-vr-emacs.service exwm-vr-monado.service 2>/dev/null || true
+      test -S "\${XDG_RUNTIME_DIR}/wayland-0" && echo "wayland_socket=present" || echo "wayland_socket=missing"
+      test -S "\${XDG_RUNTIME_DIR}/ewwm-ipc.sock" && echo "ewwm_ipc=present" || echo "ewwm_ipc=missing"
+      test -S "\${XDG_RUNTIME_DIR}/monado_comp_ipc" && echo "monado_ipc=present" || echo "monado_ipc=missing"
+    done
+    printf "== rke2 after cycles ==\\n"
+    systemctl is-active rke2-server rke2-agent 2>/dev/null || true
+    REMOTE
+    )"
+    just honey-run "{{host}}" -- "${cmd}"
+
 # ── nix ────────────────────────────────────────────────
 
 [group('nix')]

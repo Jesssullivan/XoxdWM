@@ -57,8 +57,8 @@ then reconcile trackers, then widen repeatability work.
   so completed evidence no longer looks open.
 - [x] Keep `TIN-346` open until `honey` VR proof is repeatable, not just
   one-shot. As of `2026-04-25` EDT, three packaged-client smoke passes work in
-  one active service session, but fresh-boot and clean-teardown-cycle
-  repeatability remain open.
+  one active service session, and three clean stop/start cycles also pass;
+  fresh-boot repeatability remains open.
 - [x] Split the packaged OpenXR smoke-client blocker into `TIN-595`; PR #37
   added the package lane, and the follow-up install now replaces devshell or
   `/usr/local/bin/hello_xr` status evidence with an installed
@@ -88,9 +88,9 @@ then reconcile trackers, then widen repeatability work.
 - [ ] Keep Dell reset, PSU, management-display, and `rke2` safety constraints in
   Dell-7810 authority surfaces, with only software-facing implications mirrored
   here.
-- [ ] Convert `honey` from active-session Smoke toward fresh-boot or
-  clean-teardown-cycle repeatability only through stale IPC cleanup, durable
-  packaged client tooling, and repeated operator runs.
+- [ ] Convert `honey` from clean service-cycle Smoke toward fresh-boot
+  repeatability only through stale IPC cleanup, durable packaged client
+  tooling, and repeated operator runs.
 
 ## Parallel Work Packages
 
@@ -122,8 +122,8 @@ The current system has real evidence, but uneven administration:
 - Do not move Bazel authority into XoxdWM.
 - Do not duplicate GloriousFlywheel runner or cache implementation in
   XoxdWM or `rockies`.
-- Do not convert active-session `honey` VR proof into a product claim without
-  fresh-boot or clean-teardown-cycle repeated operator evidence.
+- Do not convert clean service-cycle `honey` VR proof into a product claim
+  without fresh-boot repeated operator evidence.
 - Do not stop `rke2` as part of reset experiments. Dell reset work already
   showed container shutdown pressure can remain after service pre-stop, and
   `rke2` is not an acceptable destructive-test lever.
@@ -197,7 +197,7 @@ Acceptance:
 - The README no longer contradicts [support-matrix.md](support-matrix.md) or
   [status.md](status.md) about the installed Monado companion lane.
 - Public docs do not imply daily-driver VR, fresh-boot repeatable `honey`
-  goggles product, or Darwin runtime support.
+  goggles product, in-goggles first-frame proof, or Darwin runtime support.
 
 ## Track B: Issue And Linear Parity
 
@@ -206,7 +206,7 @@ Current facts:
 - XoxdWM GitHub issues #10, #12, #13, #20, and #22 still describe the older
   MVP decomposition.
 - Linear `TIN-346` tracks the active `honey` VR smoke path well and remains
-  open because the proof is still limited to one active service session.
+  open because the proof is still limited to clean service cycles.
 - Linear `TIN-345` is done for the stronger `yoga` SDDM/package evidence.
 - Linear `TIN-341`, `TIN-342`, `TIN-343`, and `TIN-344` are in review rather
   than still appearing as untriaged blockers.
@@ -220,8 +220,8 @@ Tasks:
    #34 is stabilized.
 2. Keep Linear issue state aligned with landed evidence:
    `TIN-345`, `TIN-341`, `TIN-342`, `TIN-343`, and `TIN-344`.
-3. Keep `TIN-346` open until `honey` is repeatable across fresh activation or
-   teardown cycles, not just one active service session.
+3. Keep `TIN-346` open until `honey` is repeatable across fresh boot cycles,
+   not just clean user-service cycles.
 4. Keep `TIN-398` as the active cross-repo kernel posture reconciliation lane.
 5. Link issue updates to PR #34 comments and named proof docs rather than
    restating host evidence from memory.
@@ -273,6 +273,8 @@ Current facts:
   on-host, and status preflight resolves `/usr/libexec/exwm-vr/hello_xr`.
 - Three bounded packaged-client smoke passes succeeded in one active
   user-service session on `2026-04-25` EDT.
+- Three clean stop/start cycles also passed on `2026-04-25` EDT; the
+  repo-owned command is `just honey-openxr-clean-cycle`.
 
 Tasks:
 
@@ -281,8 +283,8 @@ Tasks:
 2. Keep the packaged `exwm-vr-openxr-smoke-client` path as the client-tool
    authority for future smoke runs; avoid returning to ad hoc
    `/usr/local/bin/hello_xr` evidence.
-3. Rerun the installed `honey` path across clean service start/stop or
-   fresh-boot cycles before classifying it as a stable operator lane.
+3. Rerun the installed `honey` path across fresh-boot cycles before
+   classifying it as a stable operator lane.
 4. Record failures as either host/substrate, packaging/deployment, or
    compositor/runtime integration blockers.
 5. Keep Dell reset and power findings in Dell-7810, with only sanitized

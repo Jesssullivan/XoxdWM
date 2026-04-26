@@ -50,6 +50,7 @@ Not every remote workflow is authoritative in the same way.
    - `just honey-proof-env`
    - `just honey-openxr-status`
    - `just honey-openxr-smoke`
+   - `just honey-openxr-clean-cycle`
 4. Inspect the live remote surface with `just remote-proof-surface` and
    `just remote-proof-runs`.
 5. Dispatch bounded remote checks when needed:
@@ -100,6 +101,11 @@ The repo now has a thin explicit remote-dev/operator lane for working from
   - run the repo-owned OpenXR wrapper against the active Monado runtime
   - this can launch `hello_xr` or another OpenXR client, so use it only when
     the compositor/Monado path is intentionally active
+- `just honey-openxr-clean-cycle`
+  - stop and restart only the XoxdWM/Monado user services, then run the
+    packaged OpenXR smoke client
+  - this intentionally exercises the clean service-cycle lane and does not
+    stop or restart `rke2`
 
 This lane is for live host work such as:
 
@@ -135,8 +141,9 @@ and the
 - `openxr-smoke-client.yml` is the Rocky companion-client packaging lane. A
   green run there means the smoke client RPM is buildable. The artifact from
   run `24938791255` has since been installed on `honey` and selected by
-  `just honey-openxr-status`, but that install still needs a repeated bounded
-  smoke run before it becomes runtime support evidence.
+  `just honey-openxr-status`; `just honey-openxr-clean-cycle` now proves clean
+  user-service-cycle smoke, while fresh-boot and in-goggles first-frame proof
+  remain separate named-host evidence.
 - `vr-hardware.yml` should stay opt-in and capability-gated. A green run there
   is strong evidence, but it is still not the same thing as a repeatable named-host
   user session.
