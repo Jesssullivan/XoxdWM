@@ -437,6 +437,8 @@ unstructured SSH command:
 - remote helpers from `neo`:
   - `just honey-openxr-status`
   - `just honey-openxr-smoke`
+  - `just honey-openxr-clean-cycle`
+  - `just honey-openxr-fresh-boot-check`
 
 The status mode is intentionally non-disruptive. It reports:
 
@@ -605,6 +607,20 @@ service state, socket state, and `rke2-server=active` result.
 This narrows the remaining repeatability gap to fresh boot, in-goggles
 first-frame, and longer-running stability.
 
+## Fresh-Boot Check Lane
+
+The next post-boot capture path is now repo-owned:
+
+- `just honey-openxr-fresh-boot-check honey 1 20`
+
+This command does not reboot `honey`. It is intended to be run only after an
+attended/manual fresh boot has completed. It records host identity, repo head,
+boot ID, uptime, kernel, `rke2` service state, and the OpenXR status preflight,
+then delegates to `just honey-openxr-clean-cycle` for the packaged smoke run.
+
+As of this note, that target is prepared but has not yet produced fresh-boot
+evidence.
+
 ## What This Does Not Yet Prove
 
 - a stable deployed operator lane on `honey`
@@ -623,7 +639,8 @@ first-frame, and longer-running stability.
   host configuration surface for `honey`
 - keep stale `/run/user/1000/monado_comp_ipc` cleanup explicit in the Monado
   launcher and use `just honey-openxr-status` before disruptive VR reruns
-- repeat the installed `exwm-vr-openxr-smoke-client` lane across fresh-boot
-  cycles
+- after an attended/manual fresh boot, run
+  `just honey-openxr-fresh-boot-check honey 1 20` to repeat the installed
+  `exwm-vr-openxr-smoke-client` lane across fresh-boot cycles
 - keep the older fallback `VK_ERROR_SURFACE_LOST_KHR` crash categorized as a
   separate Monado window-path problem, not the whole bridge story
