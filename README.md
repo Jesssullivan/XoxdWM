@@ -30,6 +30,7 @@ As of 2026-04-26:
 - [Yoga Session Proof](docs/yoga-session-proof-2026-04-22.md)
 - [Honey Substrate Proof](docs/honey-substrate-proof-2026-04-22.md)
 - [Honey Fresh-Boot Runbook](docs/honey-fresh-boot-runbook-2026-04-26.md)
+- [Honey Fresh-Boot Evidence Template](docs/honey-fresh-boot-evidence-template.md)
 - [Status](docs/status.md)
 - [Q2 2026 Roadmap](docs/roadmap-2026-q2.md)
 - [Installation Quickstart](docs/installation-quickstart.md)
