@@ -1,6 +1,6 @@
 # XoxdWM Status
 
-Snapshot date: 2026-04-25
+Snapshot date: 2026-04-26
 
 ## Honest Assessment
 
@@ -25,6 +25,7 @@ Snapshot date: 2026-04-25
   - on `2026-04-25` EDT, three bounded packaged-client smoke passes succeeded in one active user-service session, each selecting Bigscreen Beyond and creating two `3561x3561` eye swapchains through Monado
   - three clean stop/start cycles also succeeded: two from the explicit shell sequence and one through `just honey-openxr-clean-cycle`; `rke2-server` stayed active
   - `just honey-openxr-fresh-boot-check` is now prepared for the next attended/manual fresh boot; it does not reboot `honey`, and it has not yet produced fresh-boot evidence
+  - the attended fresh-boot procedure is captured in [honey-fresh-boot-runbook-2026-04-26.md](honey-fresh-boot-runbook-2026-04-26.md)
   - the current proof is clean service-cycle repeatability evidence, but it is not yet fresh-boot, in-goggles first-frame, or long-running operator proof
 - `yoga` now has `exwm-vr-0.5.4-1.el10`, `exwm-vr-compositor-0.5.4-1.el10`, and `exwm-vr-elisp-0.5.4-1.el10` installed.
 - `yoga` validated the earlier named-host package line: the compositor binary links cleanly, a bounded runtime succeeds with `seatd`, and Wayland/DRM/libinput startup is confirmed.
@@ -81,7 +82,7 @@ Snapshot date: 2026-04-25
 ## Immediate Priorities
 
 1. Preserve the now-explicit `monado_comp_ipc` cleanup path in the launcher and keep the `honey` OpenXR status wrapper as the safe preflight.
-2. Preserve the new installed `monado-beyond` host lane on `honey` and run `just honey-openxr-fresh-boot-check honey 1 20` only after an attended/manual reboot to extend repeatability from clean service cycles to fresh-boot cycles.
+2. Preserve the new installed `monado-beyond` host lane on `honey` and follow [honey-fresh-boot-runbook-2026-04-26.md](honey-fresh-boot-runbook-2026-04-26.md) before promoting clean service-cycle smoke to fresh-boot evidence.
 3. Keep using the installed `exwm-vr-openxr-smoke-client` path for honey OpenXR smoke runs and record whether failures are host/substrate, packaging/deployment, or compositor/runtime blockers.
 4. Keep the Rocky base package lane green while leaving Monado, SELinux, and BCI as separate follow-on concerns.
 5. Preserve the now-proven `yoga` package/session lane as the 2D reference host while packaging continues to evolve.

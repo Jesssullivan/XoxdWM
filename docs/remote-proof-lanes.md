@@ -10,6 +10,9 @@ explains which repos own which kinds of truth. This file explains which current
 XoxdWM-side remote lanes are worth looking at before you make a support or
 runtime claim.
 
+For the next attended `honey` fresh-boot proof, use
+[honey-fresh-boot-runbook-2026-04-26.md](honey-fresh-boot-runbook-2026-04-26.md).
+
 ## Core Distinction
 
 Not every remote workflow is authoritative in the same way.
@@ -112,6 +115,8 @@ The repo now has a thin explicit remote-dev/operator lane for working from
     state, and OpenXR status, then run `just honey-openxr-clean-cycle`
   - this target does not reboot `honey`; run it only after an attended/manual
     fresh boot has completed
+  - use [honey-fresh-boot-runbook-2026-04-26.md](honey-fresh-boot-runbook-2026-04-26.md)
+    for the evidence checklist and pass/fail criteria
 
 This lane is for live host work such as:
 

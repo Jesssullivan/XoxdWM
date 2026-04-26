@@ -617,6 +617,8 @@ This command does not reboot `honey`. It is intended to be run only after an
 attended/manual fresh boot has completed. It records host identity, repo head,
 boot ID, uptime, kernel, `rke2` service state, and the OpenXR status preflight,
 then delegates to `just honey-openxr-clean-cycle` for the packaged smoke run.
+Use [honey-fresh-boot-runbook-2026-04-26.md](honey-fresh-boot-runbook-2026-04-26.md)
+for the exact operator checklist.
 
 As of this note, that target is prepared but has not yet produced fresh-boot
 evidence.
