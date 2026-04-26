@@ -57,9 +57,10 @@ then reconcile trackers, then widen repeatability work.
   so completed evidence no longer looks open.
 - [x] Keep `TIN-346` open until `honey` VR proof is repeatable, not just
   one-shot.
-- [x] Split the packaged OpenXR smoke-client blocker into `TIN-595` so the
-  next workstream can replace devshell or `/usr/local/bin/hello_xr`
-  dependence with an installed Rocky-compatible artifact.
+- [x] Split the packaged OpenXR smoke-client blocker into `TIN-595`; PR #37
+  added the package lane, and the follow-up install now replaces devshell or
+  `/usr/local/bin/hello_xr` status evidence with an installed
+  Rocky-compatible artifact.
 - [x] Keep `TIN-398` as the cross-repo honey RT/kernel posture lane.
 - [x] Treat `/private/tmp/xoxdwm-host-contract` as duplicate/equivalent work
   unless a later audit finds missing content.
@@ -265,16 +266,18 @@ Current facts:
 - `monado-beyond` is installed on-host and `/usr/bin/monado-service` can reach
   direct-mode proof without `MONADO_SERVICE_BIN`.
 - The repo now has `packaging/scripts/exwm-vr-openxr-smoke` plus
-  `just honey-openxr-status` / `just honey-openxr-smoke`, but the current
-  client proof still resolves to a local `/usr/local/bin/hello_xr` tool.
+  `just honey-openxr-status` / `just honey-openxr-smoke`.
+- The `exwm-vr-openxr-smoke-client` RPM from run `24938791255` is installed
+  on-host, and status preflight resolves `/usr/libexec/exwm-vr/hello_xr`.
 - The proof was captured once and torn down.
 
 Tasks:
 
 1. Preserve stale `monado_comp_ipc` cleanup in launcher behavior and keep the
    OpenXR status wrapper as the safe preflight.
-2. Replace local `/usr/local/bin/hello_xr` dependency with a packaged or
-   durable Rocky-facing client-tool path.
+2. Keep the packaged `exwm-vr-openxr-smoke-client` path as the client-tool
+   authority for future smoke runs; avoid returning to ad hoc
+   `/usr/local/bin/hello_xr` evidence.
 3. Rerun the installed `honey` path enough times to classify it as repeatable.
 4. Record failures as either host/substrate, packaging/deployment, or
    compositor/runtime integration blockers.

@@ -136,8 +136,9 @@ Current state on `2026-04-22`:
   selection, session `READY`, and eye swapchain creation on `honey`
 - the remaining gap is no longer missing lease support; it is converting this
   installed proof into a repeated operator lane with explicit stale-socket
-  handling and a more durable client-tool path than the current local
-  `/usr/local/bin/hello_xr` build
+  handling; the packaged `exwm-vr-openxr-smoke-client` path is now installed
+  on `honey` and selected by status preflight, but it has not yet been used for
+  repeated bounded VR smoke
 
 ### Milestone 3: `honey` First XoxdWM Smoke On True Substrate
 
@@ -170,8 +171,8 @@ Current state on `2026-04-22`:
   also reached active direct-mode Monado plus eye swapchain creation on
   `honey`
 - the remaining work is to make that same path repeatable from the installed
-  package surface with explicit stale-socket handling and a more durable
-  client-tool path than the current local `/usr/local/bin/hello_xr` build
+  package surface with explicit stale-socket handling and the installed
+  `exwm-vr-openxr-smoke-client` path instead of ad hoc host-local binaries
 
 Primary code surfaces:
 
