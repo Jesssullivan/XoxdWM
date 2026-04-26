@@ -448,9 +448,9 @@ The status mode is intentionally non-disruptive. It reports:
 - the OpenXR client that would be used
 
 This closes the "undocumented client invocation" part of the repeatability
-gap, but it does not yet prove client provenance. Until `hello_xr` is packaged
-or replaced, the wrapper still resolves the current host-local
-`/usr/local/bin/hello_xr` build on `honey`.
+gap. The first status-only run below was captured before the OpenXR smoke
+client package was installed, so it still resolved the host-local
+`/usr/local/bin/hello_xr` build.
 
 A non-disruptive status-only run from `neo` on `2026-04-25` found the current
 post-reboot host state:
@@ -471,14 +471,44 @@ post-reboot host state:
 That is a clean preflight state for a future bounded rerun, not a new VR
 session proof.
 
+## Packaged OpenXR Client Follow-Up
+
+On `2026-04-25`, GitHub Actions run `24938791255` produced:
+
+- `exwm-vr-openxr-smoke-client-0.0.1-1.20260425git.el10.x86_64.rpm`
+
+After installing that RPM on `honey` with normal `dnf install`, the host now
+exposes:
+
+- `exwm-vr-openxr-smoke-client-0.0.1-1.20260425git.el10.x86_64`
+- `/usr/bin/exwm-vr-hello-xr -> ../libexec/exwm-vr/hello_xr`
+- `/usr/libexec/exwm-vr/hello_xr`
+
+A follow-up non-disruptive status-only run from `neo` found:
+
+- active runtime JSON:
+  - `/etc/xdg/openxr/1/active_runtime.json`
+  - target: `/usr/share/openxr/1/openxr_monado.json`
+- sockets:
+  - `wayland-0`: missing
+  - `ewwm-ipc.sock`: missing
+  - `monado_comp_ipc`: missing
+- user services:
+  - `exwm-vr-compositor.service`: inactive
+  - `exwm-vr-monado.service`: inactive
+- resolved client:
+  - `/usr/libexec/exwm-vr/hello_xr -g Vulkan`
+
+This proves installed client provenance and safe preflight selection. It does
+not yet prove a repeated VR run with that packaged client.
+
 ## What This Does Not Yet Prove
 
 - a repeated installed operator lane on `honey`
 - a successful first-frame or long-running XR session path
 - that stale Monado IPC sockets from the older local lane are handled
   automatically in every operator path
-- that the proof uses a packaged Rocky client-tool lane instead of the
-  wrapper-resolved local `/usr/local/bin/hello_xr` build
+- a repeated bounded smoke run using the packaged Rocky client-tool lane
 - that XoxdWM itself is ready to be called a stable trusted XR bridge on `honey`
 
 ## Next Gate
@@ -490,7 +520,7 @@ session proof.
   host configuration surface for `honey`
 - keep stale `/run/user/1000/monado_comp_ipc` cleanup explicit in the Monado
   launcher and use `just honey-openxr-status` before disruptive VR reruns
-- either package the current `hello_xr` proof tool for Rocky or replace it
-  with another durable client-tool lane
+- use the installed `exwm-vr-openxr-smoke-client` path for the next bounded
+  honey OpenXR smoke rerun
 - keep the older fallback `VK_ERROR_SURFACE_LOST_KHR` crash categorized as a
   separate Monado window-path problem, not the whole bridge story
