@@ -39,7 +39,7 @@ That means the repo contains more implementation and documentation surface than 
 - A lot of the repo is research or inventory, not support promise.
 - The current `honey` hardware investigation shows partial host reality, not product reality.
   - current live host evidence now includes a bounded named-host XoxdWM compositor startup, a real `DP-2` DRM lease grant to Monado, an installed `monado-beyond` host lane, and a `hello_xr -g Vulkan` path that reaches `READY` plus eye swapchain creation
-  - that still does not equal a stable deployed operator lane because the current proof is only repeated within one active service session; the packaged `exwm-vr-openxr-smoke-client` path now works for bounded smoke, but fresh-boot, clean-teardown-cycle, first-frame, and long-running stability remain unproven
+  - that still does not equal a stable deployed operator lane because the current proof is only repeated across clean user-service cycles; the packaged `exwm-vr-openxr-smoke-client` path now works for bounded smoke, but fresh-boot, in-goggles first-frame, and long-running stability remain unproven
 - `neo` is not a product target.
   - XoxdWM is not expected to run on macOS as a desktop or VR environment.
   - the authoritative build and runtime surface should remain Rocky / Linux remote lanes

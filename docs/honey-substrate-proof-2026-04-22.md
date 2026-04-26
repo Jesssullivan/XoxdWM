@@ -556,16 +556,62 @@ The Monado user journal also recorded:
 
 This is stronger than the earlier one-shot proof: the installed package lane
 can run repeated bounded OpenXR client smoke in one active user-service
-session. It is still not a product claim for fresh-boot, clean-teardown-cycle,
+session. It is still not a product claim for fresh-boot, in-goggles
 first-frame, or long-running operator stability.
+
+## Clean Service-Cycle Follow-Up
+
+The next `2026-04-25` EDT slice tested clean user-service stop/start
+repeatability without touching `rke2`.
+
+First, two explicit clean cycles ran this sequence:
+
+- `systemctl --user stop exwm-vr-monado.service exwm-vr-emacs.service exwm-vr-compositor.service exwm-vr.target`
+- `systemctl --user start exwm-vr.target`
+- `systemctl --user start exwm-vr-monado.service`
+- `EXWM_VR_OPENXR_ACCEPT_TIMEOUT_AFTER_READY=1 ./packaging/scripts/exwm-vr-openxr-smoke --timeout 20`
+
+Both cycles passed:
+
+- before stop:
+  - `exwm-vr-compositor.service`: active
+  - `exwm-vr-emacs.service`: active
+  - `exwm-vr-monado.service`: active
+  - `wayland_socket=present`
+  - `ewwm_ipc=present`
+  - `monado_ipc=present`
+- after stop:
+  - all three user services inactive
+  - `ewwm_ipc=missing`
+  - `monado_ipc=missing`
+- after restart:
+  - all three user services active
+  - `ewwm_ipc=present`
+  - `monado_ipc` became present before or during the smoke wrapper run
+- packaged client:
+  - `/usr/libexec/exwm-vr/hello_xr -g Vulkan`
+  - `Head: 'Bigscreen Beyond'`
+  - two eye swapchains at `3561x3561`
+  - `openxr_smoke=passed`
+- `rke2-server`: active
+
+That ad hoc sequence has since been converted into a repo-owned command:
+
+- `just honey-openxr-clean-cycle honey 1 20`
+
+The first run through that command also passed with the same packaged client,
+service state, socket state, and `rke2-server=active` result.
+
+This narrows the remaining repeatability gap to fresh boot, in-goggles
+first-frame, and longer-running stability.
 
 ## What This Does Not Yet Prove
 
-- a repeated installed operator lane on `honey`
+- a stable deployed operator lane on `honey`
 - a successful first-frame or long-running XR session path
-- repeatability across fresh boot, clean teardown, or service restart cycles
+- repeatability across fresh boot cycles
 - that stale Monado IPC sockets from older local lanes are handled
-  automatically in every operator path across those cycles
+  automatically in every operator path across fresh boots
 - that XoxdWM itself is ready to be called a stable trusted XR bridge on `honey`
 
 ## Next Gate
@@ -577,7 +623,7 @@ first-frame, or long-running operator stability.
   host configuration surface for `honey`
 - keep stale `/run/user/1000/monado_comp_ipc` cleanup explicit in the Monado
   launcher and use `just honey-openxr-status` before disruptive VR reruns
-- repeat the installed `exwm-vr-openxr-smoke-client` lane across clean
-  start/stop or fresh-boot cycles
+- repeat the installed `exwm-vr-openxr-smoke-client` lane across fresh-boot
+  cycles
 - keep the older fallback `VK_ERROR_SURFACE_LOST_KHR` crash categorized as a
   separate Monado window-path problem, not the whole bridge story
