@@ -90,7 +90,9 @@ then reconcile trackers, then widen repeatability work.
   here.
 - [ ] Convert `honey` from clean service-cycle Smoke toward fresh-boot
   repeatability only through stale IPC cleanup, durable packaged client
-  tooling, and repeated operator runs.
+  tooling, and repeated operator runs. The next repo-owned capture lane is
+  `just honey-openxr-fresh-boot-check honey 1 20`; it is prepared but should be
+  run only after an attended/manual fresh boot.
 
 ## Parallel Work Packages
 
@@ -275,6 +277,9 @@ Current facts:
   user-service session on `2026-04-25` EDT.
 - Three clean stop/start cycles also passed on `2026-04-25` EDT; the
   repo-owned command is `just honey-openxr-clean-cycle`.
+- `just honey-openxr-fresh-boot-check` is prepared for the next attended/manual
+  fresh boot; it records post-boot identity and status before delegating to the
+  clean-cycle smoke lane, and it does not reboot or stop `rke2`.
 
 Tasks:
 
@@ -283,8 +288,9 @@ Tasks:
 2. Keep the packaged `exwm-vr-openxr-smoke-client` path as the client-tool
    authority for future smoke runs; avoid returning to ad hoc
    `/usr/local/bin/hello_xr` evidence.
-3. Rerun the installed `honey` path across fresh-boot cycles before
-   classifying it as a stable operator lane.
+3. After an attended/manual reboot, run
+   `just honey-openxr-fresh-boot-check honey 1 20` before classifying the
+   installed `honey` path as a stable operator lane.
 4. Record failures as either host/substrate, packaging/deployment, or
    compositor/runtime integration blockers.
 5. Keep Dell reset and power findings in Dell-7810, with only sanitized

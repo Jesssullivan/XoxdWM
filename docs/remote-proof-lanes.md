@@ -51,6 +51,7 @@ Not every remote workflow is authoritative in the same way.
    - `just honey-openxr-status`
    - `just honey-openxr-smoke`
    - `just honey-openxr-clean-cycle`
+   - `just honey-openxr-fresh-boot-check`
 4. Inspect the live remote surface with `just remote-proof-surface` and
    `just remote-proof-runs`.
 5. Dispatch bounded remote checks when needed:
@@ -106,6 +107,11 @@ The repo now has a thin explicit remote-dev/operator lane for working from
     packaged OpenXR smoke client
   - this intentionally exercises the clean service-cycle lane and does not
     stop or restart `rke2`
+- `just honey-openxr-fresh-boot-check`
+  - print post-boot host identity, repo head, boot ID, uptime, kernel, `rke2`
+    state, and OpenXR status, then run `just honey-openxr-clean-cycle`
+  - this target does not reboot `honey`; run it only after an attended/manual
+    fresh boot has completed
 
 This lane is for live host work such as:
 
@@ -142,8 +148,10 @@ and the
   green run there means the smoke client RPM is buildable. The artifact from
   run `24938791255` has since been installed on `honey` and selected by
   `just honey-openxr-status`; `just honey-openxr-clean-cycle` now proves clean
-  user-service-cycle smoke, while fresh-boot and in-goggles first-frame proof
-  remain separate named-host evidence.
+  user-service-cycle smoke, and `just honey-openxr-fresh-boot-check` is the
+  prepared post-boot capture lane. Fresh-boot and in-goggles first-frame proof
+  remain separate named-host evidence until that target is run after an
+  attended/manual boot.
 - `vr-hardware.yml` should stay opt-in and capability-gated. A green run there
   is strong evidence, but it is still not the same thing as a repeatable named-host
   user session.

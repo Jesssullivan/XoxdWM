@@ -731,6 +731,37 @@ honey-openxr-clean-cycle host="honey" cycles="1" timeout="20":
     )"
     just honey-run "{{host}}" -- "${cmd}"
 
+[group('ci')]
+honey-openxr-fresh-boot-check host="honey" cycles="1" timeout="20":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cycles="{{cycles}}"
+    timeout_seconds="{{timeout}}"
+    if ! [[ "${cycles}" =~ ^[0-9]+$ ]] || (( cycles < 1 )); then
+        echo "ERROR: cycles must be a positive integer" >&2
+        exit 64
+    fi
+    if ! [[ "${timeout_seconds}" =~ ^[0-9]+$ ]]; then
+        echo "ERROR: timeout must be an integer number of seconds" >&2
+        exit 64
+    fi
+    echo "This target does not reboot {{host}}."
+    echo "Run it only after an attended/manual fresh boot has completed."
+    just honey-run "{{host}}" -- 'set -euo pipefail
+    echo "== fresh boot preflight =="
+    echo "host=$(hostname 2>/dev/null || echo unknown)"
+    echo "repo=$(pwd)"
+    echo "head=$(git rev-parse --short HEAD)"
+    echo "boot_id=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || echo unknown)"
+    echo "uptime_seconds=$(cut -d" " -f1 /proc/uptime 2>/dev/null || echo unknown)"
+    echo "kernel=$(uname -r)"
+    printf "rke2-server="
+    systemctl is-active rke2-server 2>/dev/null || true
+    printf "rke2-agent="
+    systemctl is-active rke2-agent 2>/dev/null || true
+    ./packaging/scripts/exwm-vr-openxr-smoke --status-only'
+    just honey-openxr-clean-cycle "{{host}}" "${cycles}" "${timeout_seconds}"
+
 # ── nix ────────────────────────────────────────────────
 
 [group('nix')]
