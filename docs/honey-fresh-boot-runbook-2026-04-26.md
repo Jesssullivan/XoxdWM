@@ -8,6 +8,7 @@ check without moving reset, power, or display-topology authority out of
 Read this with:
 
 - [honey-substrate-proof-2026-04-22.md](honey-substrate-proof-2026-04-22.md)
+- [honey-fresh-boot-evidence-template.md](honey-fresh-boot-evidence-template.md)
 - [remote-proof-lanes.md](remote-proof-lanes.md)
 - [support-matrix.md](support-matrix.md)
 - [status.md](status.md)
@@ -138,10 +139,12 @@ Classify the first failure before rerunning:
 
 After the run:
 
+- Fill out [honey-fresh-boot-evidence-template.md](honey-fresh-boot-evidence-template.md)
+  with the Dell artifact links, pre/post boot IDs, OpenXR output, and
+  classification.
 - Comment on GitHub issue `#20` with the log path or selected output.
 - Update Linear `TIN-346`.
 - If the blocker is host/reset/display/power, update the appropriate Dell-7810
   tracker instead of promoting XoxdWM support.
 - Update [support-matrix.md](support-matrix.md) only after the evidence passes
   and the status label remains honest.
-

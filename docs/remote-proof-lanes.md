@@ -12,6 +12,8 @@ runtime claim.
 
 For the next attended `honey` fresh-boot proof, use
 [honey-fresh-boot-runbook-2026-04-26.md](honey-fresh-boot-runbook-2026-04-26.md).
+Record the result with
+[honey-fresh-boot-evidence-template.md](honey-fresh-boot-evidence-template.md).
 
 ## Core Distinction
 
