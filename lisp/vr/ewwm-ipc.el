@@ -42,8 +42,14 @@
     (:surface-destroyed  . ewwm-ipc--on-surface-destroyed)
     (:surface-title-changed . ewwm-ipc--on-surface-title-changed)
     (:surface-focused    . ewwm-ipc--on-surface-focused)
+    (:focus-changed      . ewwm-ipc--on-focus-changed-compat)
+    (:surface-float-changed . ewwm-ipc--on-surface-float-changed)
+    (:surface-workspace-changed . ewwm-ipc--on-surface-workspace-changed)
     (:surface-geometry-changed . ewwm-ipc--on-surface-geometry-changed)
     (:workspace-changed  . ewwm-ipc--on-workspace-changed)
+    (:layout-changed     . ewwm-ipc--on-layout-changed)
+    (:autostart-ran      . ewwm-ipc--on-autostart-ran)
+    (:config-reloaded    . ewwm-ipc--on-config-reloaded)
     (:key-pressed        . ewwm-ipc--on-key-pressed)
     (:output-usable-area-changed . ewwm-ipc--on-output-usable-area-changed))
   "Alist mapping event types to handler functions.")
@@ -310,15 +316,64 @@ TIMEOUT defaults to `ewwm-ipc-sync-timeout' seconds."
   (let ((id (plist-get msg :id)))
     (message "ewwm: surface focused: id=%d" id)))
 
+(defun ewwm-ipc--on-focus-changed-compat (msg)
+  "Handle legacy :focus-changed event MSG.
+
+The canonical compositor event is now :surface-focused with :id and
+:previous-id.  This compatibility handler preserves older Rust/runtime
+surfaces that still emit :old/:new."
+  (ewwm-ipc--on-surface-focused
+   (list :type :event
+         :event :surface-focused
+         :id (plist-get msg :new)
+         :previous-id (plist-get msg :old))))
+
 (defun ewwm-ipc--on-surface-geometry-changed (_msg)
   "Handle :surface-geometry-changed event MSG."
   ;; Silent — high frequency
   nil)
 
+(defun ewwm-ipc--on-surface-float-changed (msg)
+  "Mirror native :surface-float-changed MSG into the app-layer buffer."
+  (when-let ((buf (and (fboundp 'ewwm--get-buffer)
+                       (ewwm--get-buffer (plist-get msg :id)))))
+    (with-current-buffer buf
+      (setq ewwm-surface-state
+            (if (plist-get msg :floating) 'floating 'managed))
+      (when (derived-mode-p 'ewwm-mode)
+        (ewwm--refresh-buffer-content)))))
+
+(defun ewwm-ipc--on-surface-workspace-changed (msg)
+  "Mirror native :surface-workspace-changed MSG into the app-layer buffer."
+  (when-let ((buf (and (fboundp 'ewwm--get-buffer)
+                       (ewwm--get-buffer (plist-get msg :id)))))
+    (with-current-buffer buf
+      (setq ewwm-workspace (plist-get msg :new-workspace)))))
+
 (defun ewwm-ipc--on-workspace-changed (msg)
   "Handle :workspace-changed event MSG."
   (let ((workspace (plist-get msg :workspace)))
+    (when (boundp 'ewwm-workspace-current-index)
+      (setq ewwm-workspace-current-index workspace))
     (message "ewwm: workspace changed: %d" workspace)))
+
+(defun ewwm-ipc--on-layout-changed (msg)
+  "Handle native :layout-changed event MSG."
+  (when (and (boundp 'ewwm-layout--current)
+             (plist-get msg :layout))
+    (setq ewwm-layout--current (intern (plist-get msg :layout)))))
+
+(defun ewwm-ipc--on-autostart-ran (msg)
+  "Handle native :autostart-ran event MSG."
+  (message "ewwm: autostart ran: %s" (plist-get msg :target)))
+
+(defun ewwm-ipc--on-config-reloaded (msg)
+  "Handle native :config-reloaded event MSG."
+  (when (plist-get msg :layout)
+    (setq ewwm-layout--current (intern (plist-get msg :layout))))
+  (when (plist-get msg :active-workspace)
+    (setq ewwm-workspace-current-index (plist-get msg :active-workspace)))
+  (message "ewwm: native config reloaded"))
 
 (defun ewwm-ipc--on-key-pressed (msg)
   "Handle :key-pressed event MSG."
@@ -385,18 +440,24 @@ Updates layout usable area when layer-shell exclusive zones change."
   "Resize SURFACE-ID to dimensions (W, H)."
   (ewwm-ipc-send `(:type :surface-resize :surface-id ,surface-id :w ,w :h ,h)))
 
-(defun ewwm-workspace-switch (n)
-  "Switch to workspace N."
+(defun ewwm-ipc-workspace-switch (n)
+  "Switch to workspace N through raw compositor IPC."
   (interactive "nWorkspace: ")
   (ewwm-ipc-send `(:type :workspace-switch :workspace ,n)))
 
-(defun ewwm-workspace-list ()
-  "Query the compositor for workspace state."
+(defun ewwm-ipc-workspace-list ()
+  "Query the compositor for workspace state through raw IPC."
   (interactive)
   (let ((resp (ewwm-ipc-send-sync '(:type :workspace-list))))
     (if (eq (plist-get resp :status) :ok)
         (plist-get resp :workspaces)
       (error "ewwm: workspace-list failed: %s" (plist-get resp :reason)))))
+
+(unless (fboundp 'ewwm-workspace-switch)
+  (defalias 'ewwm-workspace-switch #'ewwm-ipc-workspace-switch))
+
+(unless (fboundp 'ewwm-workspace-list)
+  (defalias 'ewwm-workspace-list #'ewwm-ipc-workspace-list))
 
 (defun ewwm-key-grab (key)
   "Register a global key grab for KEY (Emacs key description)."

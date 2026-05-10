@@ -103,7 +103,8 @@
 (defun ewwm--on-compositor-focus (msg)
   "Handle compositor focus change event MSG."
   (when (memq ewwm-focus-policy '(follow-compositor follow-emacs))
-    (let* ((surface-id (plist-get msg :id))
+    (let* ((surface-id (or (plist-get msg :id)
+                           (plist-get msg :new)))
            (buf (ewwm--get-buffer surface-id)))
       (when (and buf (buffer-live-p buf))
         (let ((ewwm-input--suppress-focus-sync t))

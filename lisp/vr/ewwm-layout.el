@@ -169,22 +169,35 @@ BUFFERS list determines which buffer is visible."
    (list (intern (completing-read "Layout: "
                                   (mapcar #'symbol-name ewwm-layout--cycle-list)
                                   nil t))))
-  (setq ewwm-layout--current layout)
-  (ewwm-layout--apply-current
-   (ewwm--buffers-on-workspace
-    (if (boundp 'ewwm-workspace-current-index)
-        ewwm-workspace-current-index
-      0)))
-  (run-hook-with-args 'ewwm-layout-change-hook layout)
-  (message "ewwm: layout %s" layout))
+  (if (and (fboundp 'ewwm-ipc-send)
+           (fboundp 'ewwm-ipc-connected-p)
+           (funcall 'ewwm-ipc-connected-p))
+      (funcall 'ewwm-ipc-send
+               `(:type :layout-set :layout ,(symbol-name layout))
+               (lambda (msg)
+                 (when (eq (plist-get msg :status) :ok)
+                   (setq ewwm-layout--current layout)
+                   (run-hook-with-args 'ewwm-layout-change-hook layout))))
+    (setq ewwm-layout--current layout)
+    (ewwm-layout--apply-current
+     (ewwm--buffers-on-workspace
+      (if (boundp 'ewwm-workspace-current-index)
+          ewwm-workspace-current-index
+        0)))
+    (run-hook-with-args 'ewwm-layout-change-hook layout)
+    (message "ewwm: layout %s" layout)))
 
 (defun ewwm-layout-cycle ()
   "Cycle through available layouts."
   (interactive)
-  (let* ((pos (cl-position ewwm-layout--current ewwm-layout--cycle-list))
-         (next-pos (mod (1+ (or pos 0)) (length ewwm-layout--cycle-list)))
-         (next (nth next-pos ewwm-layout--cycle-list)))
-    (ewwm-layout-set next)))
+  (if (and (fboundp 'ewwm-ipc-send)
+           (fboundp 'ewwm-ipc-connected-p)
+           (funcall 'ewwm-ipc-connected-p))
+      (funcall 'ewwm-ipc-send '(:type :layout-cycle))
+    (let* ((pos (cl-position ewwm-layout--current ewwm-layout--cycle-list))
+           (next-pos (mod (1+ (or pos 0)) (length ewwm-layout--cycle-list)))
+           (next (nth next-pos ewwm-layout--cycle-list)))
+      (ewwm-layout-set next))))
 
 (defun ewwm-layout-current ()
   "Return the current layout mode."
