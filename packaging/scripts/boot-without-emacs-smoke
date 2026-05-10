@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+seconds="${1:-1}"
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+runtime_dir="$(mktemp -d)"
+trap 'rm -rf "${runtime_dir}"' EXIT
+
+export XDG_RUNTIME_DIR="${runtime_dir}"
+socket="${runtime_dir}/ewwm-ipc.sock"
+
+echo "smoke=boot_without_emacs"
+echo "seconds=${seconds}"
+echo "runtime_dir=${runtime_dir}"
+echo "socket=${socket}"
+
+if pgrep -af "emacs.*exwm-vr\\|emacs.*ewwm" >/dev/null 2>&1; then
+    echo "emacs_path=present_before_smoke"
+else
+    echo "emacs_path=absent_before_smoke"
+fi
+
+if [[ "$(uname -s)" != "Linux" ]]; then
+    cargo check --manifest-path "${root}/compositor/Cargo.toml" \
+        --bin ewwm-compositor --no-default-features \
+        >/tmp/xoxdwm-boot-without-emacs.log 2>&1
+    echo "boot_without_emacs=skipped_non_linux"
+    echo "reason=runtime_smoke_requires_linux_compositor_backend"
+    exit 0
+fi
+
+cargo build --manifest-path "${root}/compositor/Cargo.toml" \
+    --bin ewwm-compositor --no-default-features \
+    >/tmp/xoxdwm-boot-without-emacs.log 2>&1
+
+timeout "$((seconds + 8))" \
+    "${root}/compositor/target/debug/ewwm-compositor" \
+        --backend headless \
+        --headless-exit-after "${seconds}" \
+        --ipc-socket "${socket}" \
+    >>/tmp/xoxdwm-boot-without-emacs.log 2>&1
+
+if grep -Eqi 'emacs|lisp/core|EXWM' /tmp/xoxdwm-boot-without-emacs.log; then
+    echo "emacs_path=mentioned_in_compositor_log"
+    sed -n '1,120p' /tmp/xoxdwm-boot-without-emacs.log
+    exit 1
+fi
+
+echo "boot_without_emacs=passed"

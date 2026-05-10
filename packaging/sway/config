@@ -6,16 +6,17 @@
 #
 # Architecture:
 #   Sway (host compositor)
-#   ├── DP-1: Desktop monitor (Dell S2721QS, 3840x2160)
+#   ├── desktop monitor
 #   │   └── Emacs, terminals, Steam, browsers
-#   └── DP-2: Bigscreen Beyond (3840x1920, non-desktop)
+#   └── Bigscreen Beyond DisplayPort (non-desktop or resolver-selected)
 #       └── DRM-leased to Monado → OpenXR → SteamVR
 #
 # DRM Lease flow:
-#   1. Kernel marks DP-2 as non_desktop (via EDID quirk or udev rule)
+#   1. Kernel marks the headset connector as non_desktop, or
+#      exwm-vr-hmd-connector resolves it by BIG EDID / explicit override
 #   2. Sway detects non_desktop=1, excludes from desktop layout
-#   3. Sway offers DP-2 via wlr-drm-lease-v1 protocol
-#   4. Monado (or SteamVR) requests lease of DP-2
+#   3. Sway offers the headset connector via wlr-drm-lease-v1 protocol
+#   4. Monado (or SteamVR) requests lease of that connector
 #   5. Sway grants lease, Monado gets exclusive DRM access
 #
 # Install: ~/.config/sway/config
@@ -28,14 +29,12 @@ set $menu dmenu-wl_run
 
 # ── Outputs ───────────────────────────────────────────────
 
-# Desktop monitor (adjust connector name to match your hardware).
-# Use `swaymsg -t get_outputs` to list available outputs.
-output DP-1 resolution 3840x2160 position 0,0
+# Desktop monitor: let Sway pick the connected management display by default.
+# Use host-local config for fixed monitor geometry.
 
-# VR headset: explicitly disable as desktop output.
-# Sway should auto-detect non_desktop connectors, but this is a safety net.
-# The connector remains available for DRM lease to Monado/SteamVR.
-output DP-2 disable
+# VR headset: disable the resolver-selected connector as a desktop output.
+# If the kernel already exposes non_desktop=1, Sway should omit it anyway.
+exec_always sh -lc 'resolver=/usr/libexec/exwm-vr/hmd-connector; [ -x "$resolver" ] || resolver=exwm-vr-hmd-connector; hmd="$($resolver 2>/dev/null || true)"; [ -n "$hmd" ] && swaymsg output "$hmd" disable >/dev/null 2>&1 || true'
 
 # ── Input ─────────────────────────────────────────────────
 
@@ -134,7 +133,7 @@ exec_always export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/bus
 # Monado / OpenXR
 # Temporary Wayland window fallback; not true DRM lease direct mode.
 exec_always export XRT_COMPOSITOR_FORCE_WAYLAND=1
-exec_always export XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2
+exec_always sh -lc 'resolver=/usr/libexec/exwm-vr/hmd-connector; [ -x "$resolver" ] || resolver=exwm-vr-hmd-connector; hmd="$($resolver 2>/dev/null || true)"; [ -n "$hmd" ] && systemctl --user set-environment XRT_COMPOSITOR_WAYLAND_CONNECTOR="$hmd" EWWM_DRM_LEASE_CONNECTORS="$hmd" >/dev/null 2>&1 || true'
 
 # Beyond HMD — expose hidraw to Proton for Bigscreen companion app
 exec_always export PROTON_ENABLE_HIDRAW=0x35BD/0x0101
