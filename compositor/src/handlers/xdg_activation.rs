@@ -33,10 +33,7 @@ impl XdgActivationHandler for EwwmState {
 
         if let Some(sid) = surface_id {
             // Notify Emacs so it can decide whether to grant focus
-            let event = format_event(
-                "activation-requested",
-                &[("id", &sid.to_string())],
-            );
+            let event = format_event("activation-requested", &[("id", &sid.to_string())]);
             IpcServer::broadcast_event(self, &event);
         }
     }

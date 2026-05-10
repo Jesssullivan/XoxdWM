@@ -2,6 +2,8 @@
 
 use crate::ipc::{dispatch::format_event, server::IpcServer};
 use crate::state::{ClientState, EwwmState};
+#[cfg(feature = "xwayland")]
+use smithay::xwayland::XWaylandClientData;
 use smithay::{
     backend::renderer::utils::on_commit_buffer_handler,
     delegate_compositor,
@@ -22,7 +24,16 @@ impl CompositorHandler for EwwmState {
     }
 
     fn client_compositor_state<'a>(&self, client: &'a Client) -> &'a CompositorClientState {
-        &client.get_data::<ClientState>().unwrap().compositor_state
+        if let Some(state) = client.get_data::<ClientState>() {
+            return &state.compositor_state;
+        }
+
+        #[cfg(feature = "xwayland")]
+        if let Some(state) = client.get_data::<XWaylandClientData>() {
+            return &state.compositor_state;
+        }
+
+        panic!("Wayland client is missing compositor state")
     }
 
     fn commit(&mut self, surface: &WlSurface) {
@@ -53,19 +64,16 @@ impl EwwmState {
         };
 
         // Read current app_id and title from xdg toplevel data.
-        let (app_id, title) = smithay::wayland::compositor::with_states(
-            wl_surface,
-            |states| {
-                states
-                    .data_map
-                    .get::<XdgToplevelSurfaceData>()
-                    .map(|data| {
-                        let guard = data.lock().unwrap();
-                        (guard.app_id.clone(), guard.title.clone())
-                    })
-                    .unwrap_or((None, None))
-            },
-        );
+        let (app_id, title) = smithay::wayland::compositor::with_states(wl_surface, |states| {
+            states
+                .data_map
+                .get::<XdgToplevelSurfaceData>()
+                .map(|data| {
+                    let guard = data.lock().unwrap();
+                    (guard.app_id.clone(), guard.title.clone())
+                })
+                .unwrap_or((None, None))
+        });
 
         let data = match self.surfaces.get_mut(&surface_id) {
             Some(d) => d,
@@ -85,13 +93,14 @@ impl EwwmState {
         }
 
         if changed {
-            let aid = app_id
-                .as_deref()
-                .unwrap_or("");
-            let ttl = title
-                .as_deref()
-                .unwrap_or("");
-            trace!(surface_id, app_id = aid, title = ttl, "surface metadata updated");
+            let aid = app_id.as_deref().unwrap_or("");
+            let ttl = title.as_deref().unwrap_or("");
+            trace!(
+                surface_id,
+                app_id = aid,
+                title = ttl,
+                "surface metadata updated"
+            );
 
             let event = format_event(
                 "surface-updated",

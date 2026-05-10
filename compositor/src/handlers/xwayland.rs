@@ -44,8 +44,13 @@ impl XwmHandler for EwwmState {
         }
 
         // Create a unified Window element
+        let initial_geometry = self.initial_window_geometry();
         let win = Window::new_x11_window(window.clone());
-        self.space.map_element(win.clone(), (0, 0), false);
+        self.space.map_element(
+            win.clone(),
+            (initial_geometry.loc.x, initial_geometry.loc.y),
+            true,
+        );
 
         // Extract X11 properties
         // Smithay 0.7: class(), instance(), title() return String, not Option<String>
@@ -57,7 +62,11 @@ impl XwmHandler for EwwmState {
 
         // Helper: convert empty strings to None for Option<String> fields
         let non_empty = |s: &str| -> Option<String> {
-            if s.is_empty() { None } else { Some(s.to_string()) }
+            if s.is_empty() {
+                None
+            } else {
+                Some(s.to_string())
+            }
         };
 
         // Create surface data
@@ -67,6 +76,7 @@ impl XwmHandler for EwwmState {
         data.x11_class = non_empty(&wm_class);
         data.x11_instance = non_empty(&wm_instance);
         data.workspace = self.active_workspace;
+        data.geometry = initial_geometry;
 
         // Auto-float transient windows (dialogs)
         if is_transient {
@@ -76,18 +86,20 @@ impl XwmHandler for EwwmState {
         self.surfaces.insert(surface_id, data);
         self.surface_to_window.insert(surface_id, win);
 
-        // Configure the window
-        if let Some(geo) = self.space.elements().last().and_then(|w| {
-            self.space.element_geometry(w)
-        }) {
-            if let Err(e) = window.configure(Some(geo)) {
-                warn!(surface_id, "XWayland: configure failed: {}", e);
-            }
+        // Configure the window to a visible initial rectangle. Newly mapped X11
+        // surfaces may still report a zero bbox, which is not useful for the
+        // first scanout frame.
+        if let Err(e) = window.configure(Some(initial_geometry)) {
+            warn!(surface_id, "XWayland: configure failed: {}", e);
         }
 
         // Emit IPC event with :x11 flag
         // Smithay 0.7: these are String, use as_str() directly
-        let app_id = if wm_class.is_empty() { &wm_instance } else { &wm_class };
+        let app_id = if wm_class.is_empty() {
+            &wm_instance
+        } else {
+            &wm_class
+        };
         let title_str = title.as_str();
         let x11_class_str = wm_class.as_str();
         let x11_instance_str = wm_instance.as_str();
@@ -100,11 +112,15 @@ impl XwmHandler for EwwmState {
                 ("title", &format!("\"{}\"", escape_str(title_str))),
                 ("x11", "t"),
                 ("x11-class", &format!("\"{}\"", escape_str(x11_class_str))),
-                ("x11-instance", &format!("\"{}\"", escape_str(x11_instance_str))),
+                (
+                    "x11-instance",
+                    &format!("\"{}\"", escape_str(x11_instance_str)),
+                ),
                 ("transient", if is_transient { "t" } else { "nil" }),
             ],
         );
         IpcServer::broadcast_event(self, &event);
+        self.reflow_native_layout();
     }
 
     fn mapped_override_redirect_window(&mut self, _xwm: XwmId, _window: X11Surface) {
@@ -138,14 +154,19 @@ impl XwmHandler for EwwmState {
         }
 
         // Remove from space — collect first to avoid borrowing self.space twice
-        let to_unmap = self.space.elements().find(|w| {
-            w.x11_surface()
-                .map(|xs| xs.window_id() == window.window_id())
-                .unwrap_or(false)
-        }).cloned();
+        let to_unmap = self
+            .space
+            .elements()
+            .find(|w| {
+                w.x11_surface()
+                    .map(|xs| xs.window_id() == window.window_id())
+                    .unwrap_or(false)
+            })
+            .cloned();
         if let Some(w) = to_unmap {
             self.space.unmap_elem(&w);
         }
+        self.reflow_native_layout();
     }
 
     fn destroyed_window(&mut self, _xwm: XwmId, _window: X11Surface) {

@@ -123,11 +123,21 @@
 
 ;; ── Focus event format ─────────────────────────────────────
 
-(ert-deftest v040/focus-event-has-old-and-new ()
-  "focus-changed event includes :old and :new fields."
+(ert-deftest v040/focus-event-has-canonical-surface-focused ()
+  "surface-focused is the canonical focus event."
   (let ((file (expand-file-name "compositor/src/handlers/seat.rs" v040-test--root)))
     (with-temp-buffer
       (insert-file-contents file)
+      (should (search-forward "surface-focused" nil t))
+      (should (search-forward "(\"id\"" nil t))
+      (should (search-forward "(\"previous-id\"" nil t)))))
+
+(ert-deftest v040/focus-event-keeps-compat-alias ()
+  "focus-changed remains a temporary compatibility alias."
+  (let ((file (expand-file-name "compositor/src/handlers/seat.rs" v040-test--root)))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (should (search-forward "focus-changed" nil t))
       (should (search-forward "(\"old\"" nil t))
       (should (search-forward "(\"new\"" nil t)))))
 

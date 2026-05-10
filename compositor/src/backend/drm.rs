@@ -15,8 +15,9 @@
 //! scanout, wait for vblank, then call frame_submitted() and render
 //! the next frame.
 
-use crate::{ipc, state::EwwmState};
 use super::IpcConfig;
+use crate::config::CompositorConfig;
+use crate::{ipc, state::EwwmState};
 
 use smithay::{
     backend::{
@@ -26,41 +27,27 @@ use smithay::{
             gbm::{GbmAllocator, GbmBufferFlags, GbmDevice},
             Fourcc,
         },
-        drm::{
-            DrmDevice, DrmDeviceFd, DrmEvent, DrmNode,
-            GbmBufferedSurface, NodeType,
-        },
+        drm::{DrmDevice, DrmDeviceFd, DrmEvent, DrmNode, GbmBufferedSurface, NodeType},
         egl::{EGLContext, EGLDisplay},
         libinput::{LibinputInputBackend, LibinputSessionInterface},
-        renderer::{
-            damage::OutputDamageTracker,
-            gles::GlesRenderer,
-            Bind,
-        },
-        session::{
-            libseat::LibSeatSession,
-            Session, Event as SessionEvent,
-        },
+        renderer::{damage::OutputDamageTracker, gles::GlesRenderer, Bind},
+        session::{libseat::LibSeatSession, Event as SessionEvent, Session},
         udev::{UdevBackend, UdevEvent},
     },
     output::{Mode as OutputMode, Output, PhysicalProperties, Subpixel},
     reexports::{
-        calloop::{
-            EventLoop, LoopHandle, RegistrationToken,
-        },
-        drm::control::{
-            connector, crtc, Device as ControlDevice, ModeTypeFlags,
-        },
+        calloop::{EventLoop, LoopHandle, RegistrationToken},
+        drm::control::{connector, crtc, Device as ControlDevice, ModeTypeFlags},
         input::Libinput,
         wayland_server::Display,
     },
     utils::{DeviceFd, Size, Transform},
-    xwayland::{XWayland, XWaylandEvent},
     xwayland::xwm::X11Wm,
+    xwayland::{XWayland, XWaylandEvent},
 };
 
-use std::collections::{HashMap, HashSet};
 use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::rc::Rc;
@@ -194,14 +181,16 @@ fn device_added(
     info!(?path, ?node, "opening DRM device");
 
     // Open the device through the session (for seatd privilege).
-    let fd = backend.session.open(
-        path,
-        smithay::reexports::rustix::fs::OFlags::RDWR
-            | smithay::reexports::rustix::fs::OFlags::CLOEXEC
-            | smithay::reexports::rustix::fs::OFlags::NOCTTY
-            | smithay::reexports::rustix::fs::OFlags::NONBLOCK,
-    )
-    .map_err(|e| anyhow::anyhow!("failed to open DRM device {:?}: {}", path, e))?;
+    let fd = backend
+        .session
+        .open(
+            path,
+            smithay::reexports::rustix::fs::OFlags::RDWR
+                | smithay::reexports::rustix::fs::OFlags::CLOEXEC
+                | smithay::reexports::rustix::fs::OFlags::NOCTTY
+                | smithay::reexports::rustix::fs::OFlags::NONBLOCK,
+        )
+        .map_err(|e| anyhow::anyhow!("failed to open DRM device {:?}: {}", path, e))?;
 
     let drm_fd = DrmDeviceFd::new(DeviceFd::from(fd));
 
@@ -225,24 +214,22 @@ fn device_added(
         .map_err(|e| anyhow::anyhow!("GlesRenderer::new failed: {}", e))?;
 
     // Get renderer's supported DMA-BUF render formats for surface creation.
-    let renderer_formats = renderer
-        .egl_context()
-        .dmabuf_render_formats()
-        .clone();
+    let renderer_formats = renderer.egl_context().dmabuf_render_formats().clone();
 
     // Register DRM event source with calloop for vblank notifications.
     let drm_node = node;
     let drm_token = loop_handle
-        .insert_source(drm_notifier, move |event, _metadata, state: &mut EwwmState| {
-            match event {
+        .insert_source(
+            drm_notifier,
+            move |event, _metadata, state: &mut EwwmState| match event {
                 DrmEvent::VBlank(crtc) => {
                     handle_vblank(state, drm_node, crtc);
                 }
                 DrmEvent::Error(err) => {
                     error!(?err, "DRM device error");
                 }
-            }
-        })
+            },
+        )
         .map_err(|e| anyhow::anyhow!("failed to register DRM source: {}", e))?;
 
     let mut gpu = GpuDevice {
@@ -328,11 +315,7 @@ fn lease_connector_overrides() -> HashSet<String> {
 }
 
 /// Scan DRM connectors and set up outputs for each connected display.
-fn scan_connectors(
-    gpu: &mut GpuDevice,
-    renderer_formats: &FormatSet,
-    state: &mut EwwmState,
-) {
+fn scan_connectors(gpu: &mut GpuDevice, renderer_formats: &FormatSet, state: &mut EwwmState) {
     let res = match gpu.drm.borrow().resource_handles() {
         Ok(r) => r,
         Err(e) => {
@@ -393,29 +376,25 @@ fn scan_connectors(
     let mut vr_connectors = Vec::new();
     for connector in &connectors {
         let connector_type = match connector.info.interface() {
-                connector::Interface::DisplayPort => {
-                    crate::vr::drm_lease::ConnectorType::DisplayPort
-                }
-                connector::Interface::HDMIA | connector::Interface::HDMIB => {
-                    crate::vr::drm_lease::ConnectorType::Hdmi
-                }
-                connector::Interface::USB => crate::vr::drm_lease::ConnectorType::UsbC,
-                connector::Interface::Virtual => {
-                    crate::vr::drm_lease::ConnectorType::Virtual
-                }
-                _ => crate::vr::drm_lease::ConnectorType::Unknown,
-            };
+            connector::Interface::DisplayPort => crate::vr::drm_lease::ConnectorType::DisplayPort,
+            connector::Interface::HDMIA | connector::Interface::HDMIB => {
+                crate::vr::drm_lease::ConnectorType::Hdmi
+            }
+            connector::Interface::USB => crate::vr::drm_lease::ConnectorType::UsbC,
+            connector::Interface::Virtual => crate::vr::drm_lease::ConnectorType::Virtual,
+            _ => crate::vr::drm_lease::ConnectorType::Unknown,
+        };
         let modes: Vec<crate::vr::drm_lease::DisplayMode> = connector
             .info
             .modes()
-                .iter()
-                .map(|m| crate::vr::drm_lease::DisplayMode {
-                    width: m.size().0 as u32,
-                    height: m.size().1 as u32,
-                    refresh_hz: (m.vrefresh() as u32).max(1),
-                    preferred: m.mode_type().contains(ModeTypeFlags::PREFERRED),
-                })
-                .collect();
+            .iter()
+            .map(|m| crate::vr::drm_lease::DisplayMode {
+                width: m.size().0 as u32,
+                height: m.size().1 as u32,
+                refresh_hz: (m.vrefresh() as u32).max(1),
+                preferred: m.mode_type().contains(ModeTypeFlags::PREFERRED),
+            })
+            .collect();
 
         vr_connectors.push(crate::vr::drm_lease::DrmConnectorInfo {
             connector_id: connector.info.handle().into(),
@@ -595,6 +574,17 @@ fn scan_connectors(
         );
         output.set_preferred(wl_mode);
         state.space.map_output(&output, (x_offset, 0));
+        let mut output_config =
+            crate::handlers::output_management::OutputConfig::new(connector_name.clone());
+        output_config.enabled = true;
+        output_config.x = x_offset;
+        output_config.y = 0;
+        output_config.width = drm_mode.size().0 as i32;
+        output_config.height = drm_mode.size().1 as i32;
+        output_config.refresh = (drm_mode.vrefresh() * 1000) as i32;
+        state
+            .output_management_state
+            .upsert_detected_output(output_config);
 
         info!(
             name = %connector_name,
@@ -655,6 +645,10 @@ fn device_removed(
 
         // Unmap all outputs from the space.
         for (_crtc, output_state) in &gpu.outputs {
+            let output_name = output_state.output.name();
+            state
+                .output_management_state
+                .remove_detected_output(&output_name);
             state.space.unmap_output(&output_state.output);
         }
 
@@ -680,11 +674,7 @@ fn device_removed(
 // ---------------------------------------------------------------------------
 
 /// Render a frame for the specified output and queue it for scanout.
-fn render_output(
-    gpu: &mut GpuDevice,
-    crtc: crtc::Handle,
-    state: &mut EwwmState,
-) {
+fn render_output(gpu: &mut GpuDevice, crtc: crtc::Handle, state: &mut EwwmState) {
     let output_state = match gpu.outputs.get_mut(&crtc) {
         Some(s) => s,
         None => return,
@@ -752,11 +742,7 @@ fn render_output(
 /// Since the calloop callback only receives `&mut EwwmState` (not the
 /// DRM backend data), we record the vblank in thread-local storage for
 /// the main loop to process via [`process_vblanks`].
-fn handle_vblank(
-    _state: &mut EwwmState,
-    node: DrmNode,
-    crtc: crtc::Handle,
-) {
+fn handle_vblank(_state: &mut EwwmState, node: DrmNode, crtc: crtc::Handle) {
     debug!(?node, ?crtc, "vblank received");
     record_vblank(node, crtc);
 }
@@ -852,14 +838,19 @@ fn session_activated(backend: &mut DrmBackendData, state: &mut EwwmState) {
 ///
 /// This function blocks until the compositor shuts down (signal, IPC
 /// command, or session loss). It returns `Ok(())` on clean shutdown.
-pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result<()> {
+pub fn run(
+    socket_name: Option<String>,
+    ipc_config: IpcConfig,
+    compositor_config: CompositorConfig,
+) -> anyhow::Result<()> {
     info!("DRM backend starting");
 
     // ── 1. Create calloop event loop and Wayland display ──────────────
 
     let mut event_loop = EventLoop::<EwwmState>::try_new()?;
     let mut display = Display::<EwwmState>::new()?;
-    let mut state = EwwmState::new(&mut display, event_loop.handle());
+    let mut state =
+        EwwmState::new_with_config(&mut display, event_loop.handle(), compositor_config);
 
     // ── 2. Configure IPC ──────────────────────────────────────────────
 
@@ -872,12 +863,13 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
 
     // ── 3. Initialize libseat session ─────────────────────────────────
 
-    let (session, session_notifier) = LibSeatSession::new()
-        .map_err(|e| anyhow::anyhow!(
+    let (session, session_notifier) = LibSeatSession::new().map_err(|e| {
+        anyhow::anyhow!(
             "failed to initialize libseat session: {}. \
              Is seatd/logind running? Try: export LIBSEAT_BACKEND=builtin",
             e
-        ))?;
+        )
+    })?;
 
     let seat_name = session.seat();
     info!(seat = %seat_name, "libseat session initialized");
@@ -926,7 +918,9 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
 
     info!(
         device_count = backend_data.devices.len(),
-        output_count = backend_data.devices.values()
+        output_count = backend_data
+            .devices
+            .values()
             .map(|g| g.outputs.len())
             .sum::<usize>(),
         "DRM devices initialized"
@@ -959,10 +953,8 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
                         // which is &*const c_void. Deref twice to get the raw ptr.
                         let raw_display: *mut std::ffi::c_void =
                             **display_handle as *mut std::ffi::c_void;
-                        let raw_config = egl_ctx.config_id()
-                            as *mut std::ffi::c_void;
-                        let raw_context = egl_ctx.get_context_handle()
-                            as *mut std::ffi::c_void;
+                        let raw_config = egl_ctx.config_id() as *mut std::ffi::c_void;
+                        let raw_context = egl_ctx.get_context_handle() as *mut std::ffi::c_void;
                         if let Err(e) = state.vr_state.create_session(
                             raw_display as *mut std::ffi::c_void,
                             raw_config,
@@ -984,10 +976,9 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
 
     // ── 5. Set up libinput for input events ───────────────────────────
 
-    let mut libinput_context =
-        Libinput::new_with_udev::<LibinputSessionInterface<LibSeatSession>>(
-            backend_data.session.clone().into(),
-        );
+    let mut libinput_context = Libinput::new_with_udev::<LibinputSessionInterface<LibSeatSession>>(
+        backend_data.session.clone().into(),
+    );
 
     if let Err(e) = libinput_context.udev_assign_seat(&seat_name) {
         return Err(anyhow::anyhow!(
@@ -1041,8 +1032,9 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
 
     event_loop
         .handle()
-        .insert_source(udev_backend, move |event, _, _state: &mut EwwmState| {
-            match event {
+        .insert_source(
+            udev_backend,
+            move |event, _, _state: &mut EwwmState| match event {
                 UdevEvent::Added { device_id, path } => {
                     info!(device_id, ?path, "udev: device added");
                     UDEV_EVENTS.with(|v| {
@@ -1061,8 +1053,8 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
                         v.borrow_mut().push(UdevAction::Removed { device_id });
                     });
                 }
-            }
-        })
+            },
+        )
         .map_err(|e| anyhow::anyhow!("failed to register udev source: {}", e))?;
 
     // ── 8. Set up Wayland socket ──────────────────────────────────────
@@ -1076,32 +1068,36 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
     wayland_listener.set_nonblocking(true)?;
     info!("Wayland socket: {}", socket_path);
     std::env::set_var("WAYLAND_DISPLAY", &socket_name_str);
+    state.apply_real_session_startup_policy();
 
     // Accept Wayland client connections
-    event_loop.handle().insert_source(
-        smithay::reexports::calloop::generic::Generic::new(
-            wayland_listener,
-            smithay::reexports::calloop::Interest::READ,
-            smithay::reexports::calloop::Mode::Level,
-        ),
-        |_, source, state: &mut EwwmState| {
-            match source.accept() {
-                Ok((stream, _)) => {
-                    if let Err(e) = state.display_handle.insert_client(
-                        stream,
-                        std::sync::Arc::new(crate::state::ClientState::default()),
-                    ) {
-                        warn!("failed to insert Wayland client: {}", e);
+    event_loop
+        .handle()
+        .insert_source(
+            smithay::reexports::calloop::generic::Generic::new(
+                wayland_listener,
+                smithay::reexports::calloop::Interest::READ,
+                smithay::reexports::calloop::Mode::Level,
+            ),
+            |_, source, state: &mut EwwmState| {
+                match source.accept() {
+                    Ok((stream, _)) => {
+                        if let Err(e) = state.display_handle.insert_client(
+                            stream,
+                            std::sync::Arc::new(crate::state::ClientState::default()),
+                        ) {
+                            warn!("failed to insert Wayland client: {}", e);
+                        }
+                    }
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+                    Err(e) => {
+                        warn!("Wayland socket accept error: {}", e);
                     }
                 }
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
-                Err(e) => {
-                    warn!("Wayland socket accept error: {}", e);
-                }
-            }
-            Ok(smithay::reexports::calloop::PostAction::Continue)
-        },
-    ).map_err(|e| anyhow::anyhow!("failed to insert socket source: {:?}", e))?;
+                Ok(smithay::reexports::calloop::PostAction::Continue)
+            },
+        )
+        .map_err(|e| anyhow::anyhow!("failed to insert socket source: {:?}", e))?;
 
     // ── 9. Spawn XWayland ─────────────────────────────────────────────
 
@@ -1117,8 +1113,9 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
         Ok((xwayland, client)) => {
             event_loop
                 .handle()
-                .insert_source(xwayland, move |event, _, state: &mut EwwmState| {
-                    match event {
+                .insert_source(
+                    xwayland,
+                    move |event, _, state: &mut EwwmState| match event {
                         XWaylandEvent::Ready {
                             x11_socket,
                             display_number,
@@ -1132,10 +1129,7 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
                                 Ok(wm) => {
                                     state.xwm = Some(wm);
                                     state.xdisplay = Some(display_number);
-                                    std::env::set_var(
-                                        "DISPLAY",
-                                        format!(":{}", display_number),
-                                    );
+                                    std::env::set_var("DISPLAY", format!(":{}", display_number));
                                 }
                                 Err(e) => {
                                     error!("failed to start X11 WM: {}", e);
@@ -1148,8 +1142,8 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
                                  (continuing without X11 support)"
                             );
                         }
-                    }
-                })
+                    },
+                )
                 .ok();
             info!("XWayland spawning");
         }
@@ -1224,10 +1218,9 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
 
                     // Render scene content into swapchain images (or
                     // fall back to black frames if renderer not ready).
-                    state.vr_state.render_vr_frame(
-                        &frame_data.views,
-                        &view_configs,
-                    );
+                    state
+                        .vr_state
+                        .render_vr_frame(&frame_data.views, &view_configs);
 
                     // Build projection layers and submit frame.
                     let swapchain_count = state.vr_state.swapchain_images().len();
@@ -1261,6 +1254,10 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
     // Unmap all outputs.
     for (_node, gpu) in backend_data.devices.iter_mut() {
         for (_crtc, output_state) in gpu.outputs.iter() {
+            let output_name = output_state.output.name();
+            state
+                .output_management_state
+                .remove_detected_output(&output_name);
             state.space.unmap_output(&output_state.output);
         }
     }
@@ -1311,28 +1308,23 @@ fn process_udev_events(
     state: &mut EwwmState,
     loop_handle: &LoopHandle<'static, EwwmState>,
 ) {
-    let events: Vec<UdevAction> =
-        UDEV_EVENTS.with(|v| std::mem::take(&mut *v.borrow_mut()));
+    let events: Vec<UdevAction> = UDEV_EVENTS.with(|v| std::mem::take(&mut *v.borrow_mut()));
 
     for action in events {
         match action {
-            UdevAction::Added { device_id, path } => {
-                match DrmNode::from_dev_id(device_id) {
-                    Ok(node) => {
-                        if let Err(e) =
-                            device_added(node, &path, backend, state, loop_handle)
-                        {
-                            warn!(
-                                device_id = device_id,
-                                "hotplug: failed to add device: {}", e
-                            );
-                        }
-                    }
-                    Err(e) => {
-                        debug!(device_id, "hotplug: not a DRM device: {}", e);
+            UdevAction::Added { device_id, path } => match DrmNode::from_dev_id(device_id) {
+                Ok(node) => {
+                    if let Err(e) = device_added(node, &path, backend, state, loop_handle) {
+                        warn!(
+                            device_id = device_id,
+                            "hotplug: failed to add device: {}", e
+                        );
                     }
                 }
-            }
+                Err(e) => {
+                    debug!(device_id, "hotplug: not a DRM device: {}", e);
+                }
+            },
             UdevAction::Changed { device_id } => {
                 // Connector hotplug (display plugged/unplugged).
                 if let Ok(node) = DrmNode::from_dev_id(device_id) {
@@ -1346,6 +1338,10 @@ fn process_udev_events(
 
                         // Unmap existing outputs.
                         for (_crtc, output_state) in gpu.outputs.drain() {
+                            let output_name = output_state.output.name();
+                            state
+                                .output_management_state
+                                .remove_detected_output(&output_name);
                             state.space.unmap_output(&output_state.output);
                         }
 
@@ -1355,8 +1351,7 @@ fn process_udev_events(
                         scan_connectors(gpu, &renderer_formats, state);
 
                         // Render initial frames on new outputs.
-                        let crtcs: Vec<crtc::Handle> =
-                            gpu.outputs.keys().copied().collect();
+                        let crtcs: Vec<crtc::Handle> = gpu.outputs.keys().copied().collect();
                         for crtc in crtcs {
                             render_output(gpu, crtc, state);
                         }

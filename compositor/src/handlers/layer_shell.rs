@@ -8,15 +8,12 @@ use crate::ipc::{dispatch::format_event, server::IpcServer};
 use crate::state::EwwmState;
 use smithay::{
     delegate_layer_shell,
-    desktop::{
-        layer_map_for_output,
-        LayerSurface,
-    },
+    desktop::{layer_map_for_output, LayerSurface},
     output::Output,
     reexports::wayland_server::protocol::wl_output::WlOutput,
     wayland::shell::wlr_layer::{
-        ExclusiveZone, Layer, WlrLayerShellHandler, WlrLayerShellState,
-        LayerSurface as WlrLayerSurface,
+        ExclusiveZone, Layer, LayerSurface as WlrLayerSurface, WlrLayerShellHandler,
+        WlrLayerShellState,
     },
 };
 use tracing::{debug, info, warn};

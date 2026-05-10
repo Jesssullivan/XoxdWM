@@ -42,9 +42,9 @@ pub fn run(
     };
     match backend {
         #[cfg(feature = "full-backend")]
-        BackendType::Winit => winit::run(socket_name, ipc),
+        BackendType::Winit => winit::run(socket_name, ipc, compositor_config),
         #[cfg(feature = "full-backend")]
-        BackendType::Drm => drm::run(socket_name, ipc),
+        BackendType::Drm => drm::run(socket_name, ipc, compositor_config),
         BackendType::Headless => headless::run(
             socket_name,
             headless_exit_after,

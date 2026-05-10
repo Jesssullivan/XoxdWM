@@ -12,8 +12,11 @@ use smithay::{
         pointer::{Focus, GrabStartData as PointerGrabStartData},
         Seat,
     },
-    reexports::wayland_server::protocol::wl_seat::WlSeat,
-    utils::Serial,
+    reexports::{
+        wayland_protocols::xdg::shell::server::xdg_toplevel,
+        wayland_server::protocol::wl_seat::WlSeat,
+    },
+    utils::{Serial, Size},
     wayland::shell::xdg::{
         PopupSurface, PositionerState, ToplevelSurface, XdgShellHandler, XdgShellState,
         XdgToplevelSurfaceData,
@@ -30,12 +33,26 @@ impl XdgShellHandler for EwwmState {
         let surface_id = next_surface_id();
         info!(surface_id, "new toplevel surface");
 
+        let initial_geometry = self.initial_window_geometry();
+        surface.with_pending_state(|state| {
+            state.size = Some(Size::from((
+                initial_geometry.size.w,
+                initial_geometry.size.h,
+            )));
+            state.states.set(xdg_toplevel::State::Activated);
+        });
+
         let window = Window::new_wayland_window(surface.clone());
-        self.space.map_element(window.clone(), (0, 0), false);
+        self.space.map_element(
+            window.clone(),
+            (initial_geometry.loc.x, initial_geometry.loc.y),
+            true,
+        );
         self.surface_to_window.insert(surface_id, window);
 
         let mut data = SurfaceData::new(surface_id);
         data.workspace = self.active_workspace;
+        data.geometry = initial_geometry;
         self.surfaces.insert(surface_id, data);
 
         // Emit IPC event
@@ -52,6 +69,7 @@ impl XdgShellHandler for EwwmState {
 
         // Send initial configure
         surface.send_configure();
+        self.reflow_native_layout();
     }
 
     fn new_popup(&mut self, surface: PopupSurface, _positioner: PositionerState) {
@@ -98,7 +116,12 @@ impl XdgShellHandler for EwwmState {
         }
     }
 
-    fn reposition_request(&mut self, surface: PopupSurface, positioner: PositionerState, token: u32) {
+    fn reposition_request(
+        &mut self,
+        surface: PopupSurface,
+        positioner: PositionerState,
+        token: u32,
+    ) {
         surface.with_pending_state(|state| {
             state.geometry = positioner.get_geometry();
             state.positioner = positioner;
@@ -111,11 +134,14 @@ impl XdgShellHandler for EwwmState {
         let wl_surface = surface.wl_surface().clone();
         let surface_id = self.surfaces.iter().find_map(|(id, _data)| {
             // Match by checking space elements
-            self.space.elements().any(|w| {
-                w.toplevel()
-                    .map(|t| *t.wl_surface() == wl_surface)
-                    .unwrap_or(false)
-            }).then_some(*id)
+            self.space
+                .elements()
+                .any(|w| {
+                    w.toplevel()
+                        .map(|t| *t.wl_surface() == wl_surface)
+                        .unwrap_or(false)
+                })
+                .then_some(*id)
         });
 
         if let Some(sid) = surface_id {
@@ -127,15 +153,20 @@ impl XdgShellHandler for EwwmState {
         }
 
         // Remove from space
-        let window = self.space.elements().find(|w| {
-            w.toplevel()
-                .map(|t| *t.wl_surface() == wl_surface)
-                .unwrap_or(false)
-        }).cloned();
+        let window = self
+            .space
+            .elements()
+            .find(|w| {
+                w.toplevel()
+                    .map(|t| *t.wl_surface() == wl_surface)
+                    .unwrap_or(false)
+            })
+            .cloned();
 
         if let Some(w) = window {
             self.space.unmap_elem(&w);
         }
+        self.reflow_native_layout();
     }
 }
 
