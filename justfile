@@ -104,6 +104,10 @@ package-no-default-lisp-core-assert:
     snippet = spec[start:end]
     if "exwm-vr/core" in snippet:
         raise SystemExit("default package init must not add lisp/core to load-path")
+    if "packaging/scripts/xoxdwm-native-authority-proof" not in spec:
+        raise SystemExit("RPM must install native-authority-proof helper")
+    if "%{_libexecdir}/%{project_name}/native-authority-proof" not in spec:
+        raise SystemExit("RPM compositor package must own native-authority-proof helper")
     print("package_no_default_lisp_core=passed")
     PY
 

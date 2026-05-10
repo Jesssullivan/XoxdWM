@@ -625,6 +625,8 @@ fi
 %{_datadir}/%{project_name}/exwm-vr-session
 %{_datadir}/%{project_name}/exwm-vr-session-init.el
 %{_datadir}/xdg-desktop-portal/exwm-vr-portals.conf
+%dir %{_libexecdir}/%{project_name}
+%{_libexecdir}/%{project_name}/native-authority-proof
 %dir %{_localstatedir}/lib/%{project_name}
 %endif
 
