@@ -497,6 +497,21 @@ impl VrState {
         self.frame_timing.stats_sexp()
     }
 
+    /// Generate IPC diagnostics for OpenXR-enabled builds.
+    pub fn diagnostics_sexp(&self) -> String {
+        format!(
+            "(:renderer-ready {} :xr-state :{} :swapchain-count {} :view-count {} :frame-wait-count {} :frame-begin-count {} :frame-end-count {} :scene-node-count {} :texture-count 0 :test-pattern nil :last-readback-hash nil :last-frame-error nil :last-end-error nil :drm-lease nil :beyond-hid nil)",
+            if self.renderer.is_some() { "t" } else { "nil" },
+            self.session_state.as_str(),
+            self.swapchains.len(),
+            self.view_config_views.len(),
+            self.frame_timing.wait_times.len(),
+            self.frame_timing.render_times.len(),
+            self.frame_timing.submit_times.len(),
+            self.scene.surface_count(),
+        )
+    }
+
     /// Returns a reference to swapchains for the renderer.
     pub fn swapchains_mut(&mut self) -> &mut Vec<xr::Swapchain<xr::OpenGL>> {
         &mut self.swapchains
