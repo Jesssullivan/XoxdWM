@@ -427,12 +427,12 @@ fn unquote(s: &str) -> String {
 fn parse_string_list(s: &str) -> Vec<String> {
     let trimmed = s.trim();
     let body = if trimmed.starts_with('[') && trimmed.ends_with(']') {
-        &trimmed[1..trimmed.len() - 1]
+        trimmed[1..trimmed.len() - 1].to_string()
     } else {
-        trimmed
+        unquote(trimmed)
     };
     body.split(',')
-        .map(unquote)
+        .map(|item| unquote(item.trim()))
         .map(|item| item.trim().to_string())
         .filter(|item| !item.is_empty())
         .collect()
@@ -566,6 +566,14 @@ mod tests {
         let cfg = CompositorConfig::parse_json(json).unwrap();
         assert_eq!(cfg.extra.get("my_custom_key").unwrap(), "my_value");
         assert_eq!(cfg.extra.get("another_key").unwrap(), "42");
+    }
+
+    #[test]
+    fn test_string_list_accepts_json_arrays() {
+        assert_eq!(
+            parse_string_list(r#"["terminal", "browser"]"#),
+            vec!["terminal", "browser"]
+        );
     }
 
     #[test]
