@@ -72,11 +72,20 @@ fn handle_keyboard<B: InputBackend>(state: &mut EwwmState, event: B::KeyboardKey
     let keyboard = state.seat.get_keyboard().unwrap();
 
     // Check for grabbed keys
-    let _grab_result =
-        keyboard.input::<bool, _>(state, keycode, key_state, serial, time, |state, mods, handle| {
+    let _grab_result = keyboard.input::<bool, _>(
+        state,
+        keycode,
+        key_state,
+        serial,
+        time,
+        |state, mods, handle| {
             if key_state == KeyState::Pressed {
                 let keysym = handle.modified_sym();
                 if let Some(key_desc) = format_key_description(keysym, mods) {
+                    if state.handle_native_key_action(&key_desc) {
+                        debug!(key = %key_desc, "native key action handled");
+                        return FilterResult::Intercept(true);
+                    }
                     if state.grabbed_keys.contains(&key_desc) {
                         debug!(key = %key_desc, "grabbed key intercepted");
                         // Emit key-pressed event to IPC clients
@@ -103,7 +112,8 @@ fn handle_keyboard<B: InputBackend>(state: &mut EwwmState, event: B::KeyboardKey
                 }
             }
             FilterResult::Forward
-        });
+        },
+    );
 }
 
 fn handle_pointer_motion_absolute<B: InputBackend>(

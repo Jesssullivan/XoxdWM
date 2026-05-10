@@ -244,6 +244,66 @@ Cycle to next layout algorithm.
 (:type :layout-cycle :id 13)
 ```
 
+Layout is native compositor policy. Emacs/eGreg clients may request
+`:layout-set` or `:layout-cycle`, but connected clients should treat the
+`:layout-changed` event as the app-layer mirror update.
+
+### Native Authority Policy
+
+#### `:app-launch` / `:launch-app`
+
+Launch a configured native app target by name. The IPC command does not accept
+arbitrary shell commands; targets come from native JSON `app_launch.NAME`.
+
+```elisp
+(:type :app-launch :id 14 :target "terminal")
+```
+
+#### `:app-launch-list`
+
+```elisp
+(:type :app-launch-list :id 15)
+```
+
+#### `:config-reload` / `:reload-config`
+
+Reload native compositor config and emit `:config-reloaded`.
+
+```elisp
+(:type :config-reload :id 16)
+```
+
+#### `:autostart-list` / `:autostart-run`
+
+List or run configured native autostart targets. Duplicate targets are skipped
+per compositor session unless `:force t` is supplied.
+
+```elisp
+(:type :autostart-list :id 17)
+(:type :autostart-run :id 18 :force t)
+```
+
+#### `:session-status`, `:session-lock`, `:session-logout`
+
+Native session IPC covers lock and compositor logout only. Shutdown, reboot,
+suspend, and hibernate remain app-layer/operator policy.
+
+```elisp
+(:type :session-status :id 19)
+(:type :session-lock :id 20)
+(:type :session-logout :id 21)
+```
+
+#### `:session-idle-status`, `:session-idle-start`, `:session-idle-stop`
+
+These supervise one configured idle command when native config enables it.
+
+```elisp
+(:type :session-idle-status :id 22)
+(:type :session-idle-start :id 23)
+(:type :session-idle-stop :id 24)
+```
+
 ### Input
 
 #### `:key-grab`
@@ -342,8 +402,12 @@ Events are pushed to all connected clients. No acknowledgment required.
 #### `:surface-focused`
 
 ```elisp
-(:type :event :event :surface-focused :id 2)
+(:type :event :event :surface-focused :id 2 :previous-id 1)
 ```
+
+`:surface-focused` is the canonical focus event.  Legacy runtimes may also
+emit `:focus-changed` with `:old` and `:new`; clients should treat that as a
+temporary compatibility alias.
 
 #### `:surface-geometry-changed`
 

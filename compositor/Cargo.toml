@@ -11,9 +11,12 @@ name = "ewwm-compositor"
 path = "src/main.rs"
 
 [features]
-default = ["full-backend"]
+default = []
 xwayland = ["smithay/xwayland"]
-full-backend = [    # enables DRM/winit backends (requires libseat, libinput, DRM, udev)
+# Portable default builds use the headless backend. Linux host/session builds
+# must opt into full-backend explicitly because it requires Wayland/DRM system
+# libraries that are not available on Darwin developer hosts.
+full-backend = [
     "xwayland",
     "smithay/backend_drm",
     "smithay/backend_gbm",
@@ -22,7 +25,7 @@ full-backend = [    # enables DRM/winit backends (requires libseat, libinput, DR
     "smithay/backend_udev",
     "smithay/backend_winit",
 ]
-vr = ["openxrs", "glow", "khronos-egl"]    # enables OpenXR VR runtime + GL rendering
+vr = ["openxrs", "glow", "khronos-egl"] # enables OpenXR VR runtime + GL rendering
 
 [dependencies]
 smithay = { version = "0.7", default-features = false, features = [

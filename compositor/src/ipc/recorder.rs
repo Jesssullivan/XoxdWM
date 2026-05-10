@@ -52,10 +52,7 @@ pub struct RecordedMessage {
 impl RecordedMessage {
     /// Serialize to a simple s-expression format.
     pub fn to_sexp(&self) -> String {
-        let escaped = self
-            .payload
-            .replace('\\', "\\\\")
-            .replace('"', "\\\"");
+        let escaped = self.payload.replace('\\', "\\\\").replace('"', "\\\"");
         format!(
             "(:timestamp {} :client {} :direction :{} :payload \"{}\")",
             self.timestamp_ms,
@@ -103,12 +100,7 @@ impl IpcRecorder {
     }
 
     /// Record a message if recording is active.
-    pub fn record(
-        &mut self,
-        client_id: u64,
-        direction: MessageDirection,
-        payload: &str,
-    ) {
+    pub fn record(&mut self, client_id: u64, direction: MessageDirection, payload: &str) {
         if !self.active {
             return;
         }
@@ -244,11 +236,7 @@ mod tests {
     fn test_recorder_to_sexp() {
         let mut rec = IpcRecorder::new();
         rec.start(Some("demo".to_string()));
-        rec.record(
-            1,
-            MessageDirection::Request,
-            "(:type :ping :id 1)",
-        );
+        rec.record(1, MessageDirection::Request, "(:type :ping :id 1)");
         let sexp = rec.to_sexp();
         assert!(sexp.contains(":session-name \"demo\""));
         assert!(sexp.contains(":message-count 1"));
