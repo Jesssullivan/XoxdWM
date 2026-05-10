@@ -131,21 +131,13 @@ impl LinkHintState {
     }
 
     /// Update with gaze position.  Returns event if any.
-    pub fn update_gaze(
-        &mut self,
-        gaze_x: f32,
-        gaze_y: f32,
-        dt_ms: f64,
-    ) -> Option<LinkHintEvent> {
+    pub fn update_gaze(&mut self, gaze_x: f32, gaze_y: f32, dt_ms: f64) -> Option<LinkHintEvent> {
         if !self.active || self.hints.is_empty() {
             return None;
         }
 
         // Find hint under gaze
-        let hit = self
-            .hints
-            .iter()
-            .find(|h| h.rect.contains(gaze_x, gaze_y));
+        let hit = self.hints.iter().find(|h| h.rect.contains(gaze_x, gaze_y));
 
         match hit {
             Some(hint) => {
@@ -392,7 +384,10 @@ mod tests {
 
         // Accumulate dwell past highlight threshold
         let evt = state.update_gaze(0.15, 0.22, 110.0);
-        assert!(matches!(evt, Some(LinkHintEvent::Highlighted { hint_id: 0, .. })));
+        assert!(matches!(
+            evt,
+            Some(LinkHintEvent::Highlighted { hint_id: 0, .. })
+        ));
     }
 
     #[test]
@@ -447,7 +442,10 @@ mod tests {
         state.focused_hint = Some(0);
 
         let evt = state.confirm();
-        assert!(matches!(evt, Some(LinkHintEvent::Confirmed { hint_id: 0, .. })));
+        assert!(matches!(
+            evt,
+            Some(LinkHintEvent::Confirmed { hint_id: 0, .. })
+        ));
         assert!(!state.active);
     }
 

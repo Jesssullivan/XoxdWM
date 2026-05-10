@@ -340,9 +340,7 @@ pub fn generate_layout(layout: KeyboardLayout, key_size: f32) -> Vec<KeyDef> {
     let rows = match layout {
         KeyboardLayout::Qwerty => vec![
             // Row 0: number row
-            vec![
-                "1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
-            ],
+            vec!["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
             // Row 1
             vec!["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
             // Row 2
@@ -351,19 +349,13 @@ pub fn generate_layout(layout: KeyboardLayout, key_size: f32) -> Vec<KeyDef> {
             vec!["z", "x", "c", "v", "b", "n", "m"],
         ],
         KeyboardLayout::Dvorak => vec![
-            vec![
-                "1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
-            ],
-            vec![
-                "\"", ",", ".", "p", "y", "f", "g", "c", "r", "l",
-            ],
+            vec!["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+            vec!["\"", ",", ".", "p", "y", "f", "g", "c", "r", "l"],
             vec!["a", "o", "e", "u", "i", "d", "h", "t", "n"],
             vec!["q", "j", "k", "x", "b", "m", "w"],
         ],
         KeyboardLayout::Colemak => vec![
-            vec![
-                "1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
-            ],
+            vec!["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
             vec!["q", "w", "f", "p", "g", "j", "l", "u", "y"],
             vec!["a", "r", "s", "t", "d", "h", "n", "e", "i", "o"],
             vec!["z", "x", "c", "v", "b", "k", "m"],
@@ -401,7 +393,13 @@ pub fn generate_layout(layout: KeyboardLayout, key_size: f32) -> Vec<KeyDef> {
     let bottom_y = rows.len() as f32 * (key_size + gap);
     let special_keys = vec![
         ("Shift", "shift", 0.0, key_size * 1.5, true),
-        ("Space", "space", key_size * 1.5 + gap, key_size * 5.0, false),
+        (
+            "Space",
+            "space",
+            key_size * 1.5 + gap,
+            key_size * 5.0,
+            false,
+        ),
         (
             "Bksp",
             "backspace",
@@ -508,7 +506,9 @@ mod tests {
 
         let events = state.press_key("a");
         assert!(
-            events.iter().any(|e| matches!(e, KeyboardEvent::TextInput { text } if text == "A")),
+            events
+                .iter()
+                .any(|e| matches!(e, KeyboardEvent::TextInput { text } if text == "A")),
             "Expected uppercase A, got {:?}",
             events,
         );
@@ -524,15 +524,15 @@ mod tests {
         assert!(state.caps_lock);
 
         let events = state.press_key("b");
-        assert!(
-            events.iter().any(|e| matches!(e, KeyboardEvent::TextInput { text } if text == "B")),
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, KeyboardEvent::TextInput { text } if text == "B")),);
 
         // Caps lock stays on
         let events = state.press_key("c");
-        assert!(
-            events.iter().any(|e| matches!(e, KeyboardEvent::TextInput { text } if text == "C")),
-        );
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, KeyboardEvent::TextInput { text } if text == "C")),);
         assert_eq!(state.input_buffer, "BC");
 
         // Toggle caps lock off

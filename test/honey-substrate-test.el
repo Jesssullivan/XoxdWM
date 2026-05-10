@@ -3,6 +3,7 @@
 ;;; Code:
 
 (require 'ert)
+(require 'subr-x)
 
 (defconst honey-substrate--setup-script
   (expand-file-name "packaging/scripts/exwm-vr-setup"
@@ -48,6 +49,30 @@
   (expand-file-name "packaging/scripts/exwm-vr-openxr-smoke"
                     (expand-file-name ".." (file-name-directory load-file-name))))
 
+(defconst honey-substrate--hmd-connector-script
+  (expand-file-name "packaging/scripts/exwm-vr-hmd-connector"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
+(defconst honey-substrate--kernel-dsc-truth-script
+  (expand-file-name "packaging/scripts/exwm-vr-kernel-dsc-truth"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
+(defconst honey-substrate--beyond-power-script
+  (expand-file-name "packaging/scripts/beyond-power-on"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
+(defconst honey-substrate--amdgpu-dsc-pps-debugfs-patch
+  (expand-file-name "patches/amdgpu-dsc-pps-debugfs.patch"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
+(defconst honey-substrate--sway-config
+  (expand-file-name "packaging/sway/config"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
+(defconst honey-substrate--sway-status
+  (expand-file-name "packaging/sway/status.sh"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
 (defconst honey-substrate--exwm-vr-spec
   (expand-file-name "packaging/rpm/exwm-vr.spec"
                     (expand-file-name ".." (file-name-directory load-file-name))))
@@ -56,13 +81,61 @@
   (expand-file-name "docs/remote-build-authority.md"
                     (expand-file-name ".." (file-name-directory load-file-name))))
 
+(defun honey-substrate--read-file (path)
+  "Return PATH contents as a string."
+  (with-temp-buffer
+    (insert-file-contents path)
+    (buffer-string)))
+
+(defun honey-substrate--section (text start end)
+  "Return TEXT section from START regexp to END regexp."
+  (let ((start-pos (string-match start text)))
+    (when start-pos
+      (let ((end-pos (string-match end text start-pos)))
+        (substring text start-pos end-pos)))))
+
+(defun honey-substrate--write-edid (path product)
+  "Write a minimal binary EDID at PATH for BIG PRODUCT."
+  (let ((bytes (make-string 128 0)))
+    (aset bytes 8 #x09)   ; BIG manufacturer, byte 8
+    (aset bytes 9 #x27)   ; BIG manufacturer, byte 9
+    (pcase product
+      (#x1234
+       (aset bytes 10 #x34)
+       (aset bytes 11 #x12))
+      (#x5095
+       (aset bytes 10 #x95)
+       (aset bytes 11 #x50))
+      (_ (error "unsupported product")))
+    (let ((coding-system-for-write 'binary))
+      (write-region (string-make-unibyte bytes) nil path nil 'silent))))
+
+(defun honey-substrate--make-connector (root name status &optional non-desktop product)
+  "Create fake DRM connector NAME under ROOT."
+  (let ((dir (expand-file-name name root)))
+    (make-directory dir t)
+    (write-region status nil (expand-file-name "status" dir) nil 'silent)
+    (when non-desktop
+      (write-region non-desktop nil (expand-file-name "non_desktop" dir) nil 'silent))
+    (when product
+      (honey-substrate--write-edid (expand-file-name "edid" dir) product))
+    dir))
+
+(defun honey-substrate--resolve-fixture (root &rest args)
+  "Run the connector resolver against fake DRM ROOT with ARGS."
+  (with-temp-buffer
+    (let ((rc (apply #'call-process honey-substrate--hmd-connector-script
+                     nil t nil "--sysfs-root" root args)))
+      (cons rc (string-trim (buffer-string))))))
+
 (ert-deftest honey-substrate/beyond-first-frame-sets-runtime-dir ()
   "beyond-first-frame uses a real runtime dir for remote OpenXR client tools."
   (with-temp-buffer
     (insert-file-contents honey-substrate--setup-script)
     (let ((script (buffer-string)))
       (should (string-match-p "export XDG_RUNTIME_DIR=.*run/user/\\$[(]id -u[)]" script))
-      (should (string-match-p "XDG_RUNTIME_DIR=\"\\$XDG_RUNTIME_DIR\"" script)))))
+      (should (string-match-p "EXWM_VR_OPENXR_ACCEPT_TIMEOUT_AFTER_READY=1" script))
+      (should (string-match-p "exwm-vr-openxr-smoke" script)))))
 
 (ert-deftest honey-substrate/beyond-first-frame-allows-connected-dp-fallback ()
   "beyond-first-frame does not hard-fail when DP is connected but non_desktop is absent."
@@ -90,7 +163,8 @@
       (should (string-match-p "# MONADO_SERVICE_BIN=/usr/local/bin/monado-service" script))
       (should (string-match-p "systemctl --user start exwm-vr-monado.service" script))
       (should (string-match-p "XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1" script))
-      (should (string-match-p "EWWM_DRM_LEASE_CONNECTORS=DP-2" script)))))
+      (should (string-match-p "exwm-vr-hmd-connector" script))
+      (should-not (string-match-p "EWWM_DRM_LEASE_CONNECTORS=DP-2" script)))))
 
 (ert-deftest honey-substrate/monado-launch-cleans-stale-ipc-and-prefers-packaged-runtime ()
   "The launcher should clear dead IPC sockets and prefer the packaged runtime."
@@ -122,7 +196,99 @@
       (should (string-match-p (regexp-quote "/usr/local/bin/hello_xr") script))
       (should (string-match-p (regexp-quote "timeout \"$timeout_seconds\"") script))
       (should (string-match-p (regexp-quote "monado_comp_ipc") script))
-      (should (string-match-p (regexp-quote "openxr_smoke=passed_after_ready_timeout") script)))))
+      (should (string-match-p (regexp-quote "openxr_smoke=p3_session_after_ready_timeout") script))
+      (should (string-match-p (regexp-quote "proof_ladder=P3_OPENXR_SESSION") script))
+      (should (string-match-p (regexp-quote "visual_observed=") script))
+      (should-not (string-match-p (regexp-quote "first frame confirmed") script)))))
+
+(ert-deftest honey-substrate/connector-resolver-prefers-nondesktop-dp ()
+  "The HMD resolver prefers a connected DP connector with non_desktop=1."
+  (let* ((root (make-temp-file "honey-drm-" t))
+         result)
+    (unwind-protect
+        (progn
+          (honey-substrate--make-connector root "card0-DP-1" "connected" "0" #x1234)
+          (honey-substrate--make-connector root "card0-DP-2" "connected" "1" nil)
+          (setq result (honey-substrate--resolve-fixture root))
+          (should (= (car result) 0))
+          (should (string= (cdr result) "DP-2")))
+      (delete-directory root t))))
+
+(ert-deftest honey-substrate/connector-resolver-accepts-big-edid-products ()
+  "The HMD resolver recognizes BIG EDID products 0x1234 and 0x5095."
+  (dolist (case '(("card0-DP-1" #x1234 "DP-1")
+                  ("card0-DP-2" #x5095 "DP-2")))
+    (let* ((root (make-temp-file "honey-drm-" t))
+           result)
+      (unwind-protect
+          (progn
+            (honey-substrate--make-connector root (nth 0 case) "connected" "0" (nth 1 case))
+            (setq result (honey-substrate--resolve-fixture root))
+            (should (= (car result) 0))
+            (should (string= (cdr result) (nth 2 case))))
+        (delete-directory root t)))))
+
+(ert-deftest honey-substrate/connector-resolver-handles-missing-nondesktop-and-disconnected-dp ()
+  "BIG EDID works without non_desktop, but disconnected DP is rejected."
+  (let* ((root (make-temp-file "honey-drm-" t))
+         result)
+    (unwind-protect
+        (progn
+          (honey-substrate--make-connector root "card0-DP-1" "connected" nil #x1234)
+          (setq result (honey-substrate--resolve-fixture root))
+          (should (= (car result) 0))
+          (should (string= (cdr result) "DP-1")))
+      (delete-directory root t)))
+  (let* ((root (make-temp-file "honey-drm-" t))
+         result)
+    (unwind-protect
+        (progn
+          (honey-substrate--make-connector root "card0-DP-1" "disconnected" "1" #x1234)
+          (honey-substrate--make-connector root "card0-HDMI-A-1" "connected" "0" nil)
+          (setq result (honey-substrate--resolve-fixture root))
+          (should-not (= (car result) 0)))
+      (delete-directory root t))))
+
+(ert-deftest honey-substrate/connector-resolver-falls-back-to-explicit-override ()
+  "An HDMI-only management display does not become the HMD; explicit DP override is last resort."
+  (let* ((root (make-temp-file "honey-drm-" t))
+         result)
+    (unwind-protect
+        (progn
+          (honey-substrate--make-connector root "card0-HDMI-A-1" "connected" "0" nil)
+          (setq result (honey-substrate--resolve-fixture root "--override" "DP-9"))
+          (should (= (car result) 0))
+          (should (string= (cdr result) "DP-9")))
+      (delete-directory root t))))
+
+(ert-deftest honey-substrate/safe-vr-paths-do-not-carry-stale-honey-defaults ()
+  "Read-only/status/P3 smoke paths should not bake in stale Honey connector paths."
+  (let* ((setup (honey-substrate--read-file honey-substrate--setup-script))
+         (justfile (honey-substrate--read-file honey-substrate--justfile))
+         (sway-config (honey-substrate--read-file honey-substrate--sway-config))
+         (sway-status (honey-substrate--read-file honey-substrate--sway-status))
+         (first-frame (honey-substrate--section
+                       setup "^cmd_beyond_first_frame()"
+                       "^cmd_openxr_build()")))
+    (dolist (content (list setup justfile sway-config sway-status))
+      (should-not (string-match-p "/sys/kernel/debug/dri/1/" content))
+      (should-not (string-match-p "hidraw3" content)))
+    (should first-frame)
+    (should-not (string-match-p "pkill -f monado-service" first-frame))
+    (should-not (string-match-p "first frame confirmed" first-frame))
+    (should (string-match-p "P3" first-frame))
+    (should (string-match-p "P4" first-frame))))
+
+(ert-deftest honey-substrate/beyond-power-on-uses-correct-hid-command-slot ()
+  "The packaged Beyond helper should put SetWorkState at byte[1]."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--beyond-power-script)
+    (let ((script (buffer-string)))
+      (should (string-match-p (regexp-quote "POWER_ON_REPORT_ID = 0x00") script))
+      (should (string-match-p (regexp-quote "pkt[0] = POWER_ON_REPORT_ID") script))
+      (should (string-match-p (regexp-quote "pkt[1] = 0x22") script))
+      (should (string-match-p (regexp-quote "pkt[2] = phase") script))
+      (should-not (string-match-p (regexp-quote "pkt[2] = 0x22") script)))))
 
 (ert-deftest honey-substrate/openxr-smoke-client-rpm-lane-builds-packaged-client ()
   "The OpenXR smoke client RPM lane should package a repo-managed client path."
@@ -160,7 +326,108 @@
       (should (string-match-p (regexp-quote "Requires:       bash") spec))
       (should (string-match-p (regexp-quote "Requires:       coreutils") spec))
       (should (string-match-p (regexp-quote "packaging/scripts/exwm-vr-openxr-smoke") spec))
-      (should (string-match-p (regexp-quote "%{_libexecdir}/%{project_name}/openxr-smoke") spec)))))
+      (should (string-match-p (regexp-quote "packaging/scripts/exwm-vr-hmd-connector") spec))
+      (should (string-match-p (regexp-quote "packaging/scripts/exwm-vr-kernel-dsc-truth") spec))
+      (should (string-match-p (regexp-quote "%{_libexecdir}/%{project_name}/openxr-smoke") spec))
+      (should (string-match-p (regexp-quote "%{_libexecdir}/%{project_name}/hmd-connector") spec))
+      (should (string-match-p (regexp-quote "%{_libexecdir}/%{project_name}/kernel-dsc-truth") spec)))))
+
+(ert-deftest honey-substrate/kernel-dsc-truth-helper-is-read-only ()
+  "The kernel DSC truth helper should verify patches without mutating the display."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--kernel-dsc-truth-script)
+    (let ((script (buffer-string)))
+      (should (string-match-p (regexp-quote "qp_table_444_8bpc_max") script))
+      (should (string-match-p (regexp-quote "qp_table_444_8bpc_min") script))
+      (should (string-match-p (regexp-quote "drm_parse_vesa_specific_block") script))
+      (should (string-match-p (regexp-quote "dsc_bpp_x16") script))
+      (should (string-match-p (regexp-quote "connected_dp_edids") script))
+      (should (string-match-p (regexp-quote "default=\"auto\"") script))
+      (should (string-match-p (regexp-quote "resolve_connector") script))
+      (should (string-match-p (regexp-quote "dsc_pic_parameter_set") script))
+      (should (string-match-p (regexp-quote "PPS_RC_RANGE_OFFSET = 58") script))
+      (should (string-match-p (regexp-quote "decode_rc_range") script))
+      (should (string-match-p (regexp-quote "min_qp") script))
+      (should (string-match-p (regexp-quote "bpg_offset") script))
+      (should (string-match-p (regexp-quote "pps_rc_ranges_bpp8_444_patched") script))
+      (should (string-match-p (regexp-quote "dpcd_registers") script))
+      (should-not (string-match-p (regexp-quote "link_settings\" >") script))
+      (should-not (string-match-p (regexp-quote "dsc_bits_per_pixel\" >") script))
+      (should-not (string-match-p (regexp-quote "dsc_disable_passthrough\" >") script))
+      (should-not (string-match-p (regexp-quote "systemctl") script))
+      (should-not (string-match-p (regexp-quote "pkill") script))
+      (should-not (string-match-p (regexp-quote "detach_kernel_driver") script)))))
+
+(ert-deftest honey-substrate/kernel-dsc-truth-decodes-pps-debugfs-hex ()
+  "The DSC truth helper should decode the PPS hex emitted by the debugfs patch."
+  (skip-unless (executable-find "python3"))
+  (let ((code
+         (concat
+          "from importlib.machinery import SourceFileLoader\n"
+          "import sys\n"
+          "mod = SourceFileLoader('kernel_dsc_truth', sys.argv[1]).load_module()\n"
+          "pps = bytearray(128)\n"
+          "pps[0] = 0x12\n"
+          "pps[3] = 0x88\n"
+          "pps[4] = 0x20\n"
+          "pps[5] = 0x80\n"
+          "for index, (min_qp, max_qp, bpg) in enumerate(zip(\n"
+          "    mod.QP_MIN_BPP8_PATCHED,\n"
+          "    mod.QP_MAX_BPP8_PATCHED,\n"
+          "    mod.RC_BPG_OFFSET_BPP8_444_PATCHED,\n"
+          "    strict=True,\n"
+          ")):\n"
+          "    word = mod.encode_rc_range(min_qp, max_qp, bpg)\n"
+          "    offset = mod.PPS_RC_RANGE_OFFSET + index * 2\n"
+          "    pps[offset] = word >> 8\n"
+          "    pps[offset + 1] = word & 0xff\n"
+          "raw_text = ' '.join(f'{byte:02x}' for byte in pps).encode() + b'\\n'\n"
+          "parsed = mod.pps_bytes(raw_text)\n"
+          "assert parsed == bytes(pps)\n"
+          "decoded = mod.decode_pps(parsed)\n"
+          "assert decoded['bits_per_component'] == 8\n"
+          "assert decoded['bits_per_pixel_x16'] == 128\n"
+          "assert decoded['rc_ranges'] == mod.expected_rc_ranges(\n"
+          "    mod.QP_MAX_BPP8_PATCHED,\n"
+          "    mod.QP_MIN_BPP8_PATCHED,\n"
+          "    mod.RC_BPG_OFFSET_BPP8_444_PATCHED,\n"
+          ")\n")))
+    (with-temp-buffer
+      (should (= 0 (call-process "python3" nil t nil
+                                 "-c" code honey-substrate--kernel-dsc-truth-script))))))
+
+(ert-deftest honey-substrate/kernel-dsc-truth-uses-sops-sudo-wrapper ()
+  "Remote PPS/kernel truth targets should use the Honey SOPS sudo wrapper."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--justfile)
+    (let* ((justfile (buffer-string))
+           (pps-target (honey-substrate--section
+                        justfile
+                        "^beyond-kernel-pps"
+                        "^# Run the read-only kernel/driver DSC truth helper"))
+           (truth-target (honey-substrate--section
+                          justfile
+                          "^honey-kernel-dsc-truth"
+                          "^# ── dev")))
+      (should (string-match-p (regexp-quote "kernel_dsc_truth_script") justfile))
+      (should (string-match-p (regexp-quote "just honey-kernel-dsc-truth") pps-target))
+      (should (string-match-p (regexp-quote "exwm-vr-kernel-dsc-truth") truth-target))
+      (should (string-match-p (regexp-quote "just honey-sudo-run {{host}}") truth-target))
+      (should-not (string-match-p (regexp-quote "sudo -S") pps-target))
+      (should-not (string-match-p (regexp-quote "BECOME_PASSWORD_FILE") pps-target)))))
+
+(ert-deftest honey-substrate/amdgpu-pps-debugfs-patch-is-read-only ()
+  "The optional kernel PPS patch should expose cached PPS bytes without mutation."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--amdgpu-dsc-pps-debugfs-patch)
+    (let ((patch (buffer-string)))
+      (should (string-match-p (regexp-quote "dsc_pic_parameter_set") patch))
+      (should (string-match-p (regexp-quote "stream->dsc_packed_pps") patch))
+      (should (string-match-p (regexp-quote "simple_read_from_buffer") patch))
+      (should (string-match-p (regexp-quote "dp_dsc_pic_parameter_set_read") patch))
+      (should-not (string-match-p (regexp-quote ".write = dp_dsc_pic_parameter_set") patch))
+      (should-not (string-match-p (regexp-quote "link_settings") patch))
+      (should-not (string-match-p (regexp-quote "dc_link_set_preferred_training_settings") patch)))))
 
 (ert-deftest honey-substrate/monado-companion-lane-keeps-rocky-deps-honest ()
   "The Monado companion RPM lane should not depend on unavailable Rocky libuvc packaging."
@@ -285,9 +552,15 @@
       (should (string-match-p "^honey-shell host=\"honey\"" justfile))
       (should (string-match-p "^honey-devshell host=\"honey\"" justfile))
       (should (string-match-p "^honey-run host=\"honey\"" justfile))
+      (should (string-match-p "^honey-sudo-run host=\"honey\"" justfile))
+      (should (string-match-p "^honey-sudo-check host=\"honey\"" justfile))
       (should (string-match-p "^honey-proof-env host=\"honey\"" justfile))
       (should (string-match-p "^honey-openxr-status host=\"honey\"" justfile))
       (should (string-match-p "^honey-openxr-smoke host=\"honey\"" justfile))
+      (should (string-match-p (regexp-quote "BECOME_PASSWORD_FILE") justfile))
+      (should (string-match-p (regexp-quote ".config/sops-nix/secrets/become/password") justfile))
+      (should-not (string-match-p (regexp-quote "echo 'tinyland' | sudo -S") justfile))
+      (should-not (string-match-p (regexp-quote "sudo /tmp/exwm-vr-setup") justfile))
       (should-not (string-match-p (regexp-quote "extra=\"${extra#--}\"") justfile))
       (should (string-match-p "remote_repo_path := \"/home/jess/XoxdWM\"" justfile))
       (should (string-match-p "cd {{remote_repo_path}}" justfile))

@@ -256,22 +256,24 @@ QP/RC fix without the parser requires manual intervention to set BPP=128.
 ### PPS Byte Encoding
 
 Each range is a big-endian 16-bit word at PPS bytes 58-87:
-- Bits [15:11] = `range_bpg_offset` (5-bit 2's complement)
+- Bits [15:11] = `range_min_qp` (5 bits unsigned)
 - Bits [10:6] = `range_max_qp` (5 bits unsigned)
-- Bits [4:0] = `range_min_qp` (5 bits unsigned)
+- Bits [5:0] = `range_bpg_offset` (6-bit 2's complement)
 
-### Changed PPS Bytes (8 of 30)
+This is the Linux `drm_dsc_pps_payload_pack()` layout. Older lab notes had
+the field order reversed; use the repo helper below as the byte-level
+authority.
 
-| PPS Byte | Range | Stock | Patched | Notes |
-|---------:|------:|------:|--------:|-------|
-| 77       | 9     | 0x84  | 0x83    | min_qp: 4→3 |
-| 79       | 10    | 0x85  | 0xC5    | max_qp: 10→11 |
-| 80       | 11    | 0xB2  | 0xA3    | ofs: -10→-12, max_qp: 11→12 |
-| 81       | 11    | 0xC5  | 0x05    | (cont'd) |
-| 82       | 12    | 0xA2  | 0xA3    | max_qp: 11→13 |
-| 83       | 12    | 0xC5  | 0x45    | (cont'd) |
-| 85       | 13    | 0x08  | 0x47    | max_qp: 12→13, min_qp: 8→7 |
-| 87       | 14    | 0x4C  | 0xCD    | max_qp: 13→15, min_qp: 12→13 |
+### Changed PPS Words And Bytes
+
+| Range | PPS bytes | Stock word | Patched word | Notes |
+|------:|-----------|------------|--------------|-------|
+| 9 | 76-77 | `0x22b6` | `0x1ab6` | min_qp: 4→3 |
+| 10 | 78-79 | `0x2ab6` | `0x2af6` | max_qp: 10→11 |
+| 11 | 80-81 | `0x2af6` | `0x2b34` | ofs: -10→-12, max_qp: 11→12 |
+| 12 | 82-83 | `0x2af4` | `0x2b74` | max_qp: 11→13 |
+| 13 | 84-85 | `0x4334` | `0x3b74` | max_qp: 12→13, min_qp: 8→7 |
+| 14 | 86-87 | `0x6374` | `0x6bf4` | max_qp: 13→15, min_qp: 12→13 |
 
 ### What This Means
 
@@ -287,8 +289,11 @@ at range 11 (`-10` → `-12`), giving the rate controller room to converge. This
 the VESA DSC 1.1 reference model output (Table E-5).
 
 **Verification on honey**: After installing the XR kernel, dump PPS from
-`/sys/kernel/debug/dri/1/DP-2/dsc_pic_parameter_set` and confirm bytes 77-87
-match the patched values above. If they do, the QP/RC fix is active.
+the live HMD connector with `just honey-kernel-dsc-truth honey`. Confirm
+`pps_rc_ranges_bpp8_444_patched=true` and
+`pps_rc_ranges_bpp8_444_stock=false`. If the kernel does not expose
+`dsc_pic_parameter_set`, the module-level QP/RC proof is still useful but PPS
+truth remains unobserved.
 
 ## Next Verification Steps
 
@@ -297,9 +302,9 @@ corrected QP tables, RC offset[11], and the VESA DisplayID parser. Expected outc
 BPP=8.0 works, display shows correct image instead of going dark.
 Install via `just beyond-kernel-install honey v6.19.5-xr1`.
 
-**Step B**: Capture PPS from `/sys/kernel/debug/dri/1/DP-2/dsc_pic_parameter_set`
-on the patched kernel. Compare `rc_range_params[10..14]` against stock kernel values
-to confirm the QP table fix is active. Key fields to verify:
+**Step B**: Capture PPS from the dynamically resolved HMD debugfs connector on
+the patched kernel. Compare `rc_range_params[10..14]` against stock kernel
+values to confirm the QP table fix is active. Key fields to verify:
 - `rc_range_params[11].range_bpg_offset` should be -12 (was -10)
 - `rc_range_params[10..14].range_max_qp` should match patched table
 

@@ -254,7 +254,10 @@ impl FollowMode {
         self.reference_origin = head_pos;
         self.reference_rotation = head_rot;
 
-        debug!("VR follow: grab-all applied delta ({:.3}, {:.3}, {:.3})", dx, dy, dz);
+        debug!(
+            "VR follow: grab-all applied delta ({:.3}, {:.3}, {:.3})",
+            dx, dy, dz
+        );
     }
 
     /// Change the follow policy.
@@ -278,8 +281,7 @@ impl FollowMode {
 
     /// Generate IPC s-expression for follow status.
     pub fn status_sexp(&self) -> String {
-        let following_ids: Vec<String> =
-            self.following.iter().map(|id| id.to_string()).collect();
+        let following_ids: Vec<String> = self.following.iter().map(|id| id.to_string()).collect();
         format!(
             "(:policy :{} :h-fov-threshold {:.1} :v-fov-threshold {:.1} :follow-speed {:.2} :follow-distance {:.2} :deadzone {:.1} :suppress-reading {} :following-count {} :following-ids ({}))",
             self.policy.as_str(),
@@ -532,7 +534,10 @@ mod tests {
         // Surface should now be at follow_distance in front of head
         let pos = scene.nodes[&1].transform.position;
         let (h, v) = angle_from_forward(new_head, rot, pos);
-        assert!(h.abs() < 5.0, "Surface should be roughly ahead after recenter");
+        assert!(
+            h.abs() < 5.0,
+            "Surface should be roughly ahead after recenter"
+        );
     }
 
     #[test]
@@ -548,15 +553,13 @@ mod tests {
         scene.nodes.get_mut(&2).unwrap().transform.position = Vec3::new(1.0, 0.0, -2.0);
 
         // Record relative distance between surfaces before grab
-        let pre_dx =
-            scene.nodes[&2].transform.position.x - scene.nodes[&1].transform.position.x;
+        let pre_dx = scene.nodes[&2].transform.position.x - scene.nodes[&1].transform.position.x;
 
         let new_head = Vec3::new(0.0, 0.0, 1.0);
         fm.grab_all(&mut scene, new_head, Quat::IDENTITY);
 
         // Relative distance should be preserved
-        let post_dx =
-            scene.nodes[&2].transform.position.x - scene.nodes[&1].transform.position.x;
+        let post_dx = scene.nodes[&2].transform.position.x - scene.nodes[&1].transform.position.x;
         assert!(approx_eq(pre_dx, post_dx));
 
         // Both surfaces should have shifted by the head delta

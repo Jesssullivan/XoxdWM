@@ -150,8 +150,7 @@ impl TransientChainManager {
         }
 
         let before = self.relations.len();
-        self.relations
-            .retain(|r| !to_remove.contains(&r.child_id));
+        self.relations.retain(|r| !to_remove.contains(&r.child_id));
         let removed = before - self.relations.len();
 
         debug!(
@@ -240,12 +239,7 @@ impl TransientChainManager {
     }
 
     /// Recursively position all children of `parent_id` in the scene.
-    pub fn position_all_children(
-        &self,
-        parent_id: u64,
-        scene: &mut VrScene,
-        head_pos: Vec3,
-    ) {
+    pub fn position_all_children(&self, parent_id: u64, scene: &mut VrScene, head_pos: Vec3) {
         let children = self.get_children(parent_id);
         for child_id in children {
             let parent_transform = match scene.nodes.get(&parent_id) {

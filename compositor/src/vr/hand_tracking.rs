@@ -444,12 +444,32 @@ fn parse_joint(s: &str) -> Option<HandJoint> {
 
 /// All joint names in order, matching HandJoint enum indices.
 const JOINT_NAMES: [&str; JOINT_COUNT] = [
-    "palm", "wrist",
-    "thumb-metacarpal", "thumb-proximal", "thumb-distal", "thumb-tip",
-    "index-metacarpal", "index-proximal", "index-intermediate", "index-distal", "index-tip",
-    "middle-metacarpal", "middle-proximal", "middle-intermediate", "middle-distal", "middle-tip",
-    "ring-metacarpal", "ring-proximal", "ring-intermediate", "ring-distal", "ring-tip",
-    "little-metacarpal", "little-proximal", "little-intermediate", "little-distal", "little-tip",
+    "palm",
+    "wrist",
+    "thumb-metacarpal",
+    "thumb-proximal",
+    "thumb-distal",
+    "thumb-tip",
+    "index-metacarpal",
+    "index-proximal",
+    "index-intermediate",
+    "index-distal",
+    "index-tip",
+    "middle-metacarpal",
+    "middle-proximal",
+    "middle-intermediate",
+    "middle-distal",
+    "middle-tip",
+    "ring-metacarpal",
+    "ring-proximal",
+    "ring-intermediate",
+    "ring-distal",
+    "ring-tip",
+    "little-metacarpal",
+    "little-proximal",
+    "little-intermediate",
+    "little-distal",
+    "little-tip",
 ];
 
 fn joint_to_ipc(name: &str, pose: &JointPose) -> IpcJointInfo {

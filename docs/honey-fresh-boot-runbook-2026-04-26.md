@@ -21,13 +21,19 @@ Read this with:
 - If the boot/reset behavior itself is under test, record that in Dell-7810,
   not as an XoxdWM product proof.
 - A passing CLI smoke is fresh-boot OpenXR smoke, not in-goggles first-frame
-  proof unless a human records a visible frame in the headset.
+  proof unless a human records a visible frame in the headset. Treat
+  `proof_ladder=P3_OPENXR_SESSION` with `visual_observed=no` as P3 pass /
+  P4 fail.
 
 ## Required Presence
 
 - A `neo` operator in `/Users/jess/git/XoxdWM`.
 - A lab operator present at `honey`, with access to the Dell management display
   and the Bigscreen Beyond.
+- Honey sudo/become must come from the host-local sops-nix lane. Verify it
+  with `just honey-sudo-check honey`; this reads
+  `$BECOME_PASSWORD_FILE` or `~/.config/sops-nix/secrets/become/password` on
+  `honey` and must not use a hard-coded password in the run notes.
 - A known display topology written into the run notes:
   - Dell HDMI display connected or disconnected.
   - Bigscreen Beyond DP path connected or disconnected.
@@ -117,6 +123,9 @@ Fresh-boot OpenXR smoke passes only if all of these are true:
 - The smoke reaches Monado / Bigscreen Beyond.
 - Two eye swapchains are created at the expected `3561x3561` size.
 - The wrapper reports `openxr_smoke=passed`.
+- The wrapper reports `proof_ladder=P3_OPENXR_SESSION`.
+- The wrapper reports `visual_observed=yes` only when the lab operator actually
+  saw a visible headset frame.
 - No stale IPC socket prevents service startup or client connection.
 
 In-goggles first-frame proof additionally requires a human note that a visible

@@ -210,15 +210,20 @@ supported user-scoped config surface instead of requiring arbitrary unit edits:
 ```bash
 mkdir -p ~/.config/exwm-vr
 
-cat > ~/.config/exwm-vr/compositor.env <<'EOF'
-EWWM_DRM_LEASE_CONNECTORS=DP-2
+hmd_connector=$(/usr/libexec/exwm-vr/hmd-connector --format name) || {
+  echo "No live HMD connector resolved; set EXWM_VR_HMD_CONNECTOR=DP-n and rerun" >&2
+  exit 1
+}
+
+cat > ~/.config/exwm-vr/compositor.env <<EOF
+EWWM_DRM_LEASE_CONNECTORS=${hmd_connector}
 EOF
 
-cat > ~/.config/exwm-vr/monado.env <<'EOF'
+cat > ~/.config/exwm-vr/monado.env <<EOF
 # Optional for hosts that still use a local Monado build:
 # MONADO_SERVICE_BIN=/usr/local/bin/monado-service
 XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1
-XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2
+XRT_COMPOSITOR_WAYLAND_CONNECTOR=${hmd_connector}
 WAYLAND_DISPLAY=wayland-0
 STEAMVR_LH_ENABLE=1
 XRT_COMPOSITOR_COMPUTE=1
@@ -292,16 +297,70 @@ Monado service, BrainFlow daemon, serial ports, and GPU capabilities.
 
 ## Configuration Reference
 
-All configuration is via Emacs `defcustom` variables. On the packaged Rocky
-session lane, place session-specific settings in `~/.config/exwm-vr/config.el`.
-For non-packaged development flows, you can still set them in your regular
-`init.el` or via `M-x customize-group RET ewwm RET`.
+Configuration is split between native compositor startup settings and the
+Emacs/eGreg application layer. Native compositor settings are loaded before the
+Wayland backend starts; Emacs `defcustom` variables remain for editor,
+diagnostic, and compatibility-client behavior.
+
+### Native Compositor Config
+
+The compositor loads native JSON config from
+`$XDG_CONFIG_HOME/exwm-vr/compositor.json`, or
+`~/.config/exwm-vr/compositor.json` when `XDG_CONFIG_HOME` is unset. A missing
+default config file is deterministic: the compositor logs the missing path and
+uses built-in defaults.
+
+Use `--config /path/to/compositor.json` to load an explicit file. An explicit
+config path must exist and parse successfully; this prevents typoed operator
+paths from silently falling back to defaults.
+
+IPC socket precedence is:
+
+1. `ewwm-compositor --ipc-socket /path/to/socket`
+2. native JSON `ipc_socket_path`
+3. `$XDG_RUNTIME_DIR/ewwm-ipc.sock`
+
+Minimal native config:
+
+```json
+{
+  "ipc_socket_path": "/run/user/1000/ewwm-ipc.sock",
+  "workspace_count": 4,
+  "active_workspace": 0,
+  "layout_mode": "tiling",
+  "key_action.s-1": "workspace-switch:0",
+  "key_action.s-SPC": "layout-cycle",
+  "key_action.s-r": "config-reload",
+  "app_launch.terminal": "foot",
+  "autostart_enabled": false,
+  "autostart_targets": "",
+  "session_lock_command": "swaylock",
+  "session_idle_enabled": false,
+  "session_idle_command": "swayidle -w",
+  "vr_enabled": false,
+  "default_scale": 1.0,
+  "cursor_size": 24
+}
+```
+
+Native compositor policy owns workspace count, active workspace, layout mode,
+configured key actions, configured app-launch targets, autostart targets, config
+reload, lock/logout, idle supervision, and DPMS IPC. Emacs/eGreg helpers remain
+available as app-layer clients; when IPC is connected they request native
+policy, and their disconnected behavior is for editor/debug sessions.
+
+### Emacs Application Config
+
+On the packaged Rocky session lane, place Emacs/eGreg application-layer
+settings in `~/.config/exwm-vr/config.el`. For non-packaged development flows,
+you can still set them in your regular `init.el` or via
+`M-x customize-group RET ewwm RET`.
 
 ### Core Settings
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `ewwm-workspace-number` | integer | 4 | Number of workspaces |
+| `ewwm-workspace-number` | integer | 4 | Emacs app-layer workspace count; native compositor startup uses JSON `workspace_count` |
 | `ewwm-layout-default` | symbol | `tiling` | Default layout: tiling, monocle, grid, floating |
 | `ewwm-layout-master-ratio` | float | 0.55 | Master window width ratio |
 | `ewwm-ipc-socket-path` | string/nil | nil | IPC socket path (nil = auto-detect) |

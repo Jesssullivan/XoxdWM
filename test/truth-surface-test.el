@@ -263,5 +263,35 @@
     (should (string-match-p "/usr/bin/monado-service" doc))
     (should (string-match-p "/usr/share/openxr/1/openxr_monado\\.json" doc))))
 
+(ert-deftest truth-surface/honey-proof-ladder-keeps-p3-and-p4-separate ()
+  "Support docs and templates should not equate focused CLI smoke with first frame."
+  (let ((matrix (truth-surface-test--read-file "docs/support-matrix.md"))
+        (runbook (truth-surface-test--read-file "docs/honey-fresh-boot-runbook-2026-04-26.md"))
+        (template (truth-surface-test--read-file "docs/honey-fresh-boot-evidence-template.md"))
+        (smoke (truth-surface-test--read-file "packaging/scripts/exwm-vr-openxr-smoke")))
+    (dolist (level '("P0 Inventory"
+                     "P1 Host Substrate"
+                     "P2 Lease/Runtime"
+                     "P3 OpenXR Session"
+                     "P4 Visual First Frame"
+                     "P5 Fresh-Boot Repeatability"
+                     "P6 Operator Stability"))
+      (let* ((parts (split-string level " " t))
+             (code (car parts))
+             (name (mapconcat #'identity (cdr parts) " ")))
+        (should (string-match-p
+                 (format "%s\\(.\\|\n\\)*%s"
+                         (regexp-quote code)
+                         (regexp-quote name))
+                 matrix))))
+    (should (string-match-p "P3 pass / P4 fail" matrix))
+    (should (string-match-p "visual_observed=no" matrix))
+    (should (string-match-p "visual_observed" runbook))
+    (should (string-match-p "visual_observed" template))
+    (should (string-match-p "proof_ladder=P3_OPENXR_SESSION" smoke))
+    (should (string-match-p "openxr_smoke=p3_session_after_ready_timeout" smoke))
+    (should-not (string-match-p "passed_after_ready_timeout" smoke))
+    (should-not (string-match-p "first frame confirmed" smoke))))
+
 (provide 'truth-surface-test)
 ;;; truth-surface-test.el ends here

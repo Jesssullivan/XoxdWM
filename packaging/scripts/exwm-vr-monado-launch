@@ -14,6 +14,19 @@ if [ -S "${socket_path}" ]; then
     fi
 fi
 
+if [ -z "${XRT_COMPOSITOR_WAYLAND_CONNECTOR:-}" ] || [ -z "${EWWM_DRM_LEASE_CONNECTORS:-}" ]; then
+    for resolver in /usr/libexec/exwm-vr/hmd-connector exwm-vr-hmd-connector; do
+        if [ -x "$resolver" ] || command -v "$resolver" >/dev/null 2>&1; then
+            hmd_connector="$("$resolver" 2>/dev/null || true)"
+            if [ -n "$hmd_connector" ]; then
+                export XRT_COMPOSITOR_WAYLAND_CONNECTOR="${XRT_COMPOSITOR_WAYLAND_CONNECTOR:-$hmd_connector}"
+                export EWWM_DRM_LEASE_CONNECTORS="${EWWM_DRM_LEASE_CONNECTORS:-$hmd_connector}"
+            fi
+            break
+        fi
+    done
+fi
+
 if [ -n "${MONADO_SERVICE_BIN:-}" ] && [ -x "${MONADO_SERVICE_BIN}" ]; then
     exec "${MONADO_SERVICE_BIN}" "$@"
 fi

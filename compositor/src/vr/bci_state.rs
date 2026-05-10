@@ -138,13 +138,12 @@ pub struct ChannelQuality {
 }
 
 /// Standard 10-20 labels for 8-channel Cyton placement.
-const CYTON_8_LABELS: [&str; 8] =
-    ["Fp1", "Fp2", "C3", "C4", "T5", "T6", "O1", "O2"];
+const CYTON_8_LABELS: [&str; 8] = ["Fp1", "Fp2", "C3", "C4", "T5", "T6", "O1", "O2"];
 
 /// Standard 10-20 labels for 16-channel Daisy placement.
 const DAISY_16_LABELS: [&str; 16] = [
-    "Fp1", "Fp2", "F3", "F4", "C3", "C4", "P3", "P4", "O1", "O2", "F7",
-    "F8", "T3", "T4", "T5", "T6",
+    "Fp1", "Fp2", "F3", "F4", "C3", "C4", "P3", "P4", "O1", "O2", "F7", "F8", "T3", "T4", "T5",
+    "T6",
 ];
 
 // ── Session data ────────────────────────────────────────
@@ -323,15 +322,11 @@ impl BciState {
     }
 
     /// Set the board type by name.
-    pub fn set_board_by_name(
-        &mut self,
-        name: &str,
-    ) -> Result<(), String> {
+    pub fn set_board_by_name(&mut self, name: &str) -> Result<(), String> {
         if self.streaming {
             return Err("Cannot change board while streaming".to_string());
         }
-        let board = BciBoard::from_str(name)
-            .ok_or_else(|| format!("Unknown board: {}", name))?;
+        let board = BciBoard::from_str(name).ok_or_else(|| format!("Unknown board: {}", name))?;
         self.board = board;
         self.config.board_id = board.board_id();
         self.synthetic_mode = board == BciBoard::Synthetic;
@@ -367,10 +362,7 @@ impl BciState {
         params: &[(String, String)],
     ) -> Result<(), String> {
         if !self.synthetic_mode {
-            return Err(
-                "Synthetic events only available in synthetic mode"
-                    .to_string(),
-            );
+            return Err("Synthetic events only available in synthetic mode".to_string());
         }
         match event_type {
             "attention" => {
@@ -385,8 +377,7 @@ impl BciState {
                 let theta = Self::param_f64(params, "theta").unwrap_or(1.0);
                 let alpha = Self::param_f64(params, "alpha").unwrap_or(1.0);
                 let beta = Self::param_f64(params, "beta").unwrap_or(1.0);
-                let blink_rate =
-                    Self::param_f64(params, "blink-rate").unwrap_or(15.0);
+                let blink_rate = Self::param_f64(params, "blink-rate").unwrap_or(15.0);
                 self.fatigue_eeg.update(theta, alpha, beta, blink_rate);
                 Ok(())
             }
@@ -410,10 +401,7 @@ impl BciState {
     }
 
     /// Delete a recorded session by ID.
-    pub fn data_delete(
-        &mut self,
-        session_id: &str,
-    ) -> Result<(), String> {
+    pub fn data_delete(&mut self, session_id: &str) -> Result<(), String> {
         let initial_len = self.sessions.len();
         self.sessions.retain(|s| s.session_id != session_id);
         if self.sessions.len() == initial_len {
@@ -445,10 +433,7 @@ mod tests {
         assert!(state.synthetic_mode);
         assert!(!state.streaming);
         assert_eq!(state.frames_received, 0);
-        assert_eq!(
-            state.connection,
-            BciConnectionState::Disconnected,
-        );
+        assert_eq!(state.connection, BciConnectionState::Disconnected,);
         assert_eq!(state.channels.len(), 8);
     }
 
@@ -483,10 +468,7 @@ mod tests {
 
         assert!(state.stop().is_ok());
         assert!(!state.streaming);
-        assert_eq!(
-            state.connection,
-            BciConnectionState::Disconnected,
-        );
+        assert_eq!(state.connection, BciConnectionState::Disconnected,);
 
         // Double stop should error
         assert!(state.stop().is_err());

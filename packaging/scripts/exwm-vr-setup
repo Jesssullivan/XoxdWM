@@ -13,7 +13,9 @@
 #   beyond-status    Quick Beyond 2e hardware status
 #   beyond-hid-test  Test HID device access
 #   gpu-tools        Install Vulkan tools + GPU diagnostics
+#   beyond-hmd-connector  Resolve live headset connector (read-only)
 #   beyond-power-on  Send HID power-on sequence to Beyond display
+#   beyond-drm-dump       Dump live headset debugfs/DSC state (read-only, sudo)
 #   beyond-display-init  Set DSC BPP + link rate + HID panel init (sudo)
 #   beyond-monitor       Continuous display pipeline monitor (sudo)
 #   beyond-dsc-flash     Toggle DSC to trigger FPGA re-init flash (sudo)
@@ -64,6 +66,81 @@ _resolve_monado_service_bin() {
     return 1
 }
 
+_resolve_hmd_connector_script() {
+    local candidate
+    for candidate in \
+        "$PROJECT_ROOT/packaging/scripts/exwm-vr-hmd-connector" \
+        "$SCRIPT_DIR/exwm-vr-hmd-connector" \
+        /usr/libexec/exwm-vr/hmd-connector \
+        /tmp/exwm-vr-hmd-connector
+    do
+        if [ -x "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+
+    echo "ERROR: exwm-vr-hmd-connector not found" >&2
+    return 1
+}
+
+_resolve_hmd_connector_name() {
+    local resolver
+    resolver=$(_resolve_hmd_connector_script)
+    "$resolver" --format name "$@"
+}
+
+_resolve_hmd_connector_path() {
+    local resolver
+    resolver=$(_resolve_hmd_connector_script)
+    "$resolver" --format path "$@"
+}
+
+_resolve_beyond_hidraw() {
+    local h uevent hid_id vendor product
+    for h in /sys/class/hidraw/hidraw*; do
+        [ -d "$h" ] || continue
+        uevent="$h/device/uevent"
+        [ -r "$uevent" ] || continue
+        hid_id=$(sed -n 's/^HID_ID=//p' "$uevent" | head -1)
+        [ -n "$hid_id" ] || continue
+        vendor=$(printf '%s\n' "$hid_id" | awk -F: '{print $2}' | sed 's/^0*//')
+        product=$(printf '%s\n' "$hid_id" | awk -F: '{print $3}' | sed 's/^0*//')
+        if [ "${vendor,,}" = "35bd" ] && [ "${product,,}" = "101" ]; then
+            printf '/dev/%s\n' "$(basename "$h")"
+            return 0
+        fi
+    done
+    return 1
+}
+
+_resolve_hmd_debugfs() {
+    local connector="${1:-}"
+    local sysfs_path card card_num candidate
+    if [ -z "$connector" ] || [ "$connector" = "auto" ]; then
+        connector=$(_resolve_hmd_connector_name)
+    fi
+
+    sysfs_path="$(_resolve_hmd_connector_path --override "$connector" 2>/dev/null || true)"
+    if [ -n "$sysfs_path" ]; then
+        card="$(basename "$sysfs_path" | sed -E 's/^(card[0-9]+)-.*/\1/')"
+        card_num="${card#card}"
+        candidate="/sys/kernel/debug/dri/${card_num}/${connector}"
+        if [ -d "$candidate" ]; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    fi
+
+    for candidate in /sys/kernel/debug/dri/*/"$connector"; do
+        [ -d "$candidate" ] || continue
+        printf '%s\n' "$candidate"
+        return 0
+    done
+
+    return 1
+}
+
 # ── Commands ────────────────────────────────────────────
 
 cmd_prereqs() {
@@ -108,6 +185,14 @@ cmd_prereqs() {
         cp "$svc_src" /etc/systemd/system/exwm-vr-beyond-power.service
         # Install beyond-power-on script
         mkdir -p /usr/libexec/exwm-vr
+        local connector_src="$PROJECT_ROOT/packaging/scripts/exwm-vr-hmd-connector"
+        if [ -f "$connector_src" ]; then
+            cp "$connector_src" /usr/libexec/exwm-vr/hmd-connector
+            chmod +x /usr/libexec/exwm-vr/hmd-connector
+        elif [ -f /tmp/exwm-vr-hmd-connector ]; then
+            cp /tmp/exwm-vr-hmd-connector /usr/libexec/exwm-vr/hmd-connector
+            chmod +x /usr/libexec/exwm-vr/hmd-connector
+        fi
         local po_src="$PROJECT_ROOT/packaging/scripts/beyond-power-on"
         if [ -f "$po_src" ]; then
             cp "$po_src" /usr/libexec/exwm-vr/beyond-power-on
@@ -118,6 +203,7 @@ cmd_prereqs() {
         fi
         systemctl daemon-reload
         echo "  Installed: exwm-vr-beyond-power.service"
+        [ -x /usr/libexec/exwm-vr/hmd-connector ] && echo "  Installed: /usr/libexec/exwm-vr/hmd-connector"
     fi
 
     # Firmware check
@@ -175,7 +261,7 @@ cmd_kernel_upgrade() {
 
     # GRUB / BLS
     echo "[4/4] Configuring boot..."
-    # Note: do NOT use video=DP-2:d — it disables the connector entirely,
+    # Note: do NOT use video=DP-N:d for the headset — it disables the connector entirely,
     # preventing Monado/SteamVR from acquiring it via DRM lease.
     # non_desktop is handled by kernel EDID quirk table (BIG/0x1234).
     local vr_args="amdgpu.modeset=1 amdgpu.dc=1 amdgpu.dcdebugmask=0x10"
@@ -223,6 +309,13 @@ cmd_verify() {
             found_beyond=true
         fi
     done
+    echo
+    echo "[hmd connector resolver]"
+    if resolver=$(_resolve_hmd_connector_script 2>/dev/null); then
+        "$resolver" --format status 2>/dev/null | sed 's/^/  /' || echo "  not resolved"
+    else
+        echo "  resolver not installed"
+    fi
     echo
 
     # USB
@@ -298,6 +391,13 @@ cmd_beyond_status() {
         echo "  $n: status=$s non_desktop=$nd"
     done
     echo
+    echo "[hmd connector]"
+    if resolver=$(_resolve_hmd_connector_script 2>/dev/null); then
+        "$resolver" --format status 2>/dev/null | sed 's/^/  /' || echo "  not resolved"
+    else
+        echo "  resolver not installed"
+    fi
+    echo
     echo "[hidraw]"
     for h in /dev/hidraw*; do
         [ -c "$h" ] || continue
@@ -330,6 +430,13 @@ print('OK')
             echo "PERMISSION DENIED"
         fi
     done
+}
+
+cmd_beyond_hmd_connector() {
+    echo "=== Beyond HMD Connector Resolver ==="
+    local resolver
+    resolver=$(_resolve_hmd_connector_script)
+    "$resolver" --format status "$@"
 }
 
 cmd_gpu_tools() {
@@ -406,7 +513,7 @@ cmd_sway_setup() {
     # Build wlroots from source with Bigscreen Beyond non_desktop patch
     # The patch forces non_desktop=true for Bigscreen Beyond headsets even
     # on kernels that lack the EDID quirk (BIG/0x1234). Without it, Sway
-    # won't offer DP-2 for DRM lease and Monado can't acquire the display.
+    # won't offer the HMD DisplayPort for DRM lease and Monado can't acquire it.
     local wlroots_ver="0.18.2"
     local wlroots_dir="/tmp/wlroots-build"
     echo "[3/6] Building patched wlroots $wlroots_ver..."
@@ -670,16 +777,27 @@ cmd_monado_setup() {
     local monado_cfg="/home/$user/.config/monado"
     mkdir -p "$exwm_cfg" "$monado_cfg"
 
-    cat > "$exwm_cfg/compositor.env" << 'ENVEOF'
+    local hmd_connector=""
+    hmd_connector="$(_resolve_hmd_connector_name 2>/dev/null || true)"
+    if [ -z "$hmd_connector" ]; then
+        echo "  WARNING: no live HMD connector resolved."
+        echo "           Set EXWM_VR_HMD_CONNECTOR=DP-N and re-run if the headset is disconnected."
+    fi
+
+cat > "$exwm_cfg/compositor.env" << ENVEOF
 # EXWM-VR compositor host overrides for Beyond direct mode.
 # This file is read by exwm-vr-compositor.service via EnvironmentFile=.
 
 # Reserve the Beyond connector for DRM lease instead of mapping it as a
 # desktop output.
-EWWM_DRM_LEASE_CONNECTORS=DP-2
+$(if [ -n "$hmd_connector" ]; then
+    printf 'EWWM_DRM_LEASE_CONNECTORS=%s\n' "$hmd_connector"
+  else
+    printf '# EWWM_DRM_LEASE_CONNECTORS=<live DisplayPort connector from exwm-vr-hmd-connector>\n'
+  fi)
 ENVEOF
 
-    cat > "$exwm_cfg/monado.env" << 'ENVEOF'
+cat > "$exwm_cfg/monado.env" << ENVEOF
 # EXWM-VR Monado environment for Bigscreen Beyond direct mode.
 # This file can be sourced manually and is also read by exwm-vr-monado.service.
 
@@ -687,7 +805,11 @@ ENVEOF
 # Optional for hosts that still use a local Monado build:
 # MONADO_SERVICE_BIN=/usr/local/bin/monado-service
 XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1
-XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2
+$(if [ -n "$hmd_connector" ]; then
+    printf 'XRT_COMPOSITOR_WAYLAND_CONNECTOR=%s\n' "$hmd_connector"
+  else
+    printf '# XRT_COMPOSITOR_WAYLAND_CONNECTOR=<live DisplayPort connector from exwm-vr-hmd-connector>\n'
+  fi)
 WAYLAND_DISPLAY=wayland-0
 
 # Enable SteamVR Lighthouse driver (for Beyond tracking).
@@ -735,9 +857,10 @@ cmd_beyond_power_on() {
 }
 
 cmd_beyond_first_frame() {
-    echo "=== Beyond First Frame Test ==="
-    echo "  Validates the full DRM lease + Monado + OpenXR pipeline"
-    echo "  by running hello_xr to display a test scene in the headset."
+    echo "=== Beyond OpenXR Session Smoke (P3) ==="
+    echo "  Runs the repo-owned OpenXR smoke wrapper against the live headset connector."
+    echo "  CLI READY/FOCUSED output is P3 session evidence; P4 first-frame proof"
+    echo "  still requires a human-visible headset observation."
     echo
 
     # 1. Power on Beyond
@@ -746,11 +869,21 @@ cmd_beyond_first_frame() {
     sleep 2
     echo
 
-    # 2. Verify non_desktop connector
-    echo "[2/4] Checking DRM connectors..."
+    # 2. Resolve and verify the headset connector.
+    echo "[2/4] Resolving HMD connector..."
+    local connector_hint=""
+    if connector_hint="$(_resolve_hmd_connector_name 2>/dev/null)"; then
+        export EWWM_DRM_LEASE_CONNECTORS="${EWWM_DRM_LEASE_CONNECTORS:-$connector_hint}"
+        export XRT_COMPOSITOR_WAYLAND_CONNECTOR="${XRT_COMPOSITOR_WAYLAND_CONNECTOR:-$connector_hint}"
+        echo "  connector=$connector_hint"
+    else
+        echo "  ERROR: no HMD connector resolved"
+        echo "  Set EXWM_VR_HMD_CONNECTOR=DP-N if the kernel exposes no non_desktop/BIG EDID signal."
+        exit 1
+    fi
+
     local found_nd=false
     local found_connected_dp=false
-    local connector_hint="${XRT_COMPOSITOR_WAYLAND_CONNECTOR:-DP-2}"
     for c in /sys/class/drm/card*-DP-*/; do
         [ -d "$c" ] || continue
         local n s nd
@@ -779,8 +912,8 @@ cmd_beyond_first_frame() {
     fi
     echo
 
-    # 3. Start monado-service in background
-    echo "[3/4] Starting monado-service..."
+    # 3. Source the Monado environment and require a real user runtime dir.
+    echo "[3/4] Preparing OpenXR environment..."
     local monado_env="$HOME/.config/exwm-vr/monado.env"
     local legacy_monado_env="$HOME/.config/monado/env"
     if [ -f "$monado_env" ]; then
@@ -790,78 +923,44 @@ cmd_beyond_first_frame() {
     else
         echo "  WARNING: $monado_env not found, using defaults"
         export XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1
-        export XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2
+        export XRT_COMPOSITOR_WAYLAND_CONNECTOR="$connector_hint"
         export WAYLAND_DISPLAY=wayland-0
         export STEAMVR_LH_ENABLE=1
         export XRT_COMPOSITOR_COMPUTE=1
         export LH_OVERRIDE_IPD_MM=64
     fi
+    export EWWM_DRM_LEASE_CONNECTORS="${EWWM_DRM_LEASE_CONNECTORS:-$connector_hint}"
+    export XRT_COMPOSITOR_WAYLAND_CONNECTOR="${XRT_COMPOSITOR_WAYLAND_CONNECTOR:-$connector_hint}"
     export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
     if [ ! -d "$XDG_RUNTIME_DIR" ]; then
         echo "  ERROR: XDG_RUNTIME_DIR does not exist: $XDG_RUNTIME_DIR"
         exit 1
     fi
     echo "  XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
-
-    # Kill any existing monado-service
-    pkill -f monado-service 2>/dev/null || true
-    sleep 1
-
-    local monado_bin=""
-    monado_bin=$(_resolve_monado_service_bin)
-    "$monado_bin" &
-    local monado_pid=$!
-    sleep 3
-
-    if ! kill -0 "$monado_pid" 2>/dev/null; then
-        echo "  ERROR: monado-service exited prematurely"
-        echo "  Check: monado-cli probe"
-        exit 1
-    fi
-    echo "  monado-service running (PID $monado_pid)"
+    echo "  XRT_COMPOSITOR_WAYLAND_CONNECTOR=$XRT_COMPOSITOR_WAYLAND_CONNECTOR"
+    echo "  EWWM_DRM_LEASE_CONNECTORS=$EWWM_DRM_LEASE_CONNECTORS"
     echo
 
-    # 4. Run hello_xr
-    echo "[4/4] Running hello_xr test..."
-    local hello_xr=""
+    # 4. Run the packaged smoke wrapper. It classifies READY timeouts as P3,
+    # never as a human-visible first frame.
+    echo "[4/4] Running OpenXR smoke wrapper..."
+    local smoke=""
     for candidate in \
-        /usr/local/bin/hello_xr \
-        /tmp/openxr-build/build/src/tests/hello_xr/hello_xr \
-        "$HOME/bin/hello_xr"; do
+        "$PROJECT_ROOT/packaging/scripts/exwm-vr-openxr-smoke" \
+        /usr/libexec/exwm-vr/openxr-smoke
+    do
         if [ -x "$candidate" ]; then
-            hello_xr="$candidate"
+            smoke="$candidate"
             break
         fi
     done
-
-    if [ -z "$hello_xr" ]; then
-        echo "  hello_xr not found. Build it first:"
-        echo "    exwm-vr-setup openxr-build"
-        kill "$monado_pid" 2>/dev/null
-        exit 1
+    if [ -z "$smoke" ]; then
+        echo "  ERROR: exwm-vr-openxr-smoke not found"
+        exit 127
     fi
-
-    echo "  Running: $hello_xr -G Vulkan2 (30s timeout)"
-    # Pipe sleep to stdin: hello_xr reads stdin for key events and exits on
-    # EOF, which happens immediately over SSH without a proper terminal.
-    XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
-    XR_RUNTIME_JSON="${XR_RUNTIME_JSON:-/usr/local/share/openxr/1/openxr_monado.json}" \
-        timeout 30 bash -c "sleep 30 | $hello_xr -G Vulkan2" 2>&1 | tail -20
-    local rc=$?
-
-    # Cleanup
-    kill "$monado_pid" 2>/dev/null
-    wait "$monado_pid" 2>/dev/null
-
-    echo
-    if [ $rc -eq 0 ]; then
-        echo "PASS: hello_xr completed successfully — first frame confirmed!"
-    elif [ $rc -eq 124 ]; then
-        echo "PASS: hello_xr ran for 30 seconds (timeout) — frames were being submitted"
-    else
-        echo "FAIL: hello_xr exited with code $rc"
-        echo "  Debug: XR_RUNTIME_JSON=$XR_RUNTIME_JSON monado-cli probe"
-    fi
+    EXWM_VR_OPENXR_ACCEPT_TIMEOUT_AFTER_READY=1 \
+        EXWM_VR_VISUAL_OBSERVED="${EXWM_VR_VISUAL_OBSERVED:-no}" \
+        "$smoke" --timeout "${EXWM_VR_OPENXR_TIMEOUT:-30}"
 }
 
 cmd_openxr_build() {
@@ -1030,7 +1129,7 @@ cmd_beyond_oobe() {
     elif [ -f "$legacy_monado_env" ]; then
         set -a; source "$legacy_monado_env"; set +a
     fi
-    pkill -f monado-service 2>/dev/null || true
+    pkill -x monado-service 2>/dev/null || true
     sleep 1
     local monado_bin=""
     monado_bin=$(_resolve_monado_service_bin)
@@ -1367,23 +1466,63 @@ cmd_kernel_build() {
     echo "  grubby --set-default /boot/vmlinuz-${kver}-xr"
 }
 
+cmd_beyond_drm_dump() {
+    _need_root
+    echo "=== Beyond DRM DebugFS Dump ==="
+    echo "  Read-only DSC/PPS/link state for the live HMD connector."
+    echo
+
+    local connector="${1:-auto}"
+    local debugfs=""
+    if ! debugfs="$(_resolve_hmd_debugfs "$connector" 2>/dev/null)"; then
+        echo "ERROR: no debugfs connector found for ${connector}"
+        echo "  Resolved HMD connector:"
+        _resolve_hmd_connector_name 2>/dev/null | sed 's/^/    /' || true
+        echo "  Available debugfs DisplayPort connectors:"
+        ls -d /sys/kernel/debug/dri/*/DP-* 2>/dev/null | sed 's/^/    /' || echo "    (none)"
+        exit 1
+    fi
+
+    local dtn_dir
+    dtn_dir="$(dirname "$debugfs")"
+    echo "connector=$(basename "$debugfs")"
+    echo "debugfs=$debugfs"
+    echo
+
+    for file in \
+        dsc_bits_per_pixel \
+        dsc_pic_parameter_set \
+        link_settings \
+        phy_settings \
+        hdcp_sink_capability
+    do
+        if [ -e "$debugfs/$file" ]; then
+            echo "== $file =="
+            cat "$debugfs/$file" 2>/dev/null | sed 's/^/  /' || true
+            echo
+        fi
+    done
+
+    if [ -f "$dtn_dir/amdgpu_dm_dtn_log" ]; then
+        echo "== amdgpu_dm_dtn_log DSC excerpt =="
+        sed -n '/^DSC:/,/^$/p' "$dtn_dir/amdgpu_dm_dtn_log" 2>/dev/null | head -40 | sed 's/^/  /'
+        echo
+        echo "== amdgpu_dm_dtn_log link encoder excerpt =="
+        sed -n '/^L_ENC: DPHY/,/^$/p' "$dtn_dir/amdgpu_dm_dtn_log" 2>/dev/null | head -40 | sed 's/^/  /'
+        echo
+    fi
+}
+
 cmd_beyond_display_init() {
     _need_root
     echo "=== Beyond Display Init ==="
     echo "  Sets DSC BPP override, link rate, and sends panel init HID commands"
     echo
 
-    # Find the AMD GPU's debugfs connector for DP-2 (Beyond)
+    # Find the AMD GPU's debugfs connector for the live Beyond DisplayPort.
     local debugfs=""
-    for d in /sys/kernel/debug/dri/*/DP-2; do
-        if [ -d "$d" ]; then
-            debugfs="$d"
-            break
-        fi
-    done
-
-    if [ -z "$debugfs" ]; then
-        echo "ERROR: No DP-2 connector found in debugfs"
+    if ! debugfs="$(_resolve_hmd_debugfs "${1:-auto}" 2>/dev/null)"; then
+        echo "ERROR: No HMD connector found in debugfs"
         echo "  Available connectors:"
         ls -d /sys/kernel/debug/dri/*/DP-* 2>/dev/null || echo "  (none)"
         exit 1
@@ -1558,9 +1697,7 @@ cmd_beyond_monitor() {
     echo
 
     local debugfs=""
-    for d in /sys/kernel/debug/dri/*/DP-2; do
-        [ -d "$d" ] && debugfs="$d" && break
-    done
+    debugfs="$(_resolve_hmd_debugfs "${1:-auto}")"
     local dtn_dir
     dtn_dir=$(dirname "$debugfs")
 
@@ -1598,10 +1735,16 @@ cmd_beyond_monitor() {
         echo "  Monado: PID=$mpid"
 
         # HID input report (one read, check type)
-        /usr/bin/python3 -c "
-import os, select, time
+        local hidraw_path
+        hidraw_path="$(_resolve_beyond_hidraw 2>/dev/null || true)"
+        /usr/bin/python3 - "$hidraw_path" <<'HIDPY'
+import os, select, sys, time
+path = sys.argv[1] if len(sys.argv) > 1 else ''
 try:
-    fd = os.open('/dev/hidraw3', os.O_RDONLY | os.O_NONBLOCK)
+    if not path:
+        print('  HID: (35bd:0101 hidraw not found)')
+        raise SystemExit(0)
+    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
     r, _, _ = select.select([fd], [], [], 0.3)
     if r:
         data = os.read(fd, 64)
@@ -1619,7 +1762,7 @@ try:
     os.close(fd)
 except Exception as e:
     print(f'  HID: error={e}')
-" 2>/dev/null
+HIDPY
 
         # Underflow check
         local uf
@@ -1639,12 +1782,8 @@ cmd_beyond_dsc_flash() {
     echo
 
     local debugfs=""
-    for d in /sys/kernel/debug/dri/*/DP-2; do
-        [ -d "$d" ] && debugfs="$d" && break
-    done
-
-    if [ -z "$debugfs" ]; then
-        echo "ERROR: DP-2 debugfs not found"
+    if ! debugfs="$(_resolve_hmd_debugfs "${1:-auto}" 2>/dev/null)"; then
+        echo "ERROR: HMD debugfs connector not found"
         exit 1
     fi
 
@@ -1677,12 +1816,8 @@ cmd_beyond_dsc_sweep() {
     echo
 
     local debugfs=""
-    for d in /sys/kernel/debug/dri/*/DP-2; do
-        [ -d "$d" ] && debugfs="$d" && break
-    done
-
-    if [ -z "$debugfs" ]; then
-        echo "ERROR: DP-2 debugfs not found"
+    if ! debugfs="$(_resolve_hmd_debugfs "${1:-auto}" 2>/dev/null)"; then
+        echo "ERROR: HMD debugfs connector not found"
         exit 1
     fi
 
@@ -1694,7 +1829,7 @@ cmd_beyond_dsc_sweep() {
         echo "--- Testing BPP=$bpp ($bpp_real bpp) ---"
 
         # Kill Monado
-        pkill -f monado-service 2>/dev/null || true
+        pkill -x monado-service 2>/dev/null || true
         sleep 2
         rm -f /run/user/1000/monado_comp_ipc
 
@@ -1760,12 +1895,14 @@ usage() {
     echo "  verify               Verify display, DRM, USB, permissions"
     echo "  beyond-status        Quick Beyond 2e status"
     echo "  beyond-hid-test      Test HID device access"
+    echo "  beyond-hmd-connector Resolve live headset connector (read-only)"
     echo "  beyond-power-on      Send HID power-on sequence to Beyond display"
     echo "  beyond-first-frame   Test full pipeline: power-on → Monado → hello_xr"
     echo "  beyond-download-config  Download Beyond calibration via lighthouse_console"
     echo "  beyond-oobe          Full out-of-box experience (power → config → test)"
     echo "  openxr-build         Build hello_xr from OpenXR-SDK-Source"
     echo "  gpu-tools            Install Vulkan tools + GPU diagnostics (sudo)"
+    echo "  beyond-drm-dump      Dump live headset debugfs/DSC state (read-only, sudo)"
     echo "  beyond-display-init  Set DSC BPP + link rate + HID panel init (sudo)"
     echo "  beyond-monitor       Continuous display pipeline monitor (sudo)"
     echo "  beyond-dsc-flash     Toggle DSC to trigger FPGA re-init flash (sudo)"
@@ -1784,6 +1921,7 @@ case "${1:-}" in
     verify)         shift; cmd_verify "$@" ;;
     beyond-status)  shift; cmd_beyond_status "$@" ;;
     beyond-hid-test) shift; cmd_beyond_hid_test "$@" ;;
+    beyond-hmd-connector) shift; cmd_beyond_hmd_connector "$@" ;;
     sway-setup)     shift; cmd_sway_setup "$@" ;;
     steam-setup)    shift; cmd_steam_setup "$@" ;;
     monado-setup)   shift; cmd_monado_setup "$@" ;;
@@ -1793,6 +1931,7 @@ case "${1:-}" in
     beyond-oobe)    shift; cmd_beyond_oobe "$@" ;;
     openxr-build)   shift; cmd_openxr_build "$@" ;;
     gpu-tools)      shift; cmd_gpu_tools "$@" ;;
+    beyond-drm-dump) shift; cmd_beyond_drm_dump "$@" ;;
     beyond-display-init) shift; cmd_beyond_display_init "$@" ;;
     beyond-monitor) shift; cmd_beyond_monitor "$@" ;;
     beyond-dsc-flash) shift; cmd_beyond_dsc_flash "$@" ;;

@@ -121,7 +121,9 @@ impl GpuPowerState {
             if !name_str.starts_with("card") || name_str.contains('-') {
                 continue;
             }
-            let perf_path = entry.path().join("device/power_dpm_force_performance_level");
+            let perf_path = entry
+                .path()
+                .join("device/power_dpm_force_performance_level");
             if perf_path.exists() {
                 return Some(entry.path().to_string_lossy().to_string());
             }
@@ -135,9 +137,10 @@ impl GpuPowerState {
             Some(path) => {
                 info!("GPU power: detected DRM card at {}", path);
                 // Check if writable by attempting to read the current value.
-                let perf_path = PathBuf::from(&path)
-                    .join("device/power_dpm_force_performance_level");
-                self.controllable = perf_path.metadata()
+                let perf_path =
+                    PathBuf::from(&path).join("device/power_dpm_force_performance_level");
+                self.controllable = perf_path
+                    .metadata()
                     .map(|m| !m.permissions().readonly())
                     .unwrap_or(false);
                 self.drm_card_path = Some(path);
@@ -169,8 +172,7 @@ impl GpuPowerState {
             ));
         }
 
-        let perf_path = PathBuf::from(&card_path)
-            .join("device/power_dpm_force_performance_level");
+        let perf_path = PathBuf::from(&card_path).join("device/power_dpm_force_performance_level");
         let sysfs_val = profile.to_sysfs();
 
         fs::write(&perf_path, sysfs_val).map_err(|e| {
@@ -194,11 +196,9 @@ impl GpuPowerState {
             None => return Err("no DRM card detected".to_string()),
         };
 
-        let perf_path = PathBuf::from(card_path)
-            .join("device/power_dpm_force_performance_level");
-        let raw = fs::read_to_string(&perf_path).map_err(|e| {
-            format!("failed to read {}: {}", perf_path.display(), e)
-        })?;
+        let perf_path = PathBuf::from(card_path).join("device/power_dpm_force_performance_level");
+        let raw = fs::read_to_string(&perf_path)
+            .map_err(|e| format!("failed to read {}: {}", perf_path.display(), e))?;
 
         GpuPowerProfile::from_sysfs(&raw)
             .ok_or_else(|| format!("unknown sysfs value: '{}'", raw.trim()))
@@ -218,7 +218,10 @@ impl GpuPowerState {
             warn!("GPU power: VR boost failed: {}", e);
             self.prev_profile = None;
         } else {
-            info!("GPU power: VR boost activated (was {:?})", self.prev_profile);
+            info!(
+                "GPU power: VR boost activated (was {:?})",
+                self.prev_profile
+            );
         }
     }
 
@@ -321,8 +324,14 @@ mod tests {
         assert_eq!(GpuPowerProfile::Normal.to_sysfs(), "manual");
         assert_eq!(GpuPowerProfile::Low.to_sysfs(), "low");
 
-        assert_eq!(GpuPowerProfile::from_sysfs("auto\n"), Some(GpuPowerProfile::Auto));
-        assert_eq!(GpuPowerProfile::from_sysfs("manual"), Some(GpuPowerProfile::Normal));
+        assert_eq!(
+            GpuPowerProfile::from_sysfs("auto\n"),
+            Some(GpuPowerProfile::Auto)
+        );
+        assert_eq!(
+            GpuPowerProfile::from_sysfs("manual"),
+            Some(GpuPowerProfile::Normal)
+        );
         assert_eq!(GpuPowerProfile::from_sysfs("unknown"), None);
     }
 

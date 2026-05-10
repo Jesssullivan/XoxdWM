@@ -125,10 +125,7 @@ pub enum FatigueEvent {
         metrics: FatigueMetrics,
     },
     /// Mild fatigue alert.
-    AlertMild {
-        blink_rate: f64,
-        session_min: f64,
-    },
+    AlertMild { blink_rate: f64, session_min: f64 },
     /// Significant fatigue alert.
     AlertSignificant {
         blink_rate: f64,
@@ -240,7 +237,11 @@ impl FatigueMonitor {
     pub fn record_blink(&mut self, timestamp_s: f64) {
         self.blink_timestamps.push_back(timestamp_s);
         self.prune_blinks(timestamp_s);
-        debug!("Blink recorded at {:.2}s, {} in window", timestamp_s, self.blink_timestamps.len());
+        debug!(
+            "Blink recorded at {:.2}s, {} in window",
+            timestamp_s,
+            self.blink_timestamps.len()
+        );
     }
 
     /// Record an eye open/closed state sample.
@@ -473,9 +474,7 @@ impl FatigueMonitor {
     /// Classify fatigue level from blink rate and PERCLOS.
     fn classify_level(&self, blink_rate: f64, perclos: f64) -> FatigueLevel {
         // Critical: PERCLOS above threshold OR blink rate above critical
-        if perclos > self.config.perclos_threshold
-            || blink_rate > self.config.critical_threshold
-        {
+        if perclos > self.config.perclos_threshold || blink_rate > self.config.critical_threshold {
             return FatigueLevel::Critical;
         }
         // Significant: blink rate above significant threshold
@@ -531,8 +530,14 @@ mod tests {
         assert_eq!(monitor.classify_level(24.0, 0.10), FatigueLevel::Mild);
 
         // Significant: > 25 blinks/min (but < 30)
-        assert_eq!(monitor.classify_level(26.0, 0.10), FatigueLevel::Significant);
-        assert_eq!(monitor.classify_level(29.0, 0.10), FatigueLevel::Significant);
+        assert_eq!(
+            monitor.classify_level(26.0, 0.10),
+            FatigueLevel::Significant
+        );
+        assert_eq!(
+            monitor.classify_level(29.0, 0.10),
+            FatigueLevel::Significant
+        );
 
         // Critical: > 30 blinks/min
         assert_eq!(monitor.classify_level(31.0, 0.10), FatigueLevel::Critical);

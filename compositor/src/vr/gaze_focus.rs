@@ -112,10 +112,7 @@ impl SaccadeDetector {
             if self.angular_velocity_dps >= self.saccade_threshold_dps && !is_microsaccade {
                 self.is_saccade = true;
                 self.sub_threshold_frames = 0;
-                debug!(
-                    "Saccade detected: {:.0} deg/s",
-                    self.angular_velocity_dps
-                );
+                debug!("Saccade detected: {:.0} deg/s", self.angular_velocity_dps);
             } else if self.is_saccade {
                 if self.angular_velocity_dps < self.saccade_end_dps {
                     self.sub_threshold_frames += 1;
@@ -387,8 +384,7 @@ impl HysteresisTracker {
         }
 
         if switch_count > 0 {
-            self.extra_threshold_ms =
-                (switch_count as f64) * self.extra_per_pingpong_ms;
+            self.extra_threshold_ms = (switch_count as f64) * self.extra_per_pingpong_ms;
             debug!(
                 "Hysteresis: {} ping-pong switches, extra threshold {:.0}ms",
                 switch_count, self.extra_threshold_ms
@@ -405,9 +401,7 @@ impl HysteresisTracker {
         }
 
         // Reset if stable for long enough
-        if self.last_switch_s > 0.0
-            && (timestamp_s - self.last_switch_s) > self.stable_reset_s
-        {
+        if self.last_switch_s > 0.0 && (timestamp_s - self.last_switch_s) > self.stable_reset_s {
             return 0.0;
         }
 
@@ -629,9 +623,7 @@ impl GazeFocusEvent {
                     duration_ms
                 )
             }
-            Self::CooldownEnded => {
-                "(:type :event :event :gaze-cooldown-ended)".to_string()
-            }
+            Self::CooldownEnded => "(:type :event :event :gaze-cooldown-ended)".to_string(),
             Self::SaccadeDetected { velocity_dps } => {
                 format!(
                     "(:type :event :event :gaze-saccade-detected :velocity-dps {:.0})",
@@ -804,8 +796,8 @@ impl GazeFocusManager {
         }
 
         // ── Step 6: Dwell state machine ──
-        let effective_threshold = self.config.threshold_ms
-            + self.hysteresis.effective_extra_ms(timestamp_s);
+        let effective_threshold =
+            self.config.threshold_ms + self.hysteresis.effective_extra_ms(timestamp_s);
 
         // Clone dwell state to avoid borrow conflicts when assigning
         let dwell_snapshot = self.dwell.clone();
@@ -984,10 +976,7 @@ impl GazeFocusManager {
         let now = self.last_focus_change_s; // approximate
         if let Some(prev) = self.focused_surface {
             // If user overrode gaze focus within 1 second, it was a false positive
-            if self.last_focus_method == "gaze"
-                && now > 0.0
-                && prev != surface_id
-            {
+            if self.last_focus_method == "gaze" && now > 0.0 && prev != surface_id {
                 self.analytics.record_false_positive();
                 debug!(
                     "False positive detected: gaze focused {} but keyboard chose {}",
@@ -1037,7 +1026,11 @@ impl GazeFocusManager {
     pub fn status_sexp(&self) -> String {
         let dwell_str = match &self.dwell {
             DwellState::Idle => "idle".to_string(),
-            DwellState::Dwelling { surface_id, elapsed_ms, .. } => {
+            DwellState::Dwelling {
+                surface_id,
+                elapsed_ms,
+                ..
+            } => {
                 format!("dwelling-{}-{:.0}ms", surface_id, elapsed_ms)
             }
             DwellState::Confirmed { surface_id } => {
@@ -1081,10 +1074,10 @@ impl GazeFocusManager {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use super::super::eye_tracking::{GazeData, GazeSurfaceHit, GazeSource};
-    use super::super::vr_interaction::Ray;
+    use super::super::eye_tracking::{GazeData, GazeSource, GazeSurfaceHit};
     use super::super::scene::Vec3;
+    use super::super::vr_interaction::Ray;
+    use super::*;
 
     fn make_gaze(direction: Vec3, confidence: f32, timestamp_s: f64) -> GazeData {
         GazeData {
@@ -1115,7 +1108,10 @@ mod tests {
 
         // Start dwell
         let evt = mgr.update(Some(&hit), Some(&gaze), 0.011);
-        assert!(matches!(evt, Some(GazeFocusEvent::DwellStarted { surface_id: 1, .. })));
+        assert!(matches!(
+            evt,
+            Some(GazeFocusEvent::DwellStarted { surface_id: 1, .. })
+        ));
 
         // Accumulate 250ms (above 200ms threshold)
         let mut timestamp = 0.011;
@@ -1153,13 +1149,20 @@ mod tests {
         // Switch to surface 2 — should reset
         let gaze = make_gaze(dir, 0.95, 0.12);
         let evt = mgr.update(Some(&hit2), Some(&gaze), 0.011);
-        assert!(matches!(evt, Some(GazeFocusEvent::DwellStarted { surface_id: 2, .. })));
+        assert!(matches!(
+            evt,
+            Some(GazeFocusEvent::DwellStarted { surface_id: 2, .. })
+        ));
 
         // Verify elapsed_ms is reset (check via progress event)
         let gaze = make_gaze(dir, 0.95, 0.131);
         let evt = mgr.update(Some(&hit2), Some(&gaze), 0.011);
         if let Some(GazeFocusEvent::DwellProgress { elapsed_ms, .. }) = evt {
-            assert!(elapsed_ms < 20.0, "Elapsed should be small after reset: {}", elapsed_ms);
+            assert!(
+                elapsed_ms < 20.0,
+                "Elapsed should be small after reset: {}",
+                elapsed_ms
+            );
         }
     }
 
@@ -1202,7 +1205,10 @@ mod tests {
         let gaze = make_gaze(small_dir, 0.95, 0.011);
         mgr.update(Some(&hit), Some(&gaze), 0.011);
 
-        assert!(!mgr.saccade.is_saccade, "Microsaccade should not trigger saccade state");
+        assert!(
+            !mgr.saccade.is_saccade,
+            "Microsaccade should not trigger saccade state"
+        );
 
         // Continue dwelling — should progress
         let gaze = make_gaze(small_dir, 0.95, 0.022);
@@ -1287,7 +1293,10 @@ mod tests {
         let evt = mgr.update(Some(&jittery_hit), Some(&gaze), 0.011);
 
         assert!(
-            matches!(evt, Some(GazeFocusEvent::FocusCancelled { surface_id: 1, .. })),
+            matches!(
+                evt,
+                Some(GazeFocusEvent::FocusCancelled { surface_id: 1, .. })
+            ),
             "Jitter exceeding max should cancel dwell"
         );
     }
@@ -1334,7 +1343,10 @@ mod tests {
         detector.update(1, 400.0, 1000.0, 0.2);
         let reading = detector.update(1, 600.0, 1000.0, 0.3); // 500px extent = 50%
 
-        assert!(reading, "Reading mode should activate at 50% horizontal coverage");
+        assert!(
+            reading,
+            "Reading mode should activate at 50% horizontal coverage"
+        );
         assert!(detector.in_reading_mode);
     }
 

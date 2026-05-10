@@ -98,7 +98,10 @@ impl RadialMenu {
         self.state = RadialMenuState::Opening;
         self.animation_progress = 0.0;
         self.selected_index = None;
-        info!("radial-menu: opening at ({:.2}, {:.2}, {:.2})", center.x, center.y, center.z);
+        info!(
+            "radial-menu: opening at ({:.2}, {:.2}, {:.2})",
+            center.x, center.y, center.z
+        );
     }
 
     /// Start the closing animation.
@@ -205,7 +208,11 @@ impl RadialMenu {
             angle_end: 0.0,
         });
         self.recompute_angles();
-        debug!("radial-menu: added item \"{}\" (total: {})", id, self.items.len());
+        debug!(
+            "radial-menu: added item \"{}\" (total: {})",
+            id,
+            self.items.len()
+        );
     }
 
     /// Remove an item by ID and recompute slice angles.

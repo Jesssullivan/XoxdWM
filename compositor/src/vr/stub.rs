@@ -5,24 +5,24 @@
 
 use tracing::info;
 
+use super::bci_state::BciState;
+use super::beyond_hid::BeyondHidManager;
 use super::blink_wink::BlinkWinkManager;
+use super::capture_visibility::CaptureVisibilityManager;
 use super::drm_lease::HmdManager;
 use super::eye_tracking::EyeTracking;
 use super::fatigue::FatigueMonitor;
+use super::follow_mode::FollowMode;
 use super::gaze_focus::GazeFocusManager;
 use super::gaze_scroll::GazeScrollState;
 use super::gaze_zone::ZoneDetector;
 use super::gesture::GestureState;
+use super::gpu_power::GpuPowerState;
 use super::hand_tracking::HandTrackingState;
 use super::link_hints::LinkHintState;
-use super::scene::VrScene;
-use super::bci_state::BciState;
-use super::follow_mode::FollowMode;
-use super::beyond_hid::BeyondHidManager;
-use super::gpu_power::GpuPowerState;
 use super::overlay::OverlayManager;
 use super::radial_menu::RadialMenu;
-use super::capture_visibility::CaptureVisibilityManager;
+use super::scene::VrScene;
 use super::transient_3d::TransientChainManager;
 use super::virtual_keyboard::VirtualKeyboardState;
 use super::vr_interaction::VrInteraction;
@@ -150,8 +150,10 @@ impl VrState {
     /// Generate IPC diagnostics for builds without OpenXR enabled.
     pub fn diagnostics_sexp(&self) -> String {
         format!(
-            "(:renderer-ready nil :xr-state :disabled :swapchain-count 0 :view-count 0 :frame-wait-count 0 :frame-begin-count 0 :frame-end-count 0 :scene-node-count {} :texture-count 0 :test-pattern nil :last-readback-hash nil :last-frame-error nil :last-end-error nil :drm-lease nil :beyond-hid nil)",
+            "(:renderer-ready nil :xr-state :disabled :swapchain-count 0 :view-count 0 :frame-wait-count 0 :frame-begin-count 0 :frame-end-count 0 :scene-node-count {} :texture-count 0 :test-pattern nil :last-readback-hash nil :last-frame-error nil :last-end-error nil :drm-lease {} :beyond-hid {})",
             self.scene.surface_count(),
+            self.hmd_manager.diagnostics_sexp(),
+            self.beyond_hid.diagnostics_sexp(),
         )
     }
 
