@@ -4,6 +4,7 @@
 
 (require 'ert)
 (require 'ewwm-ipc)
+(require 'ewwm-workspace)
 
 ;; ── Message encoding/decoding tests ────────────────────────
 

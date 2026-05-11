@@ -149,19 +149,21 @@ Returns the actions plist from the first matching rule, or nil."
   "Toggle fullscreen for SURFACE-ID or current surface."
   (interactive)
   (let ((sid (or surface-id
-                 (and (derived-mode-p 'ewwm-mode) ewwm-surface-id))))
+                 (and (derived-mode-p 'ewwm-mode) ewwm-surface-id)))
+        (enable t))
     (when sid
       (when-let ((buf (ewwm--get-buffer sid)))
         (with-current-buffer buf
           (setq ewwm-surface-state
                 (if (eq ewwm-surface-state 'fullscreen) 'managed 'fullscreen))
+          (setq enable (eq ewwm-surface-state 'fullscreen))
           (when (derived-mode-p 'ewwm-mode)
             (ewwm--refresh-buffer-content))))
       (when (and (fboundp 'ewwm-ipc-send)
                  (fboundp 'ewwm-ipc-connected-p)
                  (funcall 'ewwm-ipc-connected-p))
         (funcall 'ewwm-ipc-send
-                 `(:type :surface-fullscreen :surface-id ,sid))))))
+                 `(:type :surface-fullscreen :surface-id ,sid :enable ,enable))))))
 
 ;; ── XWayland surface queries ────────────────────────────────
 

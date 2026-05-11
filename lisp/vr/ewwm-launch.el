@@ -11,6 +11,10 @@
 (require 'cl-lib)
 (require 'ewwm-core)
 
+(declare-function ewwm-ipc-send "ewwm-ipc")
+(declare-function ewwm-ipc-send-sync "ewwm-ipc")
+(declare-function ewwm-ipc-connected-p "ewwm-ipc")
+
 ;; ── Customization ────────────────────────────────────────────
 
 (defgroup ewwm-launch nil
@@ -83,6 +87,27 @@ Sets WAYLAND_DISPLAY, XDG_RUNTIME_DIR, and any extra env vars."
   (interactive)
   (let ((cmd (completing-read "Launch favorite: " ewwm-launch-favorites nil t)))
     (ewwm-launch cmd)))
+
+(defun ewwm-launch-native-target-list ()
+  "Return configured native app-launch target names from the compositor."
+  (interactive)
+  (let ((resp (funcall 'ewwm-ipc-send-sync '(:type :app-launch-list))))
+    (if (eq (plist-get resp :status) :ok)
+        (let ((targets (plist-get resp :targets)))
+          (when (called-interactively-p 'interactive)
+            (message "ewwm native targets: %S" targets))
+          targets)
+      (error "ewwm native target list failed: %s" (plist-get resp :reason)))))
+
+(defun ewwm-launch-native-target (target)
+  "Ask the native compositor to launch configured TARGET."
+  (interactive
+   (list (completing-read "Native launch target: "
+                          (when (and (fboundp 'ewwm-ipc-connected-p)
+                                     (funcall 'ewwm-ipc-connected-p))
+                            (ewwm-launch-native-target-list))
+                          nil t)))
+  (funcall 'ewwm-ipc-send `(:type :app-launch :target ,target)))
 
 ;; ── Process management ───────────────────────────────────────
 

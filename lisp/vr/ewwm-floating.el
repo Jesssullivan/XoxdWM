@@ -35,12 +35,14 @@ When nil, use `pop-to-buffer' in a side window."
 Sends IPC to compositor and updates buffer state."
   (interactive)
   (let ((sid (or surface-id
-                 (and (derived-mode-p 'ewwm-mode) ewwm-surface-id))))
+                 (and (derived-mode-p 'ewwm-mode) ewwm-surface-id)))
+        (enable t))
     (when sid
       (when-let ((buf (ewwm--get-buffer sid)))
         (with-current-buffer buf
           (setq ewwm-surface-state
                 (if (eq ewwm-surface-state 'floating) 'managed 'floating))
+          (setq enable (eq ewwm-surface-state 'floating))
           (when (derived-mode-p 'ewwm-mode)
             (ewwm--refresh-buffer-content))))
       ;; Send IPC
@@ -48,7 +50,7 @@ Sends IPC to compositor and updates buffer state."
                  (fboundp 'ewwm-ipc-connected-p)
                  (funcall 'ewwm-ipc-connected-p))
         (funcall 'ewwm-ipc-send
-                 `(:type :surface-float :surface-id ,sid)))
+                 `(:type :surface-float :surface-id ,sid :enable ,enable)))
       ;; Re-layout current workspace (floating surface removed/added to tiling)
       (when (and (boundp 'ewwm-workspace-current-index)
                  (fboundp 'ewwm-layout--apply-current))
