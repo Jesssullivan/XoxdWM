@@ -17,6 +17,8 @@ and keep this packet focused on downstream compositor/OpenXR behavior.
 - Lab operator at `honey`:
 - XoxdWM commit:
 - `honey` commit:
+- Honey sudo lane:
+  - sops-nix `BECOME_PASSWORD_FILE` / other:
 - GitHub issue:
 - Linear issue:
 
@@ -78,6 +80,8 @@ Required fields:
 - headset:
 - eye swapchain size:
 - `openxr_smoke`:
+- `proof_ladder`:
+- `visual_observed`:
 
 ## In-Goggles Observation
 
@@ -87,7 +91,8 @@ CLI smoke is not first-frame proof by itself.
   - yes / no / not observed
 - Observer:
 - Headset/display note:
-- If no visible frame, classify as product/visual even if CLI smoke passed.
+- If no visible frame, record `visual_observed=no` and classify as P3 pass /
+  P4 fail even if CLI smoke reached `FOCUSED`.
 
 ## Classification
 
@@ -117,6 +122,8 @@ Fresh-boot evidence run:
 - runtime/headset:
 - eye swapchains:
 - openxr_smoke:
+- proof_ladder:
+- visual_observed:
 - in-goggles frame:
 - classification:
 
@@ -132,4 +139,3 @@ Notes:
 - Keep as issue-only evidence:
   - yes / no
 - Reason:
-

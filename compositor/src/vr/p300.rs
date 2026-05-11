@@ -111,11 +111,7 @@ impl P300Detector {
     ///
     /// `eeg_window` should contain the post-stimulus epoch covering
     /// at least the detection window.
-    pub fn record_stimulus(
-        &mut self,
-        target_id: usize,
-        eeg_window: &[f64],
-    ) {
+    pub fn record_stimulus(&mut self, target_id: usize, eeg_window: &[f64]) {
         if !self.active || !self.config.enabled {
             return;
         }
@@ -167,13 +163,10 @@ impl P300Detector {
             // Detection window in samples (assume 250 Hz for now)
             let sample_rate = 250.0; // samples per second
             let ms_per_sample = 1000.0 / sample_rate;
-            let win_start =
-                (detection_window_ms.0 / ms_per_sample) as usize;
-            let win_end = (detection_window_ms.1 / ms_per_sample)
-                .min(avg.len() as f64) as usize;
+            let win_start = (detection_window_ms.0 / ms_per_sample) as usize;
+            let win_end = (detection_window_ms.1 / ms_per_sample).min(avg.len() as f64) as usize;
 
-            let (amplitude, latency_idx) =
-                Self::find_peak(&avg, (win_start, win_end));
+            let (amplitude, latency_idx) = Self::find_peak(&avg, (win_start, win_end));
 
             if amplitude > best_amplitude {
                 best_amplitude = amplitude;
@@ -188,16 +181,13 @@ impl P300Detector {
 
         // Compute confidence based on amplitude relative to threshold
         let confidence = if amplitude_threshold_uv > 0.0 {
-            (best_amplitude / (amplitude_threshold_uv * 2.0))
-                .clamp(0.0, 1.0)
+            (best_amplitude / (amplitude_threshold_uv * 2.0)).clamp(0.0, 1.0)
         } else {
             0.0
         };
 
         // Check thresholds
-        if best_amplitude < amplitude_threshold_uv
-            || confidence < min_confidence
-        {
+        if best_amplitude < amplitude_threshold_uv || confidence < min_confidence {
             return None;
         }
 
@@ -379,18 +369,12 @@ mod tests {
         }
 
         let result = d.detect();
-        assert!(
-            result.is_none(),
-            "Should not detect with insufficient reps",
-        );
+        assert!(result.is_none(), "Should not detect with insufficient reps",);
     }
 
     #[test]
     fn test_average_erp() {
-        let buffers = vec![
-            vec![1.0, 2.0, 3.0],
-            vec![3.0, 4.0, 5.0],
-        ];
+        let buffers = vec![vec![1.0, 2.0, 3.0], vec![3.0, 4.0, 5.0]];
         let avg = P300Detector::average_erp(&buffers);
         assert_eq!(avg.len(), 3);
         assert!((avg[0] - 2.0).abs() < f64::EPSILON);

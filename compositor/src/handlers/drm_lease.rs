@@ -10,8 +10,7 @@ use smithay::{
     delegate_drm_lease,
     reexports::drm::control::{connector as drm_connector, Device as _},
     wayland::drm_lease::{
-        DrmLease, DrmLeaseBuilder, DrmLeaseHandler, DrmLeaseRequest, DrmLeaseState,
-        LeaseRejected,
+        DrmLease, DrmLeaseBuilder, DrmLeaseHandler, DrmLeaseRequest, DrmLeaseState, LeaseRejected,
     },
 };
 use tracing::{info, warn};
@@ -46,7 +45,11 @@ impl DrmLeaseHandler for EwwmState {
 
         let drm = drm.borrow();
         let resources = drm.resource_handles().map_err(|err| {
-            warn!(?node, ?err, "rejecting DRM lease request: resource query failed");
+            warn!(
+                ?node,
+                ?err,
+                "rejecting DRM lease request: resource query failed"
+            );
             LeaseRejected::default()
         })?;
 
@@ -100,11 +103,10 @@ impl DrmLeaseHandler for EwwmState {
                 LeaseRejected::default()
             })?;
 
-            let Some((primary_plane, claim)) = planes
-                .primary
-                .iter()
-                .find_map(|plane| drm.claim_plane(plane.handle, crtc).map(|claim| (plane.handle, claim)))
-            else {
+            let Some((primary_plane, claim)) = planes.primary.iter().find_map(|plane| {
+                drm.claim_plane(plane.handle, crtc)
+                    .map(|claim| (plane.handle, claim))
+            }) else {
                 warn!(
                     ?node,
                     ?connector,
@@ -138,7 +140,8 @@ impl DrmLeaseHandler for EwwmState {
 
     fn lease_destroyed(&mut self, node: DrmNode, lease_id: u32) {
         info!(?node, lease_id, "DRM lease destroyed");
-        self.active_drm_leases.retain(|lease| lease.id() != lease_id);
+        self.active_drm_leases
+            .retain(|lease| lease.id() != lease_id);
     }
 }
 

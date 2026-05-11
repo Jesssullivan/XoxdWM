@@ -79,10 +79,7 @@ pub enum GestureEvent {
         duration_ms: f64,
     },
     /// A previously active gesture was released.
-    Released {
-        hand: Hand,
-        gesture: GestureType,
-    },
+    Released { hand: Hand, gesture: GestureType },
     /// A swipe gesture was detected.
     Swipe {
         hand: Hand,
@@ -392,7 +389,11 @@ impl GestureState {
         }
 
         // Thumbs up: thumb extended, others curled
-        if thumb_extended && !index_extended && !middle_extended && !ring_extended && !little_extended
+        if thumb_extended
+            && !index_extended
+            && !middle_extended
+            && !ring_extended
+            && !little_extended
         {
             return Some(GestureType::Thumbsup);
         }
@@ -445,9 +446,8 @@ impl GestureState {
             hs.swipe_displacement[1] += dy;
             hs.swipe_tracking = true;
 
-            let total_disp = (hs.swipe_displacement[0].powi(2)
-                + hs.swipe_displacement[1].powi(2))
-            .sqrt();
+            let total_disp =
+                (hs.swipe_displacement[0].powi(2) + hs.swipe_displacement[1].powi(2)).sqrt();
 
             if total_disp >= swipe_min_distance_m {
                 let sx = hs.swipe_displacement[0];
@@ -470,7 +470,10 @@ impl GestureState {
                 hs.swipe_displacement = [0.0; 3];
                 hs.swipe_tracking = false;
 
-                debug!("Swipe detected: {:?} on {:?}, velocity={:.2}", direction, hand, velocity);
+                debug!(
+                    "Swipe detected: {:?} on {:?}, velocity={:.2}",
+                    direction, hand, velocity
+                );
                 return Some(GestureEvent::Swipe {
                     hand,
                     direction,
@@ -651,8 +654,12 @@ mod tests {
 
         let events = state.update(&left, &right, 16.0);
         assert!(
-            events.iter().any(|e| matches!(e,
-                GestureEvent::Started { gesture: GestureType::Pinch, .. }
+            events.iter().any(|e| matches!(
+                e,
+                GestureEvent::Started {
+                    gesture: GestureType::Pinch,
+                    ..
+                }
             )),
             "Expected pinch started, got {:?}",
             events,
@@ -677,8 +684,12 @@ mod tests {
 
         let events = state.update(&left, &right, 16.0);
         assert!(
-            events.iter().any(|e| matches!(e,
-                GestureEvent::Started { gesture: GestureType::Grab, .. }
+            events.iter().any(|e| matches!(
+                e,
+                GestureEvent::Started {
+                    gesture: GestureType::Grab,
+                    ..
+                }
             )),
             "Expected grab started, got {:?}",
             events,
@@ -703,8 +714,12 @@ mod tests {
 
         let events = state.update(&left, &right, 16.0);
         assert!(
-            events.iter().any(|e| matches!(e,
-                GestureEvent::Started { gesture: GestureType::Point, .. }
+            events.iter().any(|e| matches!(
+                e,
+                GestureEvent::Started {
+                    gesture: GestureType::Point,
+                    ..
+                }
             )),
             "Expected point started, got {:?}",
             events,
@@ -729,8 +744,12 @@ mod tests {
 
         let events = state.update(&left, &right, 16.0);
         assert!(
-            events.iter().any(|e| matches!(e,
-                GestureEvent::Started { gesture: GestureType::OpenPalm, .. }
+            events.iter().any(|e| matches!(
+                e,
+                GestureEvent::Started {
+                    gesture: GestureType::OpenPalm,
+                    ..
+                }
             )),
             "Expected open-palm started, got {:?}",
             events,
@@ -759,8 +778,12 @@ mod tests {
         left.tracking_active = false;
         let events = state.update(&left, &right, 16.0);
         assert!(
-            events.iter().any(|e| matches!(e,
-                GestureEvent::Released { gesture: GestureType::Pinch, .. }
+            events.iter().any(|e| matches!(
+                e,
+                GestureEvent::Released {
+                    gesture: GestureType::Pinch,
+                    ..
+                }
             )),
             "Expected release on tracking lost, got {:?}",
             events,
@@ -792,14 +815,18 @@ mod tests {
         // Frame 2: not yet held
         let events = state.update(&left, &right, 50.0);
         assert!(
-            !events.iter().any(|e| matches!(e, GestureEvent::Held { .. })),
+            !events
+                .iter()
+                .any(|e| matches!(e, GestureEvent::Held { .. })),
             "Should not emit Held yet",
         );
 
         // Frame 3: past hold threshold
         let events = state.update(&left, &right, 60.0);
         assert!(
-            events.iter().any(|e| matches!(e, GestureEvent::Held { .. })),
+            events
+                .iter()
+                .any(|e| matches!(e, GestureEvent::Held { .. })),
             "Expected Held event, got {:?}",
             events,
         );
@@ -824,7 +851,9 @@ mod tests {
         // Cooldown starts at 0, not enough for debounce
         let events = state.update(&left, &right, 16.0);
         assert!(
-            !events.iter().any(|e| matches!(e, GestureEvent::Started { .. })),
+            !events
+                .iter()
+                .any(|e| matches!(e, GestureEvent::Started { .. })),
             "Should be debounced, got {:?}",
             events,
         );
@@ -834,7 +863,9 @@ mod tests {
         state.left.cooldown_ms = 250.0;
         let events = state.update(&left, &right, 16.0);
         assert!(
-            events.iter().any(|e| matches!(e, GestureEvent::Started { .. })),
+            events
+                .iter()
+                .any(|e| matches!(e, GestureEvent::Started { .. })),
             "Should start after debounce, got {:?}",
             events,
         );
@@ -919,8 +950,12 @@ mod tests {
 
         let events = state.update(&left, &right, 16.0);
         assert!(
-            events.iter().any(|e| matches!(e,
-                GestureEvent::Started { gesture: GestureType::Thumbsup, .. }
+            events.iter().any(|e| matches!(
+                e,
+                GestureEvent::Started {
+                    gesture: GestureType::Thumbsup,
+                    ..
+                }
             )),
             "Expected thumbsup started, got {:?}",
             events,

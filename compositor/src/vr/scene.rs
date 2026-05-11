@@ -501,10 +501,10 @@ pub struct SceneNode {
     pub visible: bool,
     pub focused: bool,
     pub alpha: f32,
-    pub ppu: f32,              // pixels-per-unit override (0 = use global)
-    pub surface_width: u32,    // pixel width of source surface
-    pub surface_height: u32,   // pixel height of source surface
-    pub dirty: bool,           // needs texture re-import
+    pub ppu: f32,            // pixels-per-unit override (0 = use global)
+    pub surface_width: u32,  // pixel width of source surface
+    pub surface_height: u32, // pixel height of source surface
+    pub dirty: bool,         // needs texture re-import
 }
 
 impl SceneNode {
@@ -599,8 +599,8 @@ impl Default for VrBackground {
 /// Focus indication configuration.
 #[derive(Debug, Clone)]
 pub struct FocusConfig {
-    pub pull_forward: f32,    // meters to pull focused surface toward viewer
-    pub unfocus_dim: f32,     // alpha multiplier for unfocused surfaces (0.0-1.0)
+    pub pull_forward: f32,      // meters to pull focused surface toward viewer
+    pub unfocus_dim: f32,       // alpha multiplier for unfocused surfaces (0.0-1.0)
     pub border_color: [f32; 4], // RGBA
 }
 
@@ -623,8 +623,8 @@ pub struct VrScene {
     pub global_ppu: f32,
     pub focus_config: FocusConfig,
     pub focused_surface: Option<u64>,
-    pub arc_distance: f32,     // default distance for arc layout (meters)
-    pub arc_spacing_deg: f32,  // gap between surfaces in arc (degrees)
+    pub arc_distance: f32,    // default distance for arc layout (meters)
+    pub arc_spacing_deg: f32, // gap between surfaces in arc (degrees)
 }
 
 impl Default for VrScene {
@@ -654,7 +654,10 @@ impl VrScene {
         let node = SceneNode::new_surface(surface_id, width, height, ppu);
         self.nodes.insert(surface_id, node);
         self.recompute_layout();
-        info!("VR scene: added surface {} ({}x{})", surface_id, width, height);
+        info!(
+            "VR scene: added surface {} ({}x{})",
+            surface_id, width, height
+        );
     }
 
     /// Remove a surface from the scene.
@@ -1027,7 +1030,8 @@ mod tests {
 
         // All surfaces should be at roughly arc_distance from origin
         for node in scene.nodes.values() {
-            let dist = (node.transform.position.x.powi(2) + node.transform.position.z.powi(2)).sqrt();
+            let dist =
+                (node.transform.position.x.powi(2) + node.transform.position.z.powi(2)).sqrt();
             assert!((dist - scene.arc_distance).abs() < 0.5);
         }
     }
@@ -1041,7 +1045,11 @@ mod tests {
         scene.add_surface(3, 1920, 1080);
 
         // All surfaces at same Z distance
-        let z_values: Vec<f32> = scene.nodes.values().map(|n| n.transform.position.z).collect();
+        let z_values: Vec<f32> = scene
+            .nodes
+            .values()
+            .map(|n| n.transform.position.z)
+            .collect();
         for z in &z_values {
             assert!((z - z_values[0]).abs() < 0.01);
         }

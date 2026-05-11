@@ -32,12 +32,7 @@ impl Default for SsvepConfig {
             window_seconds: 3.0,
             min_snr_db: 3.0,
             min_confidence: 0.7,
-            frequencies: vec![
-                (1, 12.0),
-                (2, 15.0),
-                (3, 20.0),
-                (4, 24.0),
-            ],
+            frequencies: vec![(1, 12.0), (2, 15.0), (3, 20.0), (4, 24.0)],
         }
     }
 }
@@ -103,11 +98,7 @@ impl SsvepClassifier {
     /// Uses the Goertzel algorithm to compute power at each target
     /// frequency, then selects the strongest response above the
     /// SNR and confidence thresholds.
-    pub fn classify(
-        &mut self,
-        eeg_data: &[f64],
-        sample_rate: u32,
-    ) -> Option<SsvepResult> {
+    pub fn classify(&mut self, eeg_data: &[f64], sample_rate: u32) -> Option<SsvepResult> {
         if !self.active || !self.config.enabled || eeg_data.is_empty() {
             return None;
         }
@@ -154,9 +145,7 @@ impl SsvepClassifier {
         self.frequency_powers = powers;
 
         // Check thresholds
-        if snr_db < min_snr_db
-            || confidence < min_confidence
-        {
+        if snr_db < min_snr_db || confidence < min_confidence {
             return None;
         }
 
@@ -177,11 +166,7 @@ impl SsvepClassifier {
 
     /// Compute spectral power at a specific frequency using the
     /// Goertzel algorithm (O(N) single-frequency DFT).
-    fn compute_power_at_freq(
-        data: &[f64],
-        freq: f64,
-        sample_rate: u32,
-    ) -> f64 {
+    fn compute_power_at_freq(data: &[f64], freq: f64, sample_rate: u32) -> f64 {
         let n = data.len();
         if n == 0 || sample_rate == 0 {
             return 0.0;
@@ -299,10 +284,7 @@ mod tests {
         let data = sine_wave(15.0, 250, 750);
         let result = c.classify(&data, 250);
 
-        assert!(
-            result.is_some(),
-            "Should detect 15 Hz signal",
-        );
+        assert!(result.is_some(), "Should detect 15 Hz signal",);
         let r = result.unwrap();
         assert_eq!(r.workspace_id, 2);
         assert!((r.frequency - 15.0).abs() < f64::EPSILON);

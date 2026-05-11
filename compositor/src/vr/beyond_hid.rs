@@ -159,12 +159,10 @@ mod linux_hidraw {
     }
 
     /// HIDIOCSFEATURE(len) = _IOC(_IOC_WRITE|_IOC_READ, 'H', 0x06, len)
-    const HIDIOCSFEATURE: libc::c_ulong =
-        ioc(IOC_WRITE | IOC_READ, b'H', 0x06, REPORT_SIZE);
+    const HIDIOCSFEATURE: libc::c_ulong = ioc(IOC_WRITE | IOC_READ, b'H', 0x06, REPORT_SIZE);
 
     /// HIDIOCGFEATURE(len) = _IOC(_IOC_WRITE|_IOC_READ, 'H', 0x07, len)
-    const HIDIOCGFEATURE: libc::c_ulong =
-        ioc(IOC_WRITE | IOC_READ, b'H', 0x07, REPORT_SIZE);
+    const HIDIOCGFEATURE: libc::c_ulong = ioc(IOC_WRITE | IOC_READ, b'H', 0x07, REPORT_SIZE);
 
     /// Real Linux HID transport using /dev/hidraw*.
     ///
@@ -198,10 +196,7 @@ mod linux_hidraw {
             let entries = fs::read_dir(hidraw_dir)
                 .map_err(|e| format!("cannot read {}: {}", hidraw_dir, e))?;
 
-            let mut paths: Vec<_> = entries
-                .filter_map(|e| e.ok())
-                .map(|e| e.path())
-                .collect();
+            let mut paths: Vec<_> = entries.filter_map(|e| e.ok()).map(|e| e.path()).collect();
             paths.sort();
 
             for entry in paths {
@@ -236,13 +231,13 @@ mod linux_hidraw {
                     continue;
                 }
 
-                let vendor = u16::from_str_radix(parts[1].trim_start_matches('0'), 16)
-                    .unwrap_or(0);
-                let product = u16::from_str_radix(parts[2].trim_start_matches('0'), 16)
-                    .unwrap_or(0);
+                let vendor = u16::from_str_radix(parts[1].trim_start_matches('0'), 16).unwrap_or(0);
+                let product =
+                    u16::from_str_radix(parts[2].trim_start_matches('0'), 16).unwrap_or(0);
 
                 if vendor == BEYOND_VENDOR_ID && product == BEYOND_PRODUCT_ID_HMD {
-                    let hidraw_name = entry.file_name()
+                    let hidraw_name = entry
+                        .file_name()
                         .unwrap_or_default()
                         .to_string_lossy()
                         .to_string();
@@ -255,7 +250,11 @@ mod linux_hidraw {
                     info!(
                         "LinuxHidTransport: found Beyond at {} (serial: {})",
                         dev_path,
-                        if hid_uniq.is_empty() { "unknown" } else { &hid_uniq }
+                        if hid_uniq.is_empty() {
+                            "unknown"
+                        } else {
+                            &hid_uniq
+                        }
                     );
                     return Ok((dev_path, hid_name, hid_uniq));
                 }
@@ -281,9 +280,7 @@ mod linux_hidraw {
             let fd = self.file.as_raw_fd();
 
             // Try ioctl HIDIOCSFEATURE first.
-            let ret = unsafe {
-                libc::ioctl(fd, HIDIOCSFEATURE, data.as_ptr())
-            };
+            let ret = unsafe { libc::ioctl(fd, HIDIOCSFEATURE, data.as_ptr()) };
 
             if ret >= 0 {
                 debug!(
@@ -297,9 +294,8 @@ mod linux_hidraw {
             let errno = std::io::Error::last_os_error();
             if errno.raw_os_error() == Some(libc::EPIPE) {
                 debug!("LinuxHidTransport: HIDIOCSFEATURE returned EPIPE, falling back to write()");
-                let written = unsafe {
-                    libc::write(fd, data.as_ptr() as *const libc::c_void, REPORT_SIZE)
-                };
+                let written =
+                    unsafe { libc::write(fd, data.as_ptr() as *const libc::c_void, REPORT_SIZE) };
                 if written >= 0 {
                     return Ok(written as usize);
                 }
@@ -324,9 +320,7 @@ mod linux_hidraw {
                 buf[0] = report_id;
             }
 
-            let ret = unsafe {
-                libc::ioctl(fd, HIDIOCGFEATURE, buf.as_mut_ptr())
-            };
+            let ret = unsafe { libc::ioctl(fd, HIDIOCGFEATURE, buf.as_mut_ptr()) };
 
             if ret >= 0 {
                 debug!(
@@ -474,6 +468,14 @@ pub struct BeyondHidManager {
     pub state: BeyondHidState,
     /// Commands waiting to be sent.
     pub pending_commands: Vec<BeyondHidCommand>,
+    /// Last hidraw path discovered by the transport layer, if known.
+    pub discovered_hidraw_path: Option<String>,
+    /// Number of HID feature/output reports successfully sent.
+    pub reports_sent: usize,
+    /// Last transport error, if any.
+    pub last_errno: Option<String>,
+    /// Last high-level command disposition for diagnostics.
+    pub last_action: String,
 }
 
 impl Default for BeyondHidManager {
@@ -481,6 +483,10 @@ impl Default for BeyondHidManager {
         Self {
             state: BeyondHidState::default(),
             pending_commands: Vec::new(),
+            discovered_hidraw_path: None,
+            reports_sent: 0,
+            last_errno: None,
+            last_action: "idle".to_string(),
         }
     }
 }
@@ -510,7 +516,13 @@ impl BeyondHidManager {
             info!("Beyond HID: device disconnected");
             self.state.display_powered = false;
             self.pending_commands.clear();
+            self.discovered_hidraw_path = None;
         }
+    }
+
+    /// Record the transport path used by external discovery.
+    pub fn set_discovered_hidraw_path(&mut self, path: Option<String>) {
+        self.discovered_hidraw_path = path;
     }
 
     /// Queue the display power-on sequence.
@@ -524,6 +536,7 @@ impl BeyondHidManager {
             return Ok(());
         }
         self.pending_commands.push(BeyondHidCommand::PowerOnDisplay);
+        self.last_action = "queued:power-on".to_string();
         info!("Beyond HID: queued display power-on sequence");
         Ok(())
     }
@@ -536,6 +549,7 @@ impl BeyondHidManager {
         let pct = pct.min(100);
         self.pending_commands
             .push(BeyondHidCommand::SetBrightness(pct));
+        self.last_action = "queued:brightness".to_string();
         debug!("Beyond HID: queued brightness {}%", pct);
         Ok(())
     }
@@ -554,6 +568,7 @@ impl BeyondHidManager {
         }
         self.pending_commands
             .push(BeyondHidCommand::SetFanSpeed(clamped));
+        self.last_action = "queued:fan-speed".to_string();
         debug!("Beyond HID: queued fan speed {}%", clamped);
         Ok(())
     }
@@ -565,6 +580,7 @@ impl BeyondHidManager {
         }
         self.pending_commands
             .push(BeyondHidCommand::SetLedColor(r, g, b));
+        self.last_action = "queued:led-color".to_string();
         debug!("Beyond HID: queued LED color ({}, {}, {})", r, g, b);
         Ok(())
     }
@@ -576,6 +592,7 @@ impl BeyondHidManager {
         }
         self.pending_commands
             .push(BeyondHidCommand::QueryFirmwareVersion);
+        self.last_action = "queued:firmware-query".to_string();
         debug!("Beyond HID: queued firmware version query");
         Ok(())
     }
@@ -595,10 +612,7 @@ impl BeyondHidManager {
     /// Flush all pending commands through the given HID transport.
     ///
     /// Returns the number of commands successfully sent.
-    pub fn process_pending(
-        &mut self,
-        transport: &mut dyn HidTransport,
-    ) -> Result<usize, String> {
+    pub fn process_pending(&mut self, transport: &mut dyn HidTransport) -> Result<usize, String> {
         if self.pending_commands.is_empty() {
             return Ok(0);
         }
@@ -622,15 +636,13 @@ impl BeyondHidManager {
                     let packets = build_power_on_sequence();
                     for (i, pkt) in packets.iter().enumerate() {
                         transport.send_feature_report(pkt).map_err(|e| {
-                            format!(
-                                "power-on packet {}/{} failed: {}",
-                                i + 1,
-                                packets.len(),
-                                e
-                            )
+                            format!("power-on packet {}/{} failed: {}", i + 1, packets.len(), e)
                         })?;
+                        self.reports_sent += 1;
                     }
                     self.state.display_powered = true;
+                    self.last_errno = None;
+                    self.last_action = "sent:power-on".to_string();
                     info!("Beyond HID: display powered on ({} packets)", packets.len());
                 }
                 BeyondHidCommand::SetBrightness(pct) => {
@@ -638,7 +650,10 @@ impl BeyondHidManager {
                     transport
                         .send_feature_report(&report)
                         .map_err(|e| format!("brightness command failed: {}", e))?;
+                    self.reports_sent += 1;
                     self.state.brightness = *pct;
+                    self.last_errno = None;
+                    self.last_action = "sent:brightness".to_string();
                     info!("Beyond HID: brightness set to {}%", pct);
                 }
                 BeyondHidCommand::SetFanSpeed(pct) => {
@@ -646,7 +661,10 @@ impl BeyondHidManager {
                     transport
                         .send_feature_report(&report)
                         .map_err(|e| format!("fan speed command failed: {}", e))?;
+                    self.reports_sent += 1;
                     self.state.fan_speed = *pct;
+                    self.last_errno = None;
+                    self.last_action = "sent:fan-speed".to_string();
                     info!("Beyond HID: fan speed set to {}%", pct);
                 }
                 BeyondHidCommand::SetLedColor(r, g, b) => {
@@ -654,7 +672,10 @@ impl BeyondHidManager {
                     transport
                         .send_feature_report(&report)
                         .map_err(|e| format!("LED color command failed: {}", e))?;
+                    self.reports_sent += 1;
                     self.state.led_color = (*r, *g, *b);
+                    self.last_errno = None;
+                    self.last_action = "sent:led-color".to_string();
                     info!("Beyond HID: LED color set to ({}, {}, {})", r, g, b);
                 }
                 BeyondHidCommand::QueryFirmwareVersion => {
@@ -662,6 +683,8 @@ impl BeyondHidManager {
                     transport
                         .get_feature_report(0x01, &mut buf)
                         .map_err(|e| format!("firmware query failed: {}", e))?;
+                    self.last_errno = None;
+                    self.last_action = "sent:firmware-query".to_string();
                     debug!("Beyond HID: firmware response {:02X?}", &buf[..8]);
                 }
             }
@@ -680,6 +703,31 @@ impl BeyondHidManager {
     /// Get state as IPC s-expression.
     pub fn status_sexp(&self) -> String {
         self.status().to_sexp()
+    }
+
+    /// Get diagnostics as IPC s-expression.
+    pub fn diagnostics_sexp(&self) -> String {
+        let path = self
+            .discovered_hidraw_path
+            .as_deref()
+            .map(|p| format!("\"{}\"", p))
+            .unwrap_or_else(|| "nil".to_string());
+        let errno = self
+            .last_errno
+            .as_deref()
+            .map(|e| format!("\"{}\"", e.replace('"', "\\\"")))
+            .unwrap_or_else(|| "nil".to_string());
+
+        format!(
+            "(:discovered-hidraw-path {} :pending-command-count {} :reports-sent {} :last-errno {} :last-action \"{}\" :connected {} :display-powered {})",
+            path,
+            self.pending_count(),
+            self.reports_sent,
+            errno,
+            self.last_action.replace('"', "\\\""),
+            if self.state.connected { "t" } else { "nil" },
+            if self.state.display_powered { "t" } else { "nil" },
+        )
     }
 
     /// Whether the Beyond headset is currently detected/connected.

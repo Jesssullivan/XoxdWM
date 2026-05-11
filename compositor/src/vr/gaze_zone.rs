@@ -138,10 +138,7 @@ impl Default for ZoneColors {
 #[derive(Debug, Clone)]
 pub enum ZoneEvent {
     /// Gaze entered a new zone on a surface.
-    ZoneEntered {
-        zone: GazeZone,
-        surface_id: u64,
-    },
+    ZoneEntered { zone: GazeZone, surface_id: u64 },
     /// Zone dwell threshold reached — modifier should be applied.
     ZoneActivated {
         zone: GazeZone,
@@ -149,10 +146,7 @@ pub enum ZoneEvent {
         modifier: String,
     },
     /// Previously active zone was exited.
-    ZoneDeactivated {
-        zone: GazeZone,
-        surface_id: u64,
-    },
+    ZoneDeactivated { zone: GazeZone, surface_id: u64 },
     /// Progress toward zone activation (for overlay animation).
     ZoneDwellProgress {
         zone: GazeZone,
@@ -328,7 +322,11 @@ impl ZoneDetector {
             let deactivation_event = if let Some(prev_zone) = self.active_zone {
                 self.active_zone = None;
                 self.lock_remaining_ms = self.config.lock_ms;
-                debug!("Zone deactivated: {}, lock {:.0}ms", prev_zone.as_str(), self.config.lock_ms);
+                debug!(
+                    "Zone deactivated: {}, lock {:.0}ms",
+                    prev_zone.as_str(),
+                    self.config.lock_ms
+                );
                 Some(ZoneEvent::ZoneDeactivated {
                     zone: prev_zone,
                     surface_id,
@@ -348,10 +346,7 @@ impl ZoneDetector {
             self.current_zone = Some(zone);
             self.dwell_elapsed_ms = 0.0;
             debug!("Zone entered: {} on surface {}", zone.as_str(), surface_id);
-            return Some(ZoneEvent::ZoneEntered {
-                zone,
-                surface_id,
-            });
+            return Some(ZoneEvent::ZoneEntered { zone, surface_id });
         }
 
         // Same zone — accumulate dwell time
@@ -450,13 +445,22 @@ mod tests {
         assert_eq!(det.classify(10.0, 10.0, 1000.0, 1000.0), GazeZone::TopLeft);
 
         // Top-right: (950, 10)
-        assert_eq!(det.classify(950.0, 10.0, 1000.0, 1000.0), GazeZone::TopRight);
+        assert_eq!(
+            det.classify(950.0, 10.0, 1000.0, 1000.0),
+            GazeZone::TopRight
+        );
 
         // Bottom-left: (10, 950)
-        assert_eq!(det.classify(10.0, 950.0, 1000.0, 1000.0), GazeZone::BottomLeft);
+        assert_eq!(
+            det.classify(10.0, 950.0, 1000.0, 1000.0),
+            GazeZone::BottomLeft
+        );
 
         // Bottom-right: (950, 950)
-        assert_eq!(det.classify(950.0, 950.0, 1000.0, 1000.0), GazeZone::BottomRight);
+        assert_eq!(
+            det.classify(950.0, 950.0, 1000.0, 1000.0),
+            GazeZone::BottomRight
+        );
     }
 
     #[test]
@@ -471,13 +475,22 @@ mod tests {
         // Bottom edge: (500, 950) — but 950 is also > 850 (corner region for y)
         // (500, 950): frac_x=0.5, frac_y=0.95. in_bottom=true but not in_left/in_right.
         // frac_y > (1-0.15)=0.85, so BottomEdge
-        assert_eq!(det.classify(500.0, 920.0, 1000.0, 1000.0), GazeZone::BottomEdge);
+        assert_eq!(
+            det.classify(500.0, 920.0, 1000.0, 1000.0),
+            GazeZone::BottomEdge
+        );
 
         // Left edge: (50, 500) — near left, center-y
-        assert_eq!(det.classify(50.0, 500.0, 1000.0, 1000.0), GazeZone::LeftEdge);
+        assert_eq!(
+            det.classify(50.0, 500.0, 1000.0, 1000.0),
+            GazeZone::LeftEdge
+        );
 
         // Right edge: (960, 500) — near right, center-y
-        assert_eq!(det.classify(960.0, 500.0, 1000.0, 1000.0), GazeZone::RightEdge);
+        assert_eq!(
+            det.classify(960.0, 500.0, 1000.0, 1000.0),
+            GazeZone::RightEdge
+        );
     }
 
     #[test]
@@ -600,8 +613,14 @@ mod tests {
     #[test]
     fn test_zone_roundtrip() {
         let zones = vec![
-            "top-left", "top-right", "bottom-left", "bottom-right",
-            "top-edge", "bottom-edge", "left-edge", "right-edge",
+            "top-left",
+            "top-right",
+            "bottom-left",
+            "bottom-right",
+            "top-edge",
+            "bottom-edge",
+            "left-edge",
+            "right-edge",
             "center",
         ];
         for s in &zones {

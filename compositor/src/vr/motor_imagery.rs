@@ -177,25 +177,17 @@ impl MiClassifier {
 
         // Compute baseline from rest trials
         let n = rest_trials.len() as f64;
-        self.baseline_c3 =
-            rest_trials.iter().map(|(_, c3, _, _)| c3).sum::<f64>() / n;
-        self.baseline_c4 =
-            rest_trials.iter().map(|(_, _, c4, _)| c4).sum::<f64>() / n;
-        self.baseline_cz =
-            rest_trials.iter().map(|(_, _, _, cz)| cz).sum::<f64>() / n;
+        self.baseline_c3 = rest_trials.iter().map(|(_, c3, _, _)| c3).sum::<f64>() / n;
+        self.baseline_c4 = rest_trials.iter().map(|(_, _, c4, _)| c4).sum::<f64>() / n;
+        self.baseline_cz = rest_trials.iter().map(|(_, _, _, cz)| cz).sum::<f64>() / n;
 
         // Ensure baselines are positive
-        if self.baseline_c3 <= 0.0
-            || self.baseline_c4 <= 0.0
-            || self.baseline_cz <= 0.0
-        {
+        if self.baseline_c3 <= 0.0 || self.baseline_c4 <= 0.0 || self.baseline_cz <= 0.0 {
             return Err("Baseline power too low, check signal".to_string());
         }
 
         // Compute per-class ERD from labeled trials
-        for (idx, class_name) in
-            ["left-hand", "right-hand", "foot"].iter().enumerate()
-        {
+        for (idx, class_name) in ["left-hand", "right-hand", "foot"].iter().enumerate() {
             let class_trials: Vec<_> = self
                 .calibration_trials
                 .iter()
@@ -230,12 +222,7 @@ impl MiClassifier {
     ///
     /// Powers should be computed from the mu and beta bands at
     /// C3, C4, and Cz electrode positions.
-    pub fn classify(
-        &mut self,
-        c3_power: f64,
-        c4_power: f64,
-        cz_power: f64,
-    ) -> Option<MiResult> {
+    pub fn classify(&mut self, c3_power: f64, c4_power: f64, cz_power: f64) -> Option<MiResult> {
         if !self.config.enabled || !self.config.calibrated {
             return None;
         }
@@ -274,9 +261,7 @@ impl MiClassifier {
             0.0
         };
 
-        if best_class == MiClass::Rest
-            || confidence < self.config.min_confidence
-        {
+        if best_class == MiClass::Rest || confidence < self.config.min_confidence {
             let result = MiResult {
                 class: MiClass::Rest,
                 confidence: 0.0,
@@ -321,7 +306,11 @@ impl MiClassifier {
         let last_str = match &self.last_result {
             Some(r) => format!(
                 "(:class :{} :confidence {:.2} :erd-c3 {:.3} :erd-c4 {:.3} :erd-cz {:.3})",
-                r.class.as_str(), r.confidence, r.erd_c3, r.erd_c4, r.erd_cz,
+                r.class.as_str(),
+                r.confidence,
+                r.erd_c3,
+                r.erd_c4,
+                r.erd_cz,
             ),
             None => "nil".to_string(),
         };

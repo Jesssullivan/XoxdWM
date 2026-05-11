@@ -19,8 +19,10 @@ Environment:
   EXWM_VR_OPENXR_CLIENT     Default client path when --client is not provided.
   EXWM_VR_OPENXR_TIMEOUT    Default timeout when --timeout is not provided.
   EXWM_VR_OPENXR_ACCEPT_TIMEOUT_AFTER_READY=1
-                            Treat a timeout as success if READY/client markers
-                            are present in captured client output.
+                            Classify a timeout as P3 OpenXR session evidence
+                            if READY/client markers are present.
+  EXWM_VR_VISUAL_OBSERVED=yes|no
+                            Human-visible headset result. Default: no.
 EOF
 }
 
@@ -28,6 +30,7 @@ status_only=0
 client_override="${EXWM_VR_OPENXR_CLIENT:-}"
 timeout_seconds="${EXWM_VR_OPENXR_TIMEOUT:-20}"
 accept_timeout_after_ready="${EXWM_VR_OPENXR_ACCEPT_TIMEOUT_AFTER_READY:-0}"
+visual_observed="${EXWM_VR_VISUAL_OBSERVED:-no}"
 client_args=()
 
 while (($#)); do
@@ -161,6 +164,8 @@ service_status() {
 print_status() {
     echo "host=$(hostname 2>/dev/null || echo unknown)"
     echo "uid=$(id -u)"
+    echo "proof_ladder=P0_INVENTORY"
+    echo "visual_observed=${visual_observed}"
     echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
     echo "XR_RUNTIME_JSON=$XR_RUNTIME_JSON"
 
@@ -235,15 +240,27 @@ set -e
 
 if ((rc == 0)); then
     echo "openxr_smoke=passed"
+    echo "proof_ladder=P3_OPENXR_SESSION"
+    echo "visual_observed=${visual_observed}"
+    if [[ "$visual_observed" = "yes" ]]; then
+        echo "visual_first_frame=P4_OBSERVED"
+    else
+        echo "visual_first_frame=P4_UNOBSERVED"
+    fi
     exit 0
 fi
 
 if ((rc == 124)) && [[ "$accept_timeout_after_ready" = "1" ]]; then
     if grep -Eqi "READY|Head:|swapchain|xrGetSystem" "$run_log"; then
-        echo "openxr_smoke=passed_after_ready_timeout"
+        echo "openxr_smoke=p3_session_after_ready_timeout"
+        echo "proof_ladder=P3_OPENXR_SESSION"
+        echo "visual_observed=${visual_observed}"
+        echo "visual_first_frame=P4_UNOBSERVED"
         exit 0
     fi
 fi
 
 echo "openxr_smoke=failed rc=$rc" >&2
+echo "proof_ladder=P2_OR_LOWER" >&2
+echo "visual_observed=${visual_observed}" >&2
 exit "$rc"

@@ -24,15 +24,15 @@ impl VrTextureFormat {
         match self {
             Self::Rgba8 => 0x8058,   // GL_RGBA8
             Self::Bgra8 => 0x8058,   // GL_RGBA8 (swizzled)
-            Self::Rgba16f => 0x881A,  // GL_RGBA16F
+            Self::Rgba16f => 0x881A, // GL_RGBA16F
         }
     }
 
     /// GL format constant.
     pub fn gl_format(&self) -> u32 {
         match self {
-            Self::Rgba8 => 0x1908,  // GL_RGBA
-            Self::Bgra8 => 0x80E1,  // GL_BGRA
+            Self::Rgba8 => 0x1908,   // GL_RGBA
+            Self::Bgra8 => 0x80E1,   // GL_BGRA
             Self::Rgba16f => 0x1908, // GL_RGBA
         }
     }
@@ -85,7 +85,10 @@ impl TextureManager {
     pub fn register_surface(&mut self, surface_id: u64, width: u32, height: u32) {
         let tex = VrTexture::placeholder(surface_id, width, height);
         self.textures.insert(surface_id, tex);
-        debug!("VR texture: registered surface {} ({}x{})", surface_id, width, height);
+        debug!(
+            "VR texture: registered surface {} ({}x{})",
+            surface_id, width, height
+        );
     }
 
     /// Unregister a surface and clean up its texture (no GL context).
@@ -229,7 +232,10 @@ impl TextureManager {
                         );
                     }
                     Err(e) => {
-                        warn!("VR texture: create failed for surface {}: {}", surface_id, e);
+                        warn!(
+                            "VR texture: create failed for surface {}: {}",
+                            surface_id, e
+                        );
                         return;
                     }
                 }
@@ -293,7 +299,9 @@ impl TextureManager {
         tex.dirty = false;
         debug!(
             "VR texture: uploaded {}x{} pixels for surface {} ({}KB)",
-            width, height, surface_id,
+            width,
+            height,
+            surface_id,
             pixels.len() / 1024,
         );
     }

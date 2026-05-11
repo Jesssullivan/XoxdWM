@@ -680,11 +680,7 @@ impl EyeTracking {
     }
 
     /// Get the active gaze source (auto-selects if preference is None).
-    pub fn resolve_source(
-        &self,
-        openxr_available: bool,
-        pupil_available: bool,
-    ) -> GazeSource {
+    pub fn resolve_source(&self, openxr_available: bool, pupil_available: bool) -> GazeSource {
         self.resolve_source_full(openxr_available, pupil_available, false)
     }
 

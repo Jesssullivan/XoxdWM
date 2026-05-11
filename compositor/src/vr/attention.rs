@@ -160,13 +160,7 @@ impl AttentionMonitor {
     }
 
     /// Update band power measurements and recompute focus score.
-    pub fn update_bands(
-        &mut self,
-        alpha: f64,
-        beta: f64,
-        theta: f64,
-        gamma: f64,
-    ) {
+    pub fn update_bands(&mut self, alpha: f64, beta: f64, theta: f64, gamma: f64) {
         if !self.config.enabled {
             return;
         }
@@ -257,8 +251,8 @@ impl AttentionMonitor {
                 self.calibration_samples.len()
             ));
         }
-        let mean = self.calibration_samples.iter().sum::<f64>()
-            / self.calibration_samples.len() as f64;
+        let mean =
+            self.calibration_samples.iter().sum::<f64>() / self.calibration_samples.len() as f64;
         if mean <= 0.01 {
             return Err("Calibration mean too low, check signal".to_string());
         }
@@ -304,11 +298,7 @@ impl AttentionMonitor {
     }
 
     /// Set a named threshold value.
-    pub fn set_threshold(
-        &mut self,
-        name: &str,
-        value: f64,
-    ) -> Result<(), String> {
+    pub fn set_threshold(&mut self, name: &str, value: f64) -> Result<(), String> {
         match name {
             "focus" => {
                 self.config.focus_threshold = value;

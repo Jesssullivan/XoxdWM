@@ -1,0 +1,593 @@
+#!/usr/bin/env python3
+"""Read-only kernel/driver DSC truth probe for Bigscreen Beyond on AMD.
+
+This script is intentionally evidence-only.  It reads module ELF metadata,
+EDID bytes, and debugfs state.  It must not write DSC/link debugfs knobs,
+restart services, detach HID drivers, or retrain a DisplayPort link.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import os
+from pathlib import Path
+import re
+import struct
+import subprocess
+import sys
+import string
+from typing import Iterable
+
+
+QP_MAX_BPP8_PATCHED = [4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 11, 12, 13, 13, 15]
+QP_MAX_BPP8_STOCK = [4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 10, 11, 11, 12, 13]
+QP_MIN_BPP8_PATCHED = [0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5, 5, 5, 7, 13]
+QP_MIN_BPP8_STOCK = [0, 0, 1, 1, 3, 3, 3, 3, 3, 4, 5, 5, 5, 8, 12]
+RC_BPG_OFFSET_BPP8_444_PATCHED = [2, 0, 0, -2, -4, -6, -8, -8, -8, -10, -10, -12, -12, -12, -12]
+RC_BPG_OFFSET_BPP8_444_STOCK = [2, 0, 0, -2, -4, -6, -8, -8, -8, -10, -10, -10, -12, -12, -12]
+PPS_RC_RANGE_OFFSET = 58
+PPS_RC_RANGE_COUNT = 15
+
+
+def kernel_release() -> str:
+    return os.uname().release
+
+
+def default_amdgpu_module() -> Path:
+    return Path(f"/lib/modules/{kernel_release()}/kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko")
+
+
+def default_drm_module() -> Path:
+    return Path(f"/lib/modules/{kernel_release()}/kernel/drivers/gpu/drm/drm.ko")
+
+
+def run_text(args: list[str]) -> str:
+    return subprocess.check_output(args, text=True, errors="replace")
+
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def readelf_symbols(path: Path) -> dict[str, dict[str, int | str]]:
+    symbols: dict[str, dict[str, int | str]] = {}
+    for line in run_text(["readelf", "-Ws", str(path)]).splitlines():
+        parts = line.split()
+        if len(parts) < 8 or not parts[0].endswith(":"):
+            continue
+        name = parts[-1]
+        if not name:
+            continue
+        try:
+            value = int(parts[1], 16)
+            size = int(parts[2], 10)
+        except ValueError:
+            continue
+        symbols[name] = {
+            "value": value,
+            "size": size,
+            "section": parts[6],
+            "type": parts[3],
+            "bind": parts[4],
+        }
+    return symbols
+
+
+def readelf_sections(path: Path) -> dict[str, dict[str, int]]:
+    sections: dict[str, dict[str, int]] = {}
+    pattern = re.compile(
+        r"^\s*\[\s*(?P<index>\d+)\]\s+"
+        r"(?P<name>\S+)\s+\S+\s+"
+        r"(?P<addr>[0-9a-fA-F]+)\s+"
+        r"(?P<offset>[0-9a-fA-F]+)\s+"
+        r"(?P<size>[0-9a-fA-F]+)"
+    )
+    for line in run_text(["readelf", "-SW", str(path)]).splitlines():
+        match = pattern.match(line)
+        if not match:
+            continue
+        entry = {
+            "index": int(match.group("index")),
+            "addr": int(match.group("addr"), 16),
+            "offset": int(match.group("offset"), 16),
+            "size": int(match.group("size"), 16),
+        }
+        sections[match.group("name")] = entry
+        sections[str(entry["index"])] = entry
+    return sections
+
+
+def decode_qp_table(path: Path, symbol_name: str) -> list[tuple[float, list[int]]]:
+    symbols = readelf_symbols(path)
+    sections = readelf_sections(path)
+    sym = symbols.get(symbol_name)
+    if not sym:
+        raise RuntimeError(f"missing symbol {symbol_name}")
+    section = sections.get(str(sym["section"]))
+    if not section:
+        raise RuntimeError(f"missing section {sym['section']} for {symbol_name}")
+
+    value = int(sym["value"])
+    size = int(sym["size"])
+    file_offset = section["offset"] + (value - section["addr"])
+    data = path.read_bytes()[file_offset:file_offset + size]
+
+    # Linux AMD's qp_table rows are 64 bytes: float bpp + 15 int32 QP values.
+    row_size = 64
+    if size % row_size != 0:
+        raise RuntimeError(f"{symbol_name} size {size} is not a multiple of {row_size}")
+
+    rows: list[tuple[float, list[int]]] = []
+    for offset in range(0, len(data), row_size):
+        entry = data[offset:offset + row_size]
+        bpp = struct.unpack_from("<f", entry, 0)[0]
+        values = list(struct.unpack_from("<15i", entry, 4))
+        rows.append((bpp, values))
+    return rows
+
+
+def has_bpp8_row(rows: Iterable[tuple[float, list[int]]], values: list[int]) -> bool:
+    return any(abs(bpp - 8.0) < 0.001 and row == values for bpp, row in rows)
+
+
+def get_ofs_set_signature(path: Path) -> str:
+    try:
+        text = run_text(["objdump", "-dr", "--disassemble=get_ofs_set", str(path)])
+    except (OSError, subprocess.CalledProcessError) as exc:
+        return f"unknown ({exc})"
+
+    minus12 = "mov    $0xfffffff4,%edx" in text and "mov    %edx,0x2c" in text
+    symbol = "<get_ofs_set>" in text
+    if symbol and minus12:
+        return "present_minus12_store_signature"
+    if symbol:
+        return "symbol_present_no_minus12_store_signature"
+    return "missing"
+
+
+def connected_dp_edids(sysfs_root: Path) -> list[Path]:
+    paths: list[Path] = []
+    for status in sorted(sysfs_root.glob("card*-DP-*/status")):
+        try:
+            if status.read_text().strip() != "connected":
+                continue
+        except OSError:
+            continue
+        edid = status.parent / "edid"
+        if edid.exists():
+            paths.append(edid)
+    return paths
+
+
+def connector_name(path: Path) -> str:
+    name = path.name
+    if "-" in name and name.startswith("card"):
+        return name.split("-", 1)[1]
+    return name
+
+
+def edid_identity(edid: bytes) -> tuple[str, int] | None:
+    if len(edid) < 12:
+        return None
+    raw = (edid[8] << 8) | edid[9]
+    if raw == 0:
+        return None
+    manufacturer = "".join(chr(((raw >> shift) & 0x1F) + 64) for shift in (10, 5, 0))
+    product = edid[10] | (edid[11] << 8)
+    return manufacturer, product
+
+
+def is_bigscreen_edid(edid: bytes) -> bool:
+    identity = edid_identity(edid)
+    return bool(identity and identity[0] == "BIG" and identity[1] in {0x1234, 0x5095})
+
+
+def connected_dp_connectors(sysfs_root: Path) -> list[Path]:
+    paths: list[Path] = []
+    for status in sorted(sysfs_root.glob("card*-DP-*/status")):
+        try:
+            if status.read_text().strip() == "connected":
+                paths.append(status.parent)
+        except OSError:
+            continue
+    return paths
+
+
+def resolve_connector(sysfs_root: Path, requested: str) -> tuple[str, str, Path | None]:
+    requested = requested.strip()
+    if requested and requested.lower() != "auto":
+        return connector_name(Path(requested)), "explicit", None
+
+    connectors = connected_dp_connectors(sysfs_root)
+    for path in connectors:
+        try:
+            if (path / "non_desktop").read_text().strip() == "1":
+                return connector_name(path), "non_desktop", path
+        except OSError:
+            continue
+
+    for path in connectors:
+        try:
+            if is_bigscreen_edid((path / "edid").read_bytes()):
+                return connector_name(path), "edid-bigscreen", path
+        except OSError:
+            continue
+
+    return "", "unresolved", None
+
+
+def parse_displayid_vesa_dsc(edid: bytes) -> list[dict[str, int | str]]:
+    blocks: list[dict[str, int | str]] = []
+    for ext_index in range(1, len(edid) // 128):
+        ext = edid[ext_index * 128:(ext_index + 1) * 128]
+        if not ext or ext[0] != 0x70:
+            continue
+        pos = 5
+        while pos + 3 <= 127:
+            tag, rev, length = ext[pos], ext[pos + 1], ext[pos + 2]
+            if tag == 0 and rev == 0 and length == 0:
+                break
+            payload = ext[pos + 3:pos + 3 + length]
+            if tag == 0x7E and len(payload) >= 7:
+                bpp_int = payload[5] & 0x3F
+                bpp_fract = payload[6] & 0x0F
+                blocks.append({
+                    "offset": ext_index * 128 + pos,
+                    "oui": ":".join(f"{b:02x}" for b in payload[:3]),
+                    "dp_type": payload[3] & 0x7,
+                    "mso": payload[4],
+                    "dsc_bpp_x16": bpp_int * 16 + bpp_fract,
+                })
+            pos += 3 + length
+    return blocks
+
+
+def read_text_debugfs_values(debugfs_connector: Path | None) -> list[tuple[str, str]]:
+    if not debugfs_connector or not debugfs_connector.exists():
+        return []
+    names = [
+        "dp_dsc_fec_support",
+        "dsc_clock_en",
+        "dsc_bits_per_pixel",
+        "dsc_chunk_size",
+        "dsc_slice_bpg",
+        "dsc_pic_width",
+        "dsc_pic_height",
+        "dsc_slice_width",
+        "dsc_slice_height",
+        "link_settings",
+        "phy_settings",
+        "hdcp_sink_capability",
+    ]
+    values: list[tuple[str, str]] = []
+    for name in names:
+        path = debugfs_connector / name
+        if not path.exists():
+            continue
+        try:
+            text = path.read_text(errors="replace").replace("\x00", "").strip()
+        except OSError as exc:
+            text = f"unreadable: {exc}"
+        values.append((name, text))
+    return values
+
+
+def debugfs_binary_bytes(debugfs_connector: Path, name: str, limit: int = 512) -> bytes | None:
+    path = debugfs_connector / name
+    if not path.exists():
+        return None
+    try:
+        with path.open("rb") as f:
+            return f.read(limit)
+    except OSError:
+        return None
+
+
+def mostly_text(data: bytes) -> bool:
+    if not data:
+        return False
+    allowed = set(bytes(string.printable, "ascii"))
+    return sum(1 for byte in data if byte in allowed) / len(data) > 0.90
+
+
+def pps_bytes(raw: bytes) -> bytes | None:
+    if not raw:
+        return None
+    if mostly_text(raw):
+        tokens = re.findall(rb"(?<![0-9A-Fa-f])(?:0x)?([0-9A-Fa-f]{2})(?![0-9A-Fa-f])", raw)
+        if len(tokens) >= 128:
+            return bytes(int(token, 16) for token in tokens[:128])
+        if len(tokens) >= 88:
+            return bytes(int(token, 16) for token in tokens)
+    if len(raw) >= 88:
+        return raw[:128]
+    return None
+
+
+def be16(data: bytes, offset: int) -> int:
+    return (data[offset] << 8) | data[offset + 1]
+
+
+def signed6(value: int) -> int:
+    value &= 0x3F
+    return value - 64 if value & 0x20 else value
+
+
+def encode_rc_range(min_qp: int, max_qp: int, bpg_offset: int) -> int:
+    return (min_qp << 11) | (max_qp << 6) | (bpg_offset & 0x3F)
+
+
+def decode_rc_range(word: int) -> tuple[int, int, int]:
+    min_qp = (word >> 11) & 0x1F
+    max_qp = (word >> 6) & 0x1F
+    bpg_offset = signed6(word)
+    return min_qp, max_qp, bpg_offset
+
+
+def expected_rc_ranges(max_values: list[int], min_values: list[int], offsets: list[int]) -> list[tuple[int, int, int]]:
+    return list(zip(min_values, max_values, offsets, strict=True))
+
+
+def decode_pps(pps: bytes) -> dict[str, int | str | bool | list[tuple[int, int, int]]]:
+    result: dict[str, int | str | bool | list[tuple[int, int, int]]] = {
+        "length": len(pps),
+        "sha256": hashlib.sha256(pps).hexdigest(),
+        "dsc_version_major": pps[0] >> 4,
+        "dsc_version_minor": pps[0] & 0x0F,
+        "pps_identifier": pps[1],
+        "bits_per_component": pps[3] >> 4,
+        "linebuf_depth": pps[3] & 0x0F,
+        "bits_per_pixel_x16": ((pps[4] & 0x03) << 8) | pps[5],
+        "vbr_enable": bool(pps[4] & 0x04),
+        "simple_422": bool(pps[4] & 0x08),
+        "convert_rgb": bool(pps[4] & 0x10),
+        "block_pred_enable": bool(pps[4] & 0x20),
+        "pic_height": be16(pps, 6),
+        "pic_width": be16(pps, 8),
+        "slice_height": be16(pps, 10),
+        "slice_width": be16(pps, 12),
+        "chunk_size": be16(pps, 14),
+        "initial_xmit_delay": ((pps[16] & 0x03) << 8) | pps[17],
+        "initial_dec_delay": be16(pps, 18),
+        "initial_scale_value": pps[21],
+        "scale_increment_interval": be16(pps, 22),
+        "scale_decrement_interval": ((pps[24] & 0x0F) << 8) | pps[25],
+        "first_line_bpg_offset": pps[27],
+        "nfl_bpg_offset": be16(pps, 28),
+        "slice_bpg_offset": be16(pps, 30),
+        "initial_offset": be16(pps, 32),
+        "final_offset": be16(pps, 34),
+        "flatness_min_qp": pps[36],
+        "flatness_max_qp": pps[37],
+        "rc_model_size": be16(pps, 38),
+        "rc_edge_factor": pps[40],
+        "rc_quant_incr_limit0": pps[41],
+        "rc_quant_incr_limit1": pps[42],
+    }
+
+    ranges: list[tuple[int, int, int]] = []
+    for index in range(PPS_RC_RANGE_COUNT):
+        offset = PPS_RC_RANGE_OFFSET + index * 2
+        ranges.append(decode_rc_range(be16(pps, offset)))
+    result["rc_ranges"] = ranges
+    return result
+
+
+def emit_pps(debugfs_connector: Path, failures: list[str]) -> None:
+    raw = debugfs_binary_bytes(debugfs_connector, "dsc_pic_parameter_set")
+    if raw is None:
+        emit("pps_available", "false")
+        return
+
+    pps = pps_bytes(raw)
+    if not pps:
+        emit("pps_available", "unparseable")
+        return
+
+    emit("pps_available", "true")
+    emit("pps_length", len(pps))
+    emit("pps_sha256", hashlib.sha256(pps).hexdigest())
+    emit("pps_hex_0_127", " ".join(f"{byte:02x}" for byte in pps[:128]))
+
+    if len(pps) < 88:
+        emit("pps_decode", "short")
+        return
+
+    decoded = decode_pps(pps)
+    for key, value in decoded.items():
+        if key == "rc_ranges":
+            continue
+        emit(f"pps_{key}", value)
+
+    ranges = decoded["rc_ranges"]
+    assert isinstance(ranges, list)
+    for index, (min_qp, max_qp, bpg_offset) in enumerate(ranges):
+        word = encode_rc_range(min_qp, max_qp, bpg_offset)
+        emit(
+            f"pps_rc_range_{index}",
+            f"min_qp={min_qp} max_qp={max_qp} bpg_offset={bpg_offset} word=0x{word:04x}",
+        )
+
+    patched = expected_rc_ranges(QP_MAX_BPP8_PATCHED, QP_MIN_BPP8_PATCHED, RC_BPG_OFFSET_BPP8_444_PATCHED)
+    stock = expected_rc_ranges(QP_MAX_BPP8_STOCK, QP_MIN_BPP8_STOCK, RC_BPG_OFFSET_BPP8_444_STOCK)
+    pps_patched = ranges == patched
+    pps_stock = ranges == stock
+    emit("pps_rc_ranges_bpp8_444_patched", str(pps_patched).lower())
+    emit("pps_rc_ranges_bpp8_444_stock", str(pps_stock).lower())
+
+    if decoded["bits_per_component"] == 8 and decoded["bits_per_pixel_x16"] == 128:
+        if not pps_patched:
+            failures.append("PPS BPP=8 8bpc RC ranges do not match patched 4:4:4 table")
+        if pps_stock:
+            failures.append("PPS BPP=8 8bpc RC ranges still match stock 4:4:4 table")
+
+
+def emit_optional_binary(debugfs_connector: Path, name: str, limit: int = 256) -> None:
+    data = debugfs_binary_bytes(debugfs_connector, name, limit)
+    if data is None:
+        return
+    emit(f"debugfs_{name}_sha256", hashlib.sha256(data).hexdigest())
+    emit(f"debugfs_{name}_first_{len(data)}", " ".join(f"{byte:02x}" for byte in data))
+
+
+def emit_dtn_excerpt(debugfs_connector: Path) -> None:
+    path = debugfs_connector.parent / "amdgpu_dm_dtn_log"
+    if not path.exists():
+        return
+    try:
+        lines = path.read_text(errors="replace").splitlines()
+    except OSError:
+        return
+
+    wanted = {
+        "dtn_dsc": "DSC:",
+        "dtn_link_encoder": "L_ENC: DPHY",
+        "dtn_hubp": "HUBP:  format",
+    }
+    for prefix, marker in wanted.items():
+        try:
+            start = next(index for index, line in enumerate(lines) if line.startswith(marker))
+        except StopIteration:
+            continue
+        excerpt: list[str] = []
+        for line in lines[start:start + 12]:
+            if excerpt and not line.strip():
+                break
+            excerpt.append(line.strip())
+        for index, line in enumerate(excerpt):
+            emit(f"{prefix}_{index}", line)
+
+
+def default_debugfs_connector(name: str, sysfs_path: Path | None = None) -> Path | None:
+    candidates: list[Path] = []
+    if sysfs_path and sysfs_path.name.startswith("card"):
+        card = sysfs_path.name.split("-", 1)[0]
+        card_num = card.removeprefix("card")
+        candidates.append(Path(f"/sys/kernel/debug/dri/{card_num}/{name}"))
+    candidates.extend([
+        Path(f"/sys/kernel/debug/dri/0000:05:00.0/{name}"),
+        Path(f"/sys/kernel/debug/dri/0/{name}"),
+    ])
+    for path in candidates:
+        try:
+            if path.exists():
+                return path
+        except OSError:
+            continue
+    try:
+        for path in sorted(Path("/sys/kernel/debug/dri").glob(f"*/{name}")):
+            return path
+    except OSError:
+        return None
+    return None
+
+
+def emit(key: str, value: object) -> None:
+    print(f"{key}={value}")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--amdgpu-module", type=Path, default=default_amdgpu_module())
+    parser.add_argument("--drm-module", type=Path, default=default_drm_module())
+    parser.add_argument("--sysfs-root", type=Path, default=Path("/sys/class/drm"))
+    parser.add_argument("--edid", type=Path, help="Explicit EDID path")
+    parser.add_argument("--debugfs-connector", type=Path, help="Explicit debugfs connector path")
+    parser.add_argument("--connector", default="auto", help="DRM connector name, or auto to resolve the live HMD")
+    args = parser.parse_args()
+
+    failures: list[str] = []
+
+    emit("kernel_release", kernel_release())
+
+    resolved_connector = args.connector
+    connector_source = "explicit"
+    resolved_sysfs: Path | None = None
+    if not args.debugfs_connector:
+        resolved_connector, connector_source, resolved_sysfs = resolve_connector(args.sysfs_root, args.connector)
+        if resolved_connector:
+            emit("resolved_connector", resolved_connector)
+            emit("resolved_connector_source", connector_source)
+            if resolved_sysfs:
+                emit("resolved_connector_sysfs", resolved_sysfs)
+        else:
+            emit("resolved_connector", "unresolved")
+
+    if args.amdgpu_module.exists():
+        emit("amdgpu_module", args.amdgpu_module)
+        emit("amdgpu_sha256", sha256_file(args.amdgpu_module))
+        try:
+            max_rows = decode_qp_table(args.amdgpu_module, "qp_table_444_8bpc_max")
+            min_rows = decode_qp_table(args.amdgpu_module, "qp_table_444_8bpc_min")
+            max_patch = has_bpp8_row(max_rows, QP_MAX_BPP8_PATCHED)
+            min_patch = has_bpp8_row(min_rows, QP_MIN_BPP8_PATCHED)
+            emit("qp_table_444_8bpc_max_bpp8_patched", str(max_patch).lower())
+            emit("qp_table_444_8bpc_min_bpp8_patched", str(min_patch).lower())
+            emit("qp_table_444_8bpc_max_bpp8_stock", str(has_bpp8_row(max_rows, QP_MAX_BPP8_STOCK)).lower())
+            emit("qp_table_444_8bpc_min_bpp8_stock", str(has_bpp8_row(min_rows, QP_MIN_BPP8_STOCK)).lower())
+            if not max_patch:
+                failures.append("missing patched max QP BPP=8 row")
+            if not min_patch:
+                failures.append("missing patched min QP BPP=8 row")
+        except Exception as exc:  # noqa: BLE001 - this is a diagnostic script
+            failures.append(f"QP table decode failed: {exc}")
+        emit("get_ofs_set_signature", get_ofs_set_signature(args.amdgpu_module))
+    else:
+        failures.append(f"missing amdgpu module {args.amdgpu_module}")
+
+    if args.drm_module.exists():
+        emit("drm_module", args.drm_module)
+        emit("drm_sha256", sha256_file(args.drm_module))
+        drm_symbols = readelf_symbols(args.drm_module)
+        parser_present = "drm_parse_vesa_specific_block" in drm_symbols
+        emit("drm_parse_vesa_specific_block", str(parser_present).lower())
+        if not parser_present:
+            failures.append("missing drm_parse_vesa_specific_block")
+    else:
+        failures.append(f"missing drm module {args.drm_module}")
+
+    edid_paths = [args.edid] if args.edid else connected_dp_edids(args.sysfs_root)
+    for index, edid_path in enumerate(edid_paths):
+        try:
+            edid = edid_path.read_bytes()
+        except OSError as exc:
+            failures.append(f"failed to read EDID {edid_path}: {exc}")
+            continue
+        emit(f"edid_{index}_path", edid_path)
+        emit(f"edid_{index}_sha256", hashlib.sha256(edid).hexdigest())
+        identity = edid_identity(edid)
+        if identity:
+            emit(f"edid_{index}_manufacturer", identity[0])
+            emit(f"edid_{index}_product", f"0x{identity[1]:04x}")
+        for block_index, block in enumerate(parse_displayid_vesa_dsc(edid)):
+            prefix = f"edid_{index}_vesa_dsc_{block_index}"
+            for key, value in block.items():
+                emit(f"{prefix}_{key}", value)
+
+    debugfs_connector = args.debugfs_connector or (
+        default_debugfs_connector(resolved_connector, resolved_sysfs) if resolved_connector else None
+    )
+    if debugfs_connector:
+        emit("debugfs_connector", debugfs_connector)
+        for key, value in read_text_debugfs_values(debugfs_connector):
+            emit(f"debugfs_{key}", value)
+        emit_pps(debugfs_connector, failures)
+        for name in ("dpcd", "dp_dpcd", "dpcd_registers", "aux_dpcd"):
+            emit_optional_binary(debugfs_connector, name)
+        emit_dtn_excerpt(debugfs_connector)
+
+    if failures:
+        for failure in failures:
+            emit("failure", failure)
+        return 1
+    emit("kernel_dsc_truth", "pass")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

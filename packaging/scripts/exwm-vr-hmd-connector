@@ -1,0 +1,216 @@
+#!/usr/bin/env bash
+# Resolve the live VR headset connector without Honey-specific DP defaults.
+
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: exwm-vr-hmd-connector [options]
+
+Options:
+  --sysfs-root PATH       DRM sysfs root. Default: /sys/class/drm.
+  --override CONNECTOR    Explicit fallback connector, e.g. DP-1.
+  --format FORMAT         name, path, env, or status. Default: name.
+  -h, --help              Show this help.
+
+Resolution order:
+  1. connected DisplayPort connector with non_desktop=1
+  2. connected DisplayPort connector with BIG EDID product 0x1234 or 0x5095
+  3. explicit override from --override, EXWM_VR_HMD_CONNECTOR,
+     EWWM_DRM_LEASE_CONNECTORS, or XRT_COMPOSITOR_WAYLAND_CONNECTOR
+EOF
+}
+
+sysfs_root="${EXWM_VR_SYSFS_DRM_ROOT:-/sys/class/drm}"
+format="name"
+override_arg=""
+
+while (($#)); do
+    case "$1" in
+        --sysfs-root)
+            if (($# < 2)); then
+                echo "ERROR: --sysfs-root requires a path" >&2
+                exit 64
+            fi
+            sysfs_root="$2"
+            shift 2
+            ;;
+        --override)
+            if (($# < 2)); then
+                echo "ERROR: --override requires a connector name" >&2
+                exit 64
+            fi
+            override_arg="$2"
+            shift 2
+            ;;
+        --format)
+            if (($# < 2)); then
+                echo "ERROR: --format requires name, path, env, or status" >&2
+                exit 64
+            fi
+            format="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "ERROR: unknown option: $1" >&2
+            usage >&2
+            exit 64
+            ;;
+    esac
+done
+
+connector_name() {
+    local base
+    base="$(basename "$1")"
+    printf '%s\n' "${base#card*-}"
+}
+
+connector_path_for_name() {
+    local wanted="$1"
+    local candidate
+    for candidate in "$sysfs_root"/card*-"$wanted"; do
+        [ -d "$candidate" ] || continue
+        printf '%s\n' "$candidate"
+        return 0
+    done
+    return 1
+}
+
+connector_status() {
+    cat "$1/status" 2>/dev/null || echo "unknown"
+}
+
+connector_non_desktop() {
+    cat "$1/non_desktop" 2>/dev/null || echo "unknown"
+}
+
+edid_is_bigscreen() {
+    local edid="$1/edid"
+    [ -r "$edid" ] || return 1
+
+    local hex mfg product_le
+    hex="$(od -An -tx1 -v "$edid" 2>/dev/null | tr -d ' \n')"
+    [ "${#hex}" -ge 24 ] || return 1
+
+    # EDID manufacturer "BIG" is encoded at bytes 8-9 as 0x0927.
+    # Product code is little-endian at bytes 10-11.
+    mfg="${hex:16:4}"
+    product_le="${hex:20:4}"
+    [ "$mfg" = "0927" ] || return 1
+
+    case "$product_le" in
+        3412|9550) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+first_explicit_override() {
+    local raw="${override_arg:-}"
+    if [ -z "$raw" ]; then
+        raw="${EXWM_VR_HMD_CONNECTOR:-}"
+    fi
+    if [ -z "$raw" ]; then
+        raw="${EWWM_DRM_LEASE_CONNECTORS:-}"
+    fi
+    if [ -z "$raw" ]; then
+        raw="${XRT_COMPOSITOR_WAYLAND_CONNECTOR:-}"
+    fi
+
+    raw="${raw%%,*}"
+    raw="$(printf '%s' "$raw" | awk '{$1=$1; print}')"
+    case "$raw" in
+        ""|auto|AUTO) return 1 ;;
+        *) printf '%s\n' "$(connector_name "$raw")" ;;
+    esac
+}
+
+find_by_non_desktop() {
+    local c
+    for c in "$sysfs_root"/card*-DP-*; do
+        [ -d "$c" ] || continue
+        [ "$(connector_status "$c")" = "connected" ] || continue
+        [ "$(connector_non_desktop "$c")" = "1" ] || continue
+        printf '%s\n' "$c"
+        return 0
+    done
+    return 1
+}
+
+find_by_edid() {
+    local c
+    for c in "$sysfs_root"/card*-DP-*; do
+        [ -d "$c" ] || continue
+        [ "$(connector_status "$c")" = "connected" ] || continue
+        edid_is_bigscreen "$c" || continue
+        printf '%s\n' "$c"
+        return 0
+    done
+    return 1
+}
+
+resolved_path=""
+resolved_name=""
+source=""
+
+if resolved_path="$(find_by_non_desktop)"; then
+    source="non_desktop"
+    resolved_name="$(connector_name "$resolved_path")"
+elif resolved_path="$(find_by_edid)"; then
+    source="edid-bigscreen"
+    resolved_name="$(connector_name "$resolved_path")"
+else
+    if resolved_name="$(first_explicit_override)"; then
+        source="override"
+        resolved_path="$(connector_path_for_name "$resolved_name" || true)"
+    fi
+fi
+
+if [ -z "$resolved_name" ]; then
+    echo "ERROR: no connected Bigscreen/non-desktop DisplayPort connector found and no explicit override set" >&2
+    exit 1
+fi
+
+case "$format" in
+    name)
+        printf '%s\n' "$resolved_name"
+        ;;
+    path)
+        if [ -n "$resolved_path" ]; then
+            printf '%s\n' "$resolved_path"
+        else
+            exit 1
+        fi
+        ;;
+    env)
+        printf 'EWWM_DRM_LEASE_CONNECTORS=%s\n' "$resolved_name"
+        printf 'XRT_COMPOSITOR_WAYLAND_CONNECTOR=%s\n' "$resolved_name"
+        ;;
+    status)
+        status="unknown"
+        non_desktop="unknown"
+        edid="unknown"
+        if [ -n "$resolved_path" ]; then
+            status="$(connector_status "$resolved_path")"
+            non_desktop="$(connector_non_desktop "$resolved_path")"
+            if edid_is_bigscreen "$resolved_path"; then
+                edid="BIG"
+            else
+                edid="not-BIG"
+            fi
+        fi
+        printf 'connector=%s\n' "$resolved_name"
+        printf 'source=%s\n' "$source"
+        printf 'sysfs=%s\n' "${resolved_path:-unknown}"
+        printf 'status=%s\n' "$status"
+        printf 'non_desktop=%s\n' "$non_desktop"
+        printf 'edid=%s\n' "$edid"
+        ;;
+    *)
+        echo "ERROR: unknown format: $format" >&2
+        exit 64
+        ;;
+esac

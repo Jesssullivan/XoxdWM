@@ -484,11 +484,7 @@ impl WinkClassifier {
                     self.left_close_time = None;
                     let duration_ms = (timestamp_s - since_s) * 1000.0;
                     self.state = WinkState::Idle;
-                    return self.classify_single_eye(
-                        BlinkEye::Left,
-                        duration_ms,
-                        timestamp_s,
-                    );
+                    return self.classify_single_eye(BlinkEye::Left, duration_ms, timestamp_s);
                 }
                 None
             }
@@ -499,11 +495,7 @@ impl WinkClassifier {
                     self.right_close_time = None;
                     let duration_ms = (timestamp_s - since_s) * 1000.0;
                     self.state = WinkState::Idle;
-                    return self.classify_single_eye(
-                        BlinkEye::Right,
-                        duration_ms,
-                        timestamp_s,
-                    );
+                    return self.classify_single_eye(BlinkEye::Right, duration_ms, timestamp_s);
                 }
                 None
             }
@@ -565,9 +557,7 @@ impl WinkClassifier {
         // Valid wink range
         if duration_ms >= self.config.min_duration_ms {
             // Check for double-wink
-            if let (Some(last_eye), Some(last_time)) =
-                (self.last_wink_eye, self.last_wink_time)
-            {
+            if let (Some(last_eye), Some(last_time)) = (self.last_wink_eye, self.last_wink_time) {
                 let gap_ms = (timestamp_s - last_time) * 1000.0;
                 if last_eye == eye && gap_ms <= self.config.double_wink_window_ms {
                     self.last_wink_eye = None;
@@ -750,11 +740,7 @@ impl WinkCalibration {
         self.calibrated = true;
         info!(
             "Calibration computed: left [{:.0}–{:.0}ms] right [{:.0}–{:.0}ms] blink mean {:.0}ms",
-            self.left_min_ms,
-            self.left_max_ms,
-            self.right_min_ms,
-            self.right_max_ms,
-            blink_mean,
+            self.left_min_ms, self.left_max_ms, self.right_min_ms, self.right_max_ms, blink_mean,
         );
         true
     }
@@ -879,7 +865,10 @@ impl BlinkWinkManager {
 
         // Feed wink classifier for event classification
         let mut events = Vec::new();
-        if let Some(evt) = self.wink_classifier.update(left_open, right_open, timestamp_s) {
+        if let Some(evt) = self
+            .wink_classifier
+            .update(left_open, right_open, timestamp_s)
+        {
             events.push(evt);
         }
 
@@ -910,7 +899,11 @@ impl BlinkWinkManager {
             state_str,
             blink_rate,
             self.blink_detector.history.len(),
-            if self.calibration.calibrated { "t" } else { "nil" },
+            if self.calibration.calibrated {
+                "t"
+            } else {
+                "nil"
+            },
         )
     }
 
@@ -1136,7 +1129,10 @@ mod tests {
         }
 
         let success = cal.compute_thresholds();
-        assert!(success, "Calibration should succeed with well-separated data");
+        assert!(
+            success,
+            "Calibration should succeed with well-separated data"
+        );
         assert!(cal.calibrated);
 
         // Left range should be around 400 +/- 2*~14 ≈ [372, 428]
@@ -1172,12 +1168,8 @@ mod tests {
                 duration_ms: 350.0,
                 timestamp_s: 2.567,
             },
-            WinkEvent::DoubleLeftWink {
-                timestamp_s: 3.000,
-            },
-            WinkEvent::DoubleRightWink {
-                timestamp_s: 4.000,
-            },
+            WinkEvent::DoubleLeftWink { timestamp_s: 3.000 },
+            WinkEvent::DoubleRightWink { timestamp_s: 4.000 },
             WinkEvent::NaturalBlink {
                 duration_ms: 150.0,
                 timestamp_s: 5.000,

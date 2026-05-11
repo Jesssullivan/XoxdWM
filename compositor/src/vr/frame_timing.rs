@@ -48,12 +48,7 @@ impl FrameTiming {
     }
 
     /// Record a frame's timing data.
-    pub fn record_frame(
-        &mut self,
-        wait_ms: f64,
-        render_ms: f64,
-        submit_ms: f64,
-    ) {
+    pub fn record_frame(&mut self, wait_ms: f64, render_ms: f64, submit_ms: f64) {
         let total = wait_ms + render_ms + submit_ms;
 
         Self::push_sample(&mut self.wait_times, wait_ms, self.window_size);
