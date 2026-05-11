@@ -132,20 +132,22 @@ BuildRequires:  epel-release
 # ---------------------------------------------------------------------------
 # Package descriptions
 # ---------------------------------------------------------------------------
-%description
-XoxdWM is a native Wayland WM/DE authority built on Smithay, with Emacs/eGreg
-kept as app-layer clients and Monado/OpenXR carried as an optional VR
-integration lane.  The RPM name remains `exwm-vr` for compatibility with
-existing repositories, host scripts, and proof notes.
-
 Requires:       %{name}-compositor = %{version}-%{release}
-Requires:       %{name}-elisp = %{version}-%{release}
+Suggests:       %{name}-elisp = %{version}-%{release}
 %if %{with monado_integration}
 Requires:       %{name}-monado = %{version}-%{release}
 %endif
 %if %{with selinux_policy}
 Requires:       %{name}-selinux = %{version}-%{release}
 %endif
+
+%description
+XoxdWM is a native Wayland WM/DE authority built on Smithay, with Emacs/eGreg
+kept as app-layer clients and Monado/OpenXR carried as an optional VR
+integration lane.  The RPM name remains `exwm-vr` for compatibility with
+existing repositories, host scripts, and proof notes. The default meta package
+requires the native compositor and only suggests the Emacs/eGreg app-layer
+subpackage, so EXWM/XCB Lisp is not part of the normal WM authority runtime.
 
 # ===========================================================================
 # Subpackage: compositor

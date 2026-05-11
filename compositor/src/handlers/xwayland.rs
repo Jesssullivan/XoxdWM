@@ -93,7 +93,8 @@ impl XwmHandler for EwwmState {
             warn!(surface_id, "XWayland: configure failed: {}", e);
         }
 
-        // Emit IPC event with :x11 flag
+        // Emit protocol-neutral metadata first; X11 fields remain compatibility
+        // metadata for legacy manage rules and debugging.
         // Smithay 0.7: these are String, use as_str() directly
         let app_id = if wm_class.is_empty() {
             &wm_instance
@@ -110,6 +111,7 @@ impl XwmHandler for EwwmState {
                 ("id", &surface_id.to_string()),
                 ("app-id", &format!("\"{}\"", escape_str(app_id))),
                 ("title", &format!("\"{}\"", escape_str(title_str))),
+                ("protocol", "\"xwayland\""),
                 ("x11", "t"),
                 ("x11-class", &format!("\"{}\"", escape_str(x11_class_str))),
                 (

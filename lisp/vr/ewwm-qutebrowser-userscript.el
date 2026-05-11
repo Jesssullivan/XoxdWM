@@ -5,7 +5,7 @@
 ;;; Commentary:
 ;; Userscript management for qutebrowser within EWWM.  Provides
 ;; functions to run, install, and manage userscripts that bridge
-;; qutebrowser and the Emacs window manager.
+;; qutebrowser and XoxdWM app-layer helpers.
 
 ;;; Code:
 

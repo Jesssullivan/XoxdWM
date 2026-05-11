@@ -3,7 +3,7 @@ name = "ewwm-compositor"
 version = "0.5.3"
 edition = "2021"
 publish = false
-description = "EXWM-VR Wayland compositor built on Smithay"
+description = "XoxdWM native Wayland compositor built on Smithay"
 license = "GPL-3.0-or-later"
 
 [[bin]]

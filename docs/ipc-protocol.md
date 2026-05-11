@@ -139,11 +139,17 @@ Query all managed surfaces.
 
 ;; Response
 (:type :response :id 2 :status :ok
- :surfaces ((:id 1 :app-id "foot" :title "foot" :geometry (:x 0 :y 0 :w 800 :h 600)
+ :surfaces ((:id 1 :app-id "foot" :title "foot" :protocol "wayland" :geometry (:x 0 :y 0 :w 800 :h 600)
              :workspace 0 :focused t)
-            (:id 2 :app-id "firefox" :title "Mozilla Firefox" :geometry (:x 800 :y 0 :w 800 :h 600)
-             :workspace 0 :focused nil)))
+            (:id 2 :app-id "firefox" :title "Mozilla Firefox" :protocol "xwayland"
+             :x11 t :x11-class "firefox" :x11-instance "Navigator"
+             :geometry (:x 800 :y 0 :w 800 :h 600) :workspace 0 :focused nil)))
 ```
+
+`:protocol` is the canonical app-surface protocol field. It is `"wayland"` for
+native xdg-shell clients and `"xwayland"` for legacy X11 clients. `:x11`,
+`:x11-class`, and `:x11-instance` remain compatibility metadata for XWayland
+clients only; new policy should prefer `:app-id`, `:title`, and `:protocol`.
 
 #### `:surface-focus`
 
@@ -385,7 +391,7 @@ Events are pushed to all connected clients. No acknowledgment required.
 #### `:surface-created`
 
 ```elisp
-(:type :event :event :surface-created :id 1 :app-id "foot" :title "foot")
+(:type :event :event :surface-created :id 1 :app-id "foot" :title "foot" :protocol "wayland")
 ```
 
 #### `:surface-destroyed`

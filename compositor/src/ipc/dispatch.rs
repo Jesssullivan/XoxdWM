@@ -336,6 +336,7 @@ fn handle_surface_list(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     for (id, data) in &state.surfaces {
         let app_id = data.app_id.as_deref().unwrap_or("");
         let title = data.title.as_deref().unwrap_or("");
+        let protocol = data.protocol();
         let x11_flag = if data.is_x11 { "t" } else { "nil" };
         let x11_class = data.x11_class.as_deref().unwrap_or("");
         let x11_instance = data.x11_instance.as_deref().unwrap_or("");
@@ -349,10 +350,11 @@ fn handle_surface_list(state: &mut EwwmState, msg_id: i64) -> Option<String> {
 
         let focused = state.focused_surface == Some(*id);
         surfaces_sexp.push_str(&format!(
-            "(:id {} :app-id \"{}\" :title \"{}\" :x11 {} :x11-class \"{}\" :x11-instance \"{}\" :geometry (:x {} :y {} :w {} :h {}) :workspace {} :floating {} :focused {})",
+            "(:id {} :app-id \"{}\" :title \"{}\" :protocol \"{}\" :x11 {} :x11-class \"{}\" :x11-instance \"{}\" :geometry (:x {} :y {} :w {} :h {}) :workspace {} :floating {} :focused {})",
             id,
             escape_string(app_id),
             escape_string(title),
+            protocol,
             x11_flag,
             escape_string(x11_class),
             escape_string(x11_instance),
@@ -376,12 +378,14 @@ fn handle_focused_surface(state: &mut EwwmState, msg_id: i64) -> Option<String> 
             let data = state.surfaces.get(&id);
             let app_id = data.and_then(|d| d.app_id.as_deref()).unwrap_or("");
             let title = data.and_then(|d| d.title.as_deref()).unwrap_or("");
+            let protocol = data.map(|d| d.protocol()).unwrap_or("wayland");
             Some(format!(
-                "(:type :response :id {} :status :ok :surface-id {} :app-id \"{}\" :title \"{}\")",
+                "(:type :response :id {} :status :ok :surface-id {} :app-id \"{}\" :title \"{}\" :protocol \"{}\")",
                 msg_id,
                 id,
                 escape_string(app_id),
                 escape_string(title),
+                protocol,
             ))
         }
         None => Some(format!(
@@ -404,6 +408,7 @@ fn handle_surface_info(state: &mut EwwmState, msg_id: i64, value: &Value) -> Opt
 
     let app_id = data.app_id.as_deref().unwrap_or("");
     let title = data.title.as_deref().unwrap_or("");
+    let protocol = data.protocol();
     let x11_flag = if data.is_x11 { "t" } else { "nil" };
     let x11_class = data.x11_class.as_deref().unwrap_or("");
     let x11_instance = data.x11_instance.as_deref().unwrap_or("");
@@ -417,11 +422,12 @@ fn handle_surface_info(state: &mut EwwmState, msg_id: i64, value: &Value) -> Opt
         .unwrap_or((0, 0, 0, 0));
 
     Some(format!(
-        "(:type :response :id {} :status :ok :surface-id {} :app-id \"{}\" :title \"{}\" :x11 {} :x11-class \"{}\" :x11-instance \"{}\" :geometry (:x {} :y {} :w {} :h {}) :workspace {} :floating {} :focused {})",
+        "(:type :response :id {} :status :ok :surface-id {} :app-id \"{}\" :title \"{}\" :protocol \"{}\" :x11 {} :x11-class \"{}\" :x11-instance \"{}\" :geometry (:x {} :y {} :w {} :h {}) :workspace {} :floating {} :focused {})",
         msg_id,
         surface_id,
         escape_string(app_id),
         escape_string(title),
+        protocol,
         x11_flag,
         escape_string(x11_class),
         escape_string(x11_instance),

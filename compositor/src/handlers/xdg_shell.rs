@@ -62,6 +62,7 @@ impl XdgShellHandler for EwwmState {
                 ("id", &surface_id.to_string()),
                 ("app-id", "\"\""),
                 ("title", "\"\""),
+                ("protocol", "\"wayland\""),
                 ("x11", "nil"),
             ],
         );

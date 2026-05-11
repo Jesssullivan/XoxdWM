@@ -48,8 +48,13 @@ Creates buffer, applies manage rules, assigns workspace, triggers layout."
   (let* ((surface-id (plist-get msg :id))
          (app-id (plist-get msg :app-id))
          (title (plist-get msg :title))
-         (x11-p (plist-get msg :x11))
+         (protocol (or (plist-get msg :protocol)
+                       (if (plist-get msg :x11) "xwayland" "wayland")))
+         (x11-p (or (plist-get msg :x11)
+                    (equal protocol "xwayland")))
          (buf (ewwm--create-surface-buffer surface-id app-id title)))
+    (with-current-buffer buf
+      (setq ewwm-surface-protocol protocol))
     ;; Set X11 fields if applicable
     (when x11-p
       (with-current-buffer buf

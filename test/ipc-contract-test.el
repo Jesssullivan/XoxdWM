@@ -175,4 +175,22 @@
     (should (string-match-p "temporary command aliases" docs))
     (should (string-match-p "client-only compatibility alias" docs))))
 
+(ert-deftest ipc-contract/surface-metadata-is-protocol-neutral ()
+  "Surface IPC should use :protocol as canonical metadata, with X11 compatibility fields."
+  (let ((dispatch (ipc-contract-test--read-file "compositor/src/ipc/dispatch.rs"))
+        (xdg (ipc-contract-test--read-file "compositor/src/handlers/xdg_shell.rs"))
+        (xwayland (ipc-contract-test--read-file "compositor/src/handlers/xwayland.rs"))
+        (docs (ipc-contract-test--read-file "docs/ipc-protocol.md"))
+        (core (ipc-contract-test--read-file "lisp/vr/ewwm-core.el"))
+        (manage (ipc-contract-test--read-file "lisp/vr/ewwm-manage.el")))
+    (should (string-match-p ":protocol" dispatch))
+    (should (string-match-p "data\\.protocol()" dispatch))
+    (should (string-match-p "(\"protocol\", \"\\\\\"wayland\\\\\"\")" xdg))
+    (should (string-match-p "(\"protocol\", \"\\\\\"xwayland\\\\\"\")" xwayland))
+    (should (string-match-p ":protocol.*canonical app-surface protocol field" docs))
+    (should (string-match-p ":x11" docs))
+    (should (string-match-p "compatibility metadata" docs))
+    (should (string-match-p "ewwm-surface-protocol" core))
+    (should (string-match-p "(plist-get msg :protocol)" manage))))
+
 ;;; ipc-contract-test.el ends here

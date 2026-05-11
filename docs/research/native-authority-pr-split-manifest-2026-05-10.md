@@ -107,6 +107,15 @@ Focused checks:
 
 Covers #53, #56, #62, #63.
 
+Follow-on #47 runtime-boundary slice:
+
+- keep the RPM meta package hard-dependent on the native compositor only
+- make Emacs/eGreg Elisp a suggested app-layer package, not default WM
+  authority runtime
+- make `:protocol` canonical in surface IPC while keeping X11 class/instance
+  as XWayland compatibility metadata
+- keep XWayland optional behind the native Cargo feature gate
+
 - `justfile` native-authority proof, boot-without-Emacs smoke, and package assertion hunks
 - `packaging/rpm/exwm-vr.spec`
 - `packaging/scripts/boot-without-emacs-smoke`

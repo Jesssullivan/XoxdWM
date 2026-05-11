@@ -119,7 +119,18 @@
          (snippet (and start end (substring spec start end))))
     (should snippet)
     (should-not (string-match-p "exwm-vr/core" snippet))
-    (should (string-match-p "compatibility/archive surface" snippet))))
+    (should (string-match-p "compatibility/archive surface" snippet))
+    (should-not (string-match-p "^Requires:[[:space:]]+%{name}-elisp" spec))
+    (should (string-match-p "^Suggests:[[:space:]]+%{name}-elisp" spec))))
+
+(ert-deftest native-authority/xwayland-is-optional-compatibility-feature ()
+  "XWayland should stay feature-gated rather than define the default runtime."
+  (let ((cargo (native-authority-test--read-file "compositor/Cargo.toml"))
+        (wlroots (native-authority-test--read-file "nix/packages/wlroots-beyond.nix")))
+    (should (string-match-p "default = \\[\\]" cargo))
+    (should (string-match-p "^xwayland = \\[\"smithay/xwayland\"\\]" cargo))
+    (should (string-match-p "\"xwayland\"" cargo))
+    (should (string-match-p "Native XoxdWM keeps XWayland behind its Cargo feature gate" wlroots))))
 
 (ert-deftest native-authority/package-surfaces-prefer-xoxdwm-identity ()
   "Package and session surfaces should expose XoxdWM as primary identity."

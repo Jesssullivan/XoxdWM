@@ -104,6 +104,10 @@ package-no-default-lisp-core-assert:
     snippet = spec[start:end]
     if "exwm-vr/core" in snippet:
         raise SystemExit("default package init must not add lisp/core to load-path")
+    if "Requires:       %{name}-elisp" in spec:
+        raise SystemExit("default package must not hard-require the elisp subpackage")
+    if "Suggests:       %{name}-elisp" not in spec:
+        raise SystemExit("default package should only suggest the elisp subpackage")
     if "packaging/scripts/xoxdwm-native-authority-proof" not in spec:
         raise SystemExit("RPM must install native-authority-proof helper")
     if "%{_libexecdir}/%{project_name}/native-authority-proof" not in spec:

@@ -55,16 +55,17 @@ All have `permanent-local` property.
 | Variable | Type | Description |
 |----------|------|-------------|
 | `ewwm-surface-id` | integer | Wayland surface ID |
-| `ewwm-app-id` | string | Application ID (from xdg_toplevel) |
+| `ewwm-app-id` | string | Protocol-neutral application identifier |
 | `ewwm-title` | string | Surface title |
-| `ewwm-class-name` | string | Alias for `ewwm-app-id` |
-| `ewwm-instance-name` | string | Instance name |
+| `ewwm-surface-protocol` | string | Surface protocol: `wayland` or `xwayland` |
+| `ewwm-class-name` | string | Compatibility alias for `ewwm-app-id` |
+| `ewwm-instance-name` | string | Compatibility instance name |
 | `ewwm-surface-state` | symbol | `managed`, `floating`, or `fullscreen` |
 | `ewwm-geometry` | plist | `(:x N :y N :w N :h N)` |
 | `ewwm-workspace` | integer | Workspace index |
-| `ewwm-x11-p` | boolean | Non-nil for XWayland surfaces |
-| `ewwm-x11-class` | string | X11 WM_CLASS |
-| `ewwm-x11-instance` | string | X11 WM_CLASS instance |
+| `ewwm-x11-p` | boolean | Compatibility flag for XWayland surfaces |
+| `ewwm-x11-class` | string | Compatibility X11 WM_CLASS metadata |
+| `ewwm-x11-instance` | string | Compatibility X11 WM_CLASS instance metadata |
 
 ### Public Functions
 
@@ -673,7 +674,7 @@ Multi-modal fusion (gaze + EEG + gesture).
 
 | Event | Fields | Description |
 |-------|--------|-------------|
-| `:surface-created` | `:id :app-id :title` | New surface |
+| `:surface-created` | `:id :app-id :title :protocol` | New surface |
 | `:surface-destroyed` | `:id` | Surface closed |
 | `:surface-title-changed` | `:id :title` | Title updated |
 | `:surface-focused` | `:id :previous-id` | Canonical focus changed event |
