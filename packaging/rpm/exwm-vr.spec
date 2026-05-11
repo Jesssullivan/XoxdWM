@@ -306,7 +306,7 @@ cargo build --release --no-default-features \
 # Native Rocky RPMs currently build the host-runnable compositor without the
 # `vr` feature; the full VR lane still depends on libuvc packaging that is not
 # yet proven on named Rocky hosts.
-cargo build --release \
+cargo build --release --features full-backend \
     --jobs %{_smp_build_ncpus} \
     %{?_cargo_extra_args}
 # Save the native compositor binary before the headless build overwrites
@@ -394,7 +394,8 @@ install -d %{buildroot}%{_datadir}/emacs/site-lisp/site-start.d
 cat > %{buildroot}%{_datadir}/emacs/site-lisp/site-start.d/%{project_name}-init.el << 'ELISP_EOF'
 ;;; exwm-vr-init.el --- Auto-load setup for EXWM-VR  -*- lexical-binding: t -*-
 (let ((base (file-name-directory load-file-name)))
-  (add-to-list 'load-path (expand-file-name "../exwm-vr/core" base))
+  ;; lisp/core is packaged as a compatibility/archive surface, but default
+  ;; runtime WM authority is native Rust plus lisp/vr app-layer clients.
   (add-to-list 'load-path (expand-file-name "../exwm-vr/vr" base))
   (add-to-list 'load-path (expand-file-name "../exwm-vr/ext" base)))
 ;;; exwm-vr-init.el ends here
@@ -411,6 +412,10 @@ install -Dpm 0755 packaging/scripts/exwm-vr-monado-launch \
     %{buildroot}%{_libexecdir}/%{project_name}/monado-launch
 install -Dpm 0755 packaging/scripts/exwm-vr-openxr-smoke \
     %{buildroot}%{_libexecdir}/%{project_name}/openxr-smoke
+install -Dpm 0755 packaging/scripts/exwm-vr-hmd-connector \
+    %{buildroot}%{_libexecdir}/%{project_name}/hmd-connector
+install -Dpm 0755 packaging/scripts/exwm-vr-kernel-dsc-truth \
+    %{buildroot}%{_libexecdir}/%{project_name}/kernel-dsc-truth
 %endif
 install -Dpm 0644 %{SOURCE22} \
     %{buildroot}%{_userunitdir}/exwm-vr-emacs.service
@@ -420,6 +425,8 @@ install -Dpm 0644 %{SOURCE23} \
 %endif
 install -Dpm 0644 %{SOURCE24} \
     %{buildroot}%{_userunitdir}/exwm-vr.target
+install -Dpm 0755 packaging/scripts/xoxdwm-native-authority-proof \
+    %{buildroot}%{_libexecdir}/%{project_name}/native-authority-proof
 %endif
 
 # --- Monado runtime integration (skip on s390x -- no HMD hardware) ---
@@ -499,7 +506,7 @@ cargo test --release --no-default-features \
     %{?_cargo_extra_args} || \
     echo "WARN: Rust tests (headless) -- skipped on mock build"
 %else
-cargo test --release %{?_cargo_extra_args} || \
+cargo test --release --features full-backend %{?_cargo_extra_args} || \
     echo "WARN: Rust tests require Linux DRM/Wayland -- skipped on mock build"
 %endif
 popd
@@ -618,6 +625,8 @@ fi
 %{_datadir}/%{project_name}/exwm-vr-session
 %{_datadir}/%{project_name}/exwm-vr-session-init.el
 %{_datadir}/xdg-desktop-portal/exwm-vr-portals.conf
+%dir %{_libexecdir}/%{project_name}
+%{_libexecdir}/%{project_name}/native-authority-proof
 %dir %{_localstatedir}/lib/%{project_name}
 %endif
 
@@ -638,6 +647,8 @@ fi
 %{_userunitdir}/exwm-vr-monado.service
 %{_libexecdir}/%{project_name}/monado-launch
 %{_libexecdir}/%{project_name}/openxr-smoke
+%{_libexecdir}/%{project_name}/hmd-connector
+%{_libexecdir}/%{project_name}/kernel-dsc-truth
 %{_udevrulesdir}/99-exwm-vr.rules
 %dir %{_sysconfdir}/xdg/openxr
 %dir %{_sysconfdir}/xdg/openxr/1

@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+socket="${EWWM_IPC_SOCKET:-${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ewwm-ipc.sock}"
+mode="read-only"
+launch_target=""
+
+while (($#)); do
+    case "$1" in
+        --socket)
+            socket="$2"
+            shift 2
+            ;;
+        --mutating)
+            mode="mutating"
+            shift
+            ;;
+        --launch-target)
+            launch_target="$2"
+            mode="mutating"
+            shift 2
+            ;;
+        -h|--help)
+            cat <<EOF
+Usage: xoxdwm-native-authority-proof [--socket PATH] [--mutating] [--launch-target NAME]
+
+Checks native XoxdWM IPC authority without making Emacs the WM authority path.
+Read-only mode queries state only. Mutating mode exercises layout/workspace IPC
+and optional configured app launch target.
+EOF
+            exit 0
+            ;;
+        *)
+            echo "unknown argument: $1" >&2
+            exit 2
+            ;;
+    esac
+done
+
+echo "proof=native_authority"
+echo "mode=${mode}"
+echo "host=$(hostname 2>/dev/null || echo unknown)"
+echo "uid=$(id -u)"
+echo "socket=${socket}"
+echo "emacs_service=$(systemctl --user is-active exwm-vr-emacs.service 2>/dev/null || true)"
+echo "compositor_service=$(systemctl --user is-active exwm-vr-compositor.service 2>/dev/null || true)"
+if systemctl is-active rke2-server >/dev/null 2>&1; then
+    echo "rke2=active"
+else
+    echo "rke2=$(systemctl is-active rke2-server 2>/dev/null || true)"
+fi
+
+if [[ ! -S "${socket}" ]]; then
+    echo "native_authority=failed"
+    echo "reason=ipc_socket_missing"
+    exit 1
+fi
+
+python3 - "$socket" "$mode" "$launch_target" <<'PY'
+import socket
+import struct
+import sys
+
+path, mode, launch_target = sys.argv[1], sys.argv[2], sys.argv[3]
+
+def read_frame(sock):
+    header = sock.recv(4)
+    if len(header) != 4:
+        raise SystemExit("short IPC response header")
+    size = struct.unpack(">I", header)[0]
+    data = b""
+    while len(data) < size:
+        chunk = sock.recv(size - len(data))
+        if not chunk:
+            raise SystemExit("short IPC response payload")
+        data += chunk
+    return data.decode("utf-8", "replace")
+
+def send(sock, message, expected_id):
+    payload = message.encode("utf-8")
+    sock.sendall(struct.pack(">I", len(payload)) + payload)
+    marker = f":id {expected_id}"
+    while True:
+        response = read_frame(sock)
+        if marker in response:
+            return response
+        print("event=" + response)
+
+with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+    sock.connect(path)
+    print("hello=" + send(sock, '(:type :hello :id 1 :version 1 :client "native-authority-proof")', 1))
+    print("workspace_list=" + send(sock, "(:type :workspace-list :id 2)", 2))
+    print("surface_list=" + send(sock, "(:type :surface-list :id 3)", 3))
+    print("focused_surface=" + send(sock, "(:type :focused-surface :id 4)", 4))
+    if mode == "mutating":
+        print("layout_cycle=" + send(sock, "(:type :layout-cycle :id 5)", 5))
+        print("workspace_switch=" + send(sock, "(:type :workspace-switch :id 6 :workspace 0)", 6))
+        if launch_target:
+            print("app_launch=" + send(sock, f'(:type :app-launch :id 7 :target "{launch_target}")', 7))
+PY
+
+echo "native_authority=checked"

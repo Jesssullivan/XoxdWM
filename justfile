@@ -25,8 +25,15 @@ build:
 
 [group('build')]
 build-compositor:
-    @echo "Building compositor (Rust)..."
-    cargo build --manifest-path "{{project_root}}/compositor/Cargo.toml"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Building compositor (Rust)..."
+    if [[ "$(uname -s)" = "Linux" ]]; then
+        cargo build --manifest-path "{{project_root}}/compositor/Cargo.toml" \
+            --features full-backend
+    else
+        cargo build --manifest-path "{{project_root}}/compositor/Cargo.toml"
+    fi
 
 [group('build')]
 build-all: build build-compositor
@@ -42,8 +49,15 @@ test:
 
 [group('test')]
 test-compositor:
-    @echo "Running compositor tests..."
-    cargo test --manifest-path "{{project_root}}/compositor/Cargo.toml"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Running compositor tests..."
+    if [[ "$(uname -s)" = "Linux" ]]; then
+        cargo test --manifest-path "{{project_root}}/compositor/Cargo.toml" \
+            --features full-backend
+    else
+        cargo check --manifest-path "{{project_root}}/compositor/Cargo.toml" --tests
+    fi
 
 [group('test')]
 test-integration:
@@ -62,6 +76,46 @@ truth-lint:
         -l "{{project_root}}/test/run-tests.el"
 
 [group('test')]
+native-authority-test:
+    @echo "Running native authority static tests..."
+    emacs --batch \
+        {{load_flags}} \
+        -l "{{project_root}}/test/native-authority-test.el" \
+        -f ert-run-tests-batch-and-exit
+
+[group('test')]
+ipc-contract-test:
+    @echo "Running IPC contract tests..."
+    emacs --batch \
+        {{load_flags}} \
+        -l "{{project_root}}/test/ipc-contract-test.el" \
+        -f ert-run-tests-batch-and-exit
+
+[group('test')]
+package-no-default-lisp-core-assert:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    python3 - <<'PY'
+    from pathlib import Path
+
+    spec = Path("{{project_root}}/packaging/rpm/exwm-vr.spec").read_text()
+    start = spec.index(";;; exwm-vr-init.el")
+    end = spec.index("ELISP_EOF", start)
+    snippet = spec[start:end]
+    if "exwm-vr/core" in snippet:
+        raise SystemExit("default package init must not add lisp/core to load-path")
+    if "packaging/scripts/xoxdwm-native-authority-proof" not in spec:
+        raise SystemExit("RPM must install native-authority-proof helper")
+    if "%{_libexecdir}/%{project_name}/native-authority-proof" not in spec:
+        raise SystemExit("RPM compositor package must own native-authority-proof helper")
+    print("package_no_default_lisp_core=passed")
+    PY
+
+[group('test')]
+boot-without-emacs-smoke seconds="1":
+    "{{project_root}}/packaging/scripts/boot-without-emacs-smoke" "{{seconds}}"
+
+[group('test')]
 test-all: test test-compositor test-integration
 
 # ── lint ───────────────────────────────────────────────
@@ -76,8 +130,15 @@ lint-elisp:
 
 [group('lint')]
 lint-rust:
-    @echo "Linting Rust..."
-    cargo clippy --manifest-path "{{project_root}}/compositor/Cargo.toml" -- -D warnings
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Linting Rust..."
+    if [[ "$(uname -s)" = "Linux" ]]; then
+        cargo clippy --manifest-path "{{project_root}}/compositor/Cargo.toml" \
+            --features full-backend -- -D warnings
+    else
+        cargo clippy --manifest-path "{{project_root}}/compositor/Cargo.toml" -- -D warnings
+    fi
 
 [group('lint')]
 lint-all: lint-elisp lint-rust
@@ -159,6 +220,8 @@ vr-benchmark-gpu:
 # ── beyond / remote setup ─────────────────────────────
 
 setup_script := project_root + "/packaging/scripts/exwm-vr-setup"
+hmd_connector_script := project_root + "/packaging/scripts/exwm-vr-hmd-connector"
+kernel_dsc_truth_script := project_root + "/packaging/scripts/exwm-vr-kernel-dsc-truth"
 
 # Deploy the unified setup script to a remote host, then run a command.
 # Usage: just beyond-remote <host> <command>
@@ -166,17 +229,18 @@ setup_script := project_root + "/packaging/scripts/exwm-vr-setup"
 #   just beyond-remote honey verify      — check display, USB, permissions
 #   just beyond-remote honey beyond-status
 [group('vr')]
-beyond-remote host command:
+beyond-remote host *command:
     @echo "=== {{host}}: {{command}} ==="
-    scp -q "{{setup_script}}" "{{project_root}}/packaging/udev/99-exwm-vr.rules" "{{project_root}}/packaging/scripts/beyond-power-on" "{{project_root}}/packaging/systemd/exwm-vr-beyond-power.service" "{{project_root}}/packaging/sway/config" "{{project_root}}/packaging/sway/status.sh" "{{project_root}}/patches/wlroots-bigscreen-non-desktop.patch" "{{project_root}}/patches/amd-bsb-dsc-fix.patch" "{{project_root}}/patches/bigscreen-beyond-edid.patch" jess@{{host}}:/tmp/
-    ssh jess@{{host}} "chmod +x /tmp/exwm-vr-setup /tmp/beyond-power-on && mv -f /tmp/config /tmp/exwm-sway-config 2>/dev/null; mv -f /tmp/status.sh /tmp/exwm-sway-status.sh 2>/dev/null; /tmp/exwm-vr-setup {{command}}"
+    scp -q "{{setup_script}}" "{{hmd_connector_script}}" "{{project_root}}/packaging/udev/99-exwm-vr.rules" "{{project_root}}/packaging/scripts/beyond-power-on" "{{project_root}}/packaging/systemd/exwm-vr-beyond-power.service" "{{project_root}}/packaging/sway/config" "{{project_root}}/packaging/sway/status.sh" "{{project_root}}/patches/wlroots-bigscreen-non-desktop.patch" "{{project_root}}/patches/amd-bsb-dsc-fix.patch" "{{project_root}}/patches/bigscreen-beyond-edid.patch" jess@{{host}}:/tmp/
+    ssh jess@{{host}} "chmod +x /tmp/exwm-vr-setup /tmp/exwm-vr-hmd-connector /tmp/beyond-power-on && mv -f /tmp/config /tmp/exwm-sway-config 2>/dev/null; mv -f /tmp/status.sh /tmp/exwm-sway-status.sh 2>/dev/null; /tmp/exwm-vr-setup {{command}}"
 
-# Same as beyond-remote but wraps in sudo (prompts for password).
+# Same as beyond-remote but wraps in SOPS-backed sudo on Honey.
 [group('vr')]
-beyond-remote-sudo host command:
+beyond-remote-sudo host *command:
     @echo "=== {{host}}: sudo {{command}} ==="
-    scp -q "{{setup_script}}" "{{project_root}}/packaging/udev/99-exwm-vr.rules" "{{project_root}}/packaging/scripts/beyond-power-on" "{{project_root}}/packaging/systemd/exwm-vr-beyond-power.service" "{{project_root}}/packaging/sway/config" "{{project_root}}/packaging/sway/status.sh" "{{project_root}}/patches/wlroots-bigscreen-non-desktop.patch" "{{project_root}}/patches/amd-bsb-dsc-fix.patch" "{{project_root}}/patches/bigscreen-beyond-edid.patch" jess@{{host}}:/tmp/
-    ssh jess@{{host}} "chmod +x /tmp/exwm-vr-setup /tmp/beyond-power-on && mv -f /tmp/config /tmp/exwm-sway-config 2>/dev/null; mv -f /tmp/status.sh /tmp/exwm-sway-status.sh 2>/dev/null; echo 'Running with sudo...' && sudo /tmp/exwm-vr-setup {{command}}"
+    scp -q "{{setup_script}}" "{{hmd_connector_script}}" "{{project_root}}/packaging/udev/99-exwm-vr.rules" "{{project_root}}/packaging/scripts/beyond-power-on" "{{project_root}}/packaging/systemd/exwm-vr-beyond-power.service" "{{project_root}}/packaging/sway/config" "{{project_root}}/packaging/sway/status.sh" "{{project_root}}/patches/wlroots-bigscreen-non-desktop.patch" "{{project_root}}/patches/amd-bsb-dsc-fix.patch" "{{project_root}}/patches/bigscreen-beyond-edid.patch" jess@{{host}}:/tmp/
+    ssh jess@{{host}} "chmod +x /tmp/exwm-vr-setup /tmp/exwm-vr-hmd-connector /tmp/beyond-power-on && mv -f /tmp/config /tmp/exwm-sway-config 2>/dev/null; mv -f /tmp/status.sh /tmp/exwm-sway-status.sh 2>/dev/null"
+    just honey-sudo-run {{host}} -- "/tmp/exwm-vr-setup {{command}}"
 
 # Shorthand aliases for common operations
 [group('vr')]
@@ -192,6 +256,10 @@ beyond-hid-test host="honey":
     just beyond-remote {{host}} beyond-hid-test
 
 [group('vr')]
+beyond-hmd-connector host="honey":
+    just beyond-remote {{host}} beyond-hmd-connector
+
+[group('vr')]
 beyond-setup host="honey":
     @echo "Full setup on {{host}} (sudo required)..."
     just beyond-remote-sudo {{host}} full-setup
@@ -205,6 +273,11 @@ beyond-gpu-tools host="honey":
 beyond-display-init host="honey":
     @echo "Beyond display init on {{host}} (sudo required)..."
     just beyond-remote-sudo {{host}} beyond-display-init
+
+[group('vr')]
+beyond-drm-dump host="honey" connector="auto":
+    @echo "Beyond DRM debugfs dump on {{host}} (sudo read-only)..."
+    just beyond-remote-sudo {{host}} beyond-drm-dump {{connector}}
 
 [group('vr')]
 beyond-power-on host="honey" *args="":
@@ -257,7 +330,8 @@ beyond-kernel-dsc-fix host="honey":
 beyond-kernel-build host="honey" *args="":
     @echo "Building XR kernel on {{host}} (sudo required, takes ~30min)..."
     scp -q "{{setup_script}}" "{{project_root}}/patches/bigscreen-beyond-edid.patch" "{{project_root}}/patches/0007-vesa-dsc-bpp.patch" jess@{{host}}:/tmp/
-    ssh jess@{{host}} "chmod +x /tmp/exwm-vr-setup && sudo /tmp/exwm-vr-setup kernel-build {{args}}"
+    ssh jess@{{host}} "chmod +x /tmp/exwm-vr-setup"
+    just honey-sudo-run {{host}} -- "/tmp/exwm-vr-setup kernel-build {{args}}"
 
 # ── deploy ────────────────────────────────────────────
 
@@ -338,7 +412,7 @@ beyond-kernel-install host tag variant="generic":
     gh release download "{{tag}}" -R "{{linux_xr_repo}}" \
         -p "${PATTERN}" -D /tmp/kernel-xr-rpms/ --clobber
     scp /tmp/kernel-xr-rpms/*.rpm jess@{{host}}:/tmp/
-    ssh jess@{{host}} "echo 'tinyland' | sudo -S bash -c '
+    ssh jess@{{host}} "f=\${BECOME_PASSWORD_FILE:-\$HOME/.config/sops-nix/secrets/become/password}; cat \"\$f\" | sudo -S -p \"\" bash -c '
     set -euo pipefail
     echo \">>> Installing RPM...\"
     dnf install -y /tmp/kernel-xr*.x86_64.rpm 2>&1 | tail -5
@@ -394,24 +468,20 @@ beyond-kernel-verify host="honey":
     ssh jess@{{host}} "uname -r && zcat /proc/config.gz 2>/dev/null | grep -E 'HZ=|PREEMPT_RT|DRM_AMD_DC_DSC|USB_HIDDEV' || grep -E 'HZ=|PREEMPT_RT|DRM_AMD_DC_DSC|USB_HIDDEV' /boot/config-\$(uname -r)"
 
 # Dump DSC PPS from debugfs and verify QP/RC fix is active.
-# Requires Beyond to be connected and display active on DP-2.
+# Resolves the live HMD connector by non_desktop/BIG EDID unless overridden.
 [group('vr')]
-beyond-kernel-pps host="honey" connector="DP-2":
+beyond-kernel-pps host="honey" connector="auto":
+    just honey-kernel-dsc-truth {{host}} {{connector}}
+
+# Run the read-only kernel/driver DSC truth helper through Honey's SOPS-backed sudo path.
+[group('vr')]
+honey-kernel-dsc-truth host="honey" connector="auto":
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "=== DSC PPS dump from {{host}} ({{connector}}) ==="
-    PPS=$(ssh jess@{{host}} "sudo cat /sys/kernel/debug/dri/1/{{connector}}/dsc_pic_parameter_set 2>/dev/null || echo 'NOT_FOUND'")
-    if [ "$PPS" = "NOT_FOUND" ]; then
-        echo "PPS not available — is DSC active on {{connector}}?"
-        echo "Try: ssh jess@{{host}} 'ls /sys/kernel/debug/dri/*/'"
-        exit 1
-    fi
-    echo "$PPS"
-    echo ""
-    echo "=== QP/RC fix verification ==="
-    echo "Check rc_range_params bytes 77-87 against expected patched values:"
-    echo "  PPS[77]=0x83 PPS[79]=0xC5 PPS[80]=0xA3 PPS[81]=0x05"
-    echo "  PPS[82]=0xA3 PPS[83]=0x45 PPS[85]=0x47 PPS[87]=0xCD"
+    echo "=== Kernel/DSC truth on {{host}} ({{connector}}) ==="
+    scp -q "{{kernel_dsc_truth_script}}" jess@{{host}}:/tmp/exwm-vr-kernel-dsc-truth
+    ssh jess@{{host}} "chmod +x /tmp/exwm-vr-kernel-dsc-truth"
+    just honey-sudo-run {{host}} -- "/tmp/exwm-vr-kernel-dsc-truth --connector {{connector}}"
 
 # ── dev ────────────────────────────────────────────────
 
@@ -641,6 +711,65 @@ honey-run host="honey" *args="":
     cmd="$(printf '%s' "$1" | base64 --decode)"
     exec nix develop --command bash -lc "$cmd"
     REMOTE
+
+[group('ci')]
+native-authority-proof mode="read-only" launch_target="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    args=()
+    if [[ "{{mode}}" = "mutating" ]]; then
+        args+=(--mutating)
+    fi
+    if [[ -n "{{launch_target}}" ]]; then
+        args+=(--launch-target "{{launch_target}}")
+    fi
+    "{{project_root}}/packaging/scripts/xoxdwm-native-authority-proof" "${args[@]}"
+
+[group('ci')]
+remote-native-authority-proof host="honey" mode="read-only" launch_target="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "=== Native authority proof on {{host}} ({{mode}}; no reboot) ==="
+    cmd='if command -v /usr/libexec/exwm-vr/native-authority-proof >/dev/null 2>&1; then /usr/libexec/exwm-vr/native-authority-proof; else packaging/scripts/xoxdwm-native-authority-proof; fi'
+    if [[ "{{mode}}" = "mutating" ]]; then
+        cmd="$cmd --mutating"
+    fi
+    if [[ -n "{{launch_target}}" ]]; then
+        cmd="$cmd --launch-target {{launch_target}}"
+    fi
+    just honey-run {{host}} -- "$cmd"
+
+[group('ci')]
+honey-sudo-run host="honey" *args="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cmd="$(cat <<'EOF'
+    {{args}}
+    EOF
+    )"
+    cmd="${cmd#-- }"
+    cmd="${cmd#--}"
+    if [[ -z "${cmd}" ]]; then
+        echo "Usage: just honey-sudo-run {{host}} -- <command...>"
+        exit 1
+    fi
+    cmd_b64="$(printf '%s' "${cmd}" | base64 | tr -d '\n')"
+    ssh jess@{{host}} bash -s -- "${cmd_b64}" <<'REMOTE'
+    set -euo pipefail
+    cd "{{remote_repo_path}}"
+    export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    become_file="${BECOME_PASSWORD_FILE:-$HOME/.config/sops-nix/secrets/become/password}"
+    if [[ ! -r "${become_file}" ]]; then
+        echo "ERROR: Honey SOPS become file is not readable: ${become_file}" >&2
+        exit 77
+    fi
+    cmd="$(printf '%s' "$1" | base64 --decode)"
+    cat "${become_file}" | sudo -S -p "" bash -lc "$cmd"
+    REMOTE
+
+[group('ci')]
+honey-sudo-check host="honey":
+    just honey-sudo-run {{host}} -- 'true && echo sudo_ok'
 
 [group('ci')]
 honey-proof-env host="honey":
@@ -989,7 +1118,7 @@ bios-create-freedos-usb-remote host dev:
     # Copy BIOS exe to remote
     scp "{{bios_dir}}/{{bios_exe}}" jess@{{host}}:/tmp/
 
-    ssh jess@{{host}} "echo 'tinyland' | sudo -S bash -c '
+    ssh jess@{{host}} "f=\${BECOME_PASSWORD_FILE:-\$HOME/.config/sops-nix/secrets/become/password}; cat \"\$f\" | sudo -S -p \"\" bash -c '
     set -euo pipefail
     FDOS_URL=\"https://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/distributions/1.3/official/FD13-FloppyEdition.zip\"
 
@@ -1076,7 +1205,7 @@ bios-verify host="honey":
     #!/usr/bin/env bash
     set -euo pipefail
     echo "=== BIOS version on {{host}} ==="
-    ssh jess@{{host}} "sudo dmidecode -t bios | grep -E 'Vendor|Version|Release|Revision|Date'"
+    just honey-sudo-run {{host}} -- "dmidecode -t bios | grep -E 'Vendor|Version|Release|Revision|Date'"
 
 # Deploy tuned profile for BCI/VR workloads to remote host.
 # Prefer the Dell-owned T7810 profile when the sibling repo is present.
@@ -1095,7 +1224,7 @@ bios-tuned-deploy host="honey":
         echo "=== Deploying legacy XoxdWM ${profile_name} tuned profile to {{host}} ==="
     fi
     scp -r "${profile_dir}" jess@{{host}}:/tmp/
-    ssh jess@{{host}} "echo 'tinyland' | sudo -S bash -c 'cp -r /tmp/${profile_name} /etc/tuned/ && tuned-adm profile ${profile_name} && echo Done: && tuned-adm active'"
+    ssh jess@{{host}} "f=\${BECOME_PASSWORD_FILE:-\$HOME/.config/sops-nix/secrets/become/password}; cat \"\$f\" | sudo -S -p \"\" bash -c 'cp -r /tmp/${profile_name} /etc/tuned/ && tuned-adm profile ${profile_name} && echo Done: && tuned-adm active'"
 
 # Run SMI validation on remote host (characterize hardware latency).
 # Prefer the Dell-owned validator when the sibling repo is present.
@@ -1113,7 +1242,7 @@ smi-validate host="honey" *args="":
         echo "Using legacy XoxDWM SMI validator."
     fi
     scp "${validator}" jess@{{host}}:/tmp/smi-validate
-    ssh jess@{{host}} "chmod +x /tmp/smi-validate && echo 'tinyland' | sudo -S /tmp/smi-validate {{args}}"
+    ssh jess@{{host}} "chmod +x /tmp/smi-validate && f=\${BECOME_PASSWORD_FILE:-\$HOME/.config/sops-nix/secrets/become/password} && cat \"\$f\" | sudo -S -p \"\" /tmp/smi-validate {{args}}"
 
 # ── rollout ─────────────────────────────────────────
 
@@ -1171,7 +1300,7 @@ rollout-preflight host="honey":
     echo "${P}HAS_LMSENSORS='$(command -v sensors &>/dev/null && echo yes || echo no)'"
     echo "${P}GRUB_CMDLINE='$(grep GRUB_CMDLINE_LINUX /etc/default/grub 2>/dev/null | head -1)'"
     REMOTE
-    REMOTE_STATE=$(ssh jess@{{host}} "chmod +x /tmp/_preflight.sh && echo 'tinyland' | sudo -S /tmp/_preflight.sh 2>/dev/null; rm -f /tmp/_preflight.sh")
+    REMOTE_STATE=$(ssh jess@{{host}} "chmod +x /tmp/_preflight.sh && f=\${BECOME_PASSWORD_FILE:-\$HOME/.config/sops-nix/secrets/become/password} && cat \"\$f\" | sudo -S -p \"\" /tmp/_preflight.sh 2>/dev/null; rm -f /tmp/_preflight.sh")
 
     # Parse remote state — only eval lines with our prefix (ignores MOTD, sudo noise)
     eval "$(echo "$REMOTE_STATE" | grep '^__PF__' | sed 's/^__PF__//')"
@@ -1309,7 +1438,7 @@ storage-preflight host="honey":
     set -euo pipefail
     echo "=== Storage pre-flight on {{host}} ==="
     scp "{{project_root}}/packaging/scripts/honey-storage-migrate" jess@{{host}}:/tmp/
-    ssh jess@{{host}} "chmod +x /tmp/honey-storage-migrate && echo 'tinyland' | sudo -S /tmp/honey-storage-migrate phase0"
+    ssh jess@{{host}} "chmod +x /tmp/honey-storage-migrate && f=\${BECOME_PASSWORD_FILE:-\$HOME/.config/sops-nix/secrets/become/password} && cat \"\$f\" | sudo -S -p \"\" /tmp/honey-storage-migrate phase0"
 
 # Run storage migration phase (pvmove root to NVMe, etc).
 # Usage: just storage-migrate honey phase1
@@ -1324,7 +1453,7 @@ storage-migrate host="honey" phase="phase0" *args="":
     set -euo pipefail
     echo "=== Storage migration {{phase}} on {{host}} ==="
     scp "{{project_root}}/packaging/scripts/honey-storage-migrate" jess@{{host}}:/tmp/
-    ssh jess@{{host}} "chmod +x /tmp/honey-storage-migrate && echo 'tinyland' | sudo -S /tmp/honey-storage-migrate {{phase}} {{args}}"
+    ssh jess@{{host}} "chmod +x /tmp/honey-storage-migrate && f=\${BECOME_PASSWORD_FILE:-\$HOME/.config/sops-nix/secrets/become/password} && cat \"\$f\" | sudo -S -p \"\" /tmp/honey-storage-migrate {{phase}} {{args}}"
 
 # Show current storage layout on remote host.
 [group('storage')]
@@ -1332,7 +1461,7 @@ storage-status host="honey":
     #!/usr/bin/env bash
     set -euo pipefail
     echo "=== Storage status on {{host}} ==="
-    ssh jess@{{host}} "echo '── PVs ──' && sudo pvs 2>/dev/null; echo '── VGs ──' && sudo vgs 2>/dev/null; echo '── LVs ──' && sudo lvs 2>/dev/null; echo '── df ──' && df -h / /boot /home /data /archive 2>/dev/null; echo '── lsblk ──' && lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT"
+    just honey-sudo-run {{host}} -- 'echo "── PVs ──" && pvs 2>/dev/null; echo "── VGs ──" && vgs 2>/dev/null; echo "── LVs ──" && lvs 2>/dev/null; echo "── df ──" && df -h / /boot /home /data /archive 2>/dev/null; echo "── lsblk ──" && lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT'
 
 # ── boot (Dhall IaC) ────────────────────────────────
 
@@ -1414,7 +1543,7 @@ boot-apply host="honey" config="xr" mode="--dry-run":
     set -euo pipefail
     echo "=== Boot apply ({{mode}}) {{config}} on {{host}} ==="
     scp -r "{{project_root}}/packaging/dhall" "{{project_root}}/packaging/scripts/boot-apply" jess@{{host}}:/tmp/
-    ssh jess@{{host}} "chmod +x /tmp/boot-apply && echo 'tinyland' | sudo -S /tmp/boot-apply {{mode}} {{config}}"
+    ssh jess@{{host}} "chmod +x /tmp/boot-apply && f=\${BECOME_PASSWORD_FILE:-\$HOME/.config/sops-nix/secrets/become/password} && cat \"\$f\" | sudo -S -p \"\" /tmp/boot-apply {{mode}} {{config}}"
 
 # Verify boot configuration on remote host.
 [group('boot')]
@@ -1422,7 +1551,7 @@ boot-verify host="honey":
     #!/usr/bin/env bash
     set -euo pipefail
     echo "=== Boot verification on {{host}} ==="
-    ssh jess@{{host}} "echo '── Kernel ──' && uname -r; echo '── Default ──' && sudo grubby --default-kernel; echo '── BLS Entries ──' && ls -la /boot/loader/entries/; echo '── Current cmdline ──' && cat /proc/cmdline; echo '── GRUB defaults ──' && cat /etc/default/grub"
+    just honey-sudo-run {{host}} -- 'echo "── Kernel ──" && uname -r; echo "── Default ──" && grubby --default-kernel; echo "── BLS Entries ──" && ls -la /boot/loader/entries/; echo "── Current cmdline ──" && cat /proc/cmdline; echo "── GRUB defaults ──" && cat /etc/default/grub'
 
 # Test a kernel with grub2-reboot (one-shot: auto-reverts to saved default on next reboot).
 # Usage: just boot-test-kernel honey /boot/vmlinuz-6.19.5-5.xr.el10
@@ -1437,11 +1566,11 @@ boot-test-kernel host="honey" kernel="":
         echo "This uses grub2-reboot for a ONE-SHOT boot. If the kernel fails,"
         echo "the next power cycle auto-boots the saved default (ELRepo)."
         echo ""
-        ssh jess@{{host}} "echo 'tinyland' | sudo -S grubby --info=ALL 2>/dev/null | grep -E '^(index|kernel|title)='"
+        ssh jess@{{host}} "f=\${BECOME_PASSWORD_FILE:-\$HOME/.config/sops-nix/secrets/become/password}; cat \"\$f\" | sudo -S -p \"\" grubby --info=ALL 2>/dev/null | grep -E '^(index|kernel|title)='"
         exit 1
     fi
     echo "=== One-shot kernel test on {{host}} ==="
-    ssh jess@{{host}} "echo 'tinyland' | sudo -S bash -c '
+    ssh jess@{{host}} "f=\${BECOME_PASSWORD_FILE:-\$HOME/.config/sops-nix/secrets/become/password}; cat \"\$f\" | sudo -S -p \"\" bash -c '
         SAVED=\$(grubby --default-kernel)
         echo \"  Saved default: \${SAVED}\"
         echo \"  Testing: {{kernel}}\"
@@ -1501,4 +1630,4 @@ gpu-dell-quiet host="honey":
     #!/usr/bin/env bash
     set -euo pipefail
     scp "{{project_root}}/packaging/scripts/gpu-monitor" jess@{{host}}:/tmp/
-    ssh jess@{{host}} "chmod +x /tmp/gpu-monitor && echo 'tinyland' | sudo -S /tmp/gpu-monitor dell-quiet"
+    ssh jess@{{host}} "chmod +x /tmp/gpu-monitor && f=\${BECOME_PASSWORD_FILE:-\$HOME/.config/sops-nix/secrets/become/password} && cat \"\$f\" | sudo -S -p \"\" /tmp/gpu-monitor dell-quiet"
