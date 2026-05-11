@@ -6,6 +6,8 @@
 (require 'ewwm-ipc)
 (require 'ewwm-workspace)
 
+(defvar ewwm-layout--current)
+
 ;; ── Message encoding/decoding tests ────────────────────────
 
 (ert-deftest ewwm-ipc-test/encode-message-length-prefix ()
@@ -134,6 +136,14 @@
   "Dispatch handles unknown events gracefully."
   ;; Should not error
   (ewwm-ipc--dispatch '(:type :event :event :unknown-event :data 42)))
+
+(ert-deftest ewwm-ipc-test/config-reloaded-mirrors-loaded-module-state ()
+  "Config reload mirrors native state when app-layer modules are loaded."
+  (let ((ewwm-layout--current 'tiling)
+        (ewwm-workspace-current-index 0))
+    (ewwm-ipc--on-config-reloaded '(:layout "monocle" :active-workspace 2))
+    (should (eq ewwm-layout--current 'monocle))
+    (should (= ewwm-workspace-current-index 2))))
 
 ;; ── Connection state tests ─────────────────────────────────
 

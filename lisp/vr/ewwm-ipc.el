@@ -12,6 +12,11 @@
 (require 'cl-lib)
 (require 'ewwm-core)
 
+;; Optional app-layer modules own these variables; IPC only mirrors native state
+;; when the corresponding module is loaded.
+(defvar ewwm-layout--current)
+(defvar ewwm-workspace-current-index)
+
 ;; ── Customization ──────────────────────────────────────────
 
 (defcustom ewwm-ipc-socket-path nil
@@ -369,9 +374,11 @@ surfaces that still emit :old/:new."
 
 (defun ewwm-ipc--on-config-reloaded (msg)
   "Handle native :config-reloaded event MSG."
-  (when (plist-get msg :layout)
+  (when (and (boundp 'ewwm-layout--current)
+             (plist-get msg :layout))
     (setq ewwm-layout--current (intern (plist-get msg :layout))))
-  (when (plist-get msg :active-workspace)
+  (when (and (boundp 'ewwm-workspace-current-index)
+             (plist-get msg :active-workspace))
     (setq ewwm-workspace-current-index (plist-get msg :active-workspace)))
   (message "ewwm: native config reloaded"))
 
