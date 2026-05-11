@@ -607,7 +607,7 @@ impl GazeFocusEvent {
                 y,
             } => {
                 format!(
-                    "(:type :event :event :gaze-focus-requested :surface-id {} :dwell-ms {:.0} :x {:.0} :y {:.0})",
+                    "(:type :event :event :gaze-focus-request :surface-id {} :dwell-ms {:.0} :x {:.0} :y {:.0})",
                     surface_id, dwell_ms, x, y
                 )
             }

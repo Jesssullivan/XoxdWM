@@ -2,12 +2,13 @@
 
 ## Overview
 
-The EWWM IPC protocol enables bidirectional communication between the Rust
-compositor (`ewwm-compositor`) and Emacs (`ewwm-ipc.el`) over a Unix domain
-socket. Emacs is the window management brain; the compositor is the pixel
-engine. All layout policy decisions flow from Emacs to the compositor via
-IPC commands; all state change notifications flow from the compositor to
-Emacs via IPC events.
+The EWWM IPC protocol enables bidirectional communication between the native
+Rust compositor (`ewwm-compositor`) and app-layer clients such as Emacs/eGreg
+over a Unix domain socket. The Rust compositor is the native WM/DE authority:
+it loads JSON-backed startup config, owns compositor policy state, and emits
+the resulting state transitions as IPC events. Emacs/eGreg clients may request
+policy changes and mirror compositor state for editor/app workflows, but they
+are not the WM authority.
 
 ## Transport
 
@@ -53,7 +54,7 @@ incremental parsing complexity.
 
 ## Message Structure
 
-### Request (Emacs -> Compositor)
+### Request (Client -> Compositor)
 
 ```elisp
 (:type MESSAGE-TYPE :id REQUEST-ID &rest PAYLOAD)
@@ -63,7 +64,7 @@ incremental parsing complexity.
 - `:id` — monotonically increasing integer for request/response correlation
 - Remaining fields are message-type-specific
 
-### Response (Compositor -> Emacs)
+### Response (Compositor -> Client)
 
 ```elisp
 (:type :response :id REQUEST-ID :status :ok|:error &rest PAYLOAD)
@@ -73,7 +74,7 @@ incremental parsing complexity.
 - `:status` — `:ok` for success, `:error` for failure
 - On error: `:reason "human-readable error message"`
 
-### Event (Compositor -> Emacs, unsolicited)
+### Event (Compositor -> Clients, unsolicited)
 
 ```elisp
 (:type :event :event EVENT-TYPE &rest PAYLOAD)
@@ -377,7 +378,7 @@ Latency measurement. Compositor responds immediately.
 ;; Response: (:type :response :id 20 :status :ok :client-timestamp 1705312345123 :server-timestamp 1705312345124)
 ```
 
-## Event Types (Compositor -> Emacs)
+## Event Types (Compositor -> Clients)
 
 Events are pushed to all connected clients. No acknowledgment required.
 
@@ -405,9 +406,20 @@ Events are pushed to all connected clients. No acknowledgment required.
 (:type :event :event :surface-focused :id 2 :previous-id 1)
 ```
 
-`:surface-focused` is the canonical focus event.  Legacy runtimes may also
-emit `:focus-changed` with `:old` and `:new`; clients should treat that as a
-temporary compatibility alias.
+`:surface-focused` is the canonical native focus event. Current Rust runtimes
+do not emit `:focus-changed`; Lisp clients may accept that legacy event as a
+client-only compatibility alias and map `:old`/`:new` onto
+`:previous-id`/`:id`.
+
+#### `:gaze-focus-request`
+
+```elisp
+(:type :event :event :gaze-focus-request :surface-id 2 :dwell-ms 450 :x 960 :y 540)
+```
+
+`:gaze-focus-request` is the canonical native gaze focus event. Lisp clients
+may accept the retired `:gaze-focus-requested` spelling as a client-only
+compatibility alias while old app/debug sessions are phased out.
 
 #### `:surface-geometry-changed`
 
@@ -474,6 +486,26 @@ a slow client from causing compositor memory growth.
   no benefit.
 - **Authorization:** All connected clients have full access. Future:
   capability-based access control.
+
+## Compatibility Aliases
+
+The v1 Rust dispatcher accepts these temporary command aliases for older
+clients:
+
+- `:launch-app` dispatches to canonical `:app-launch`.
+- `:reload-config` dispatches to canonical `:config-reload`.
+
+Runtime event aliases are client-only unless listed above as compositor
+events. In particular:
+
+- `:focus-changed` is a retired focus event; current Rust emits
+  `:surface-focused`.
+- `:gaze-focus-requested` is a retired gaze focus event; current Rust emits
+  `:gaze-focus-request`.
+
+Design-only or app-layer Lisp request types are outside the native runtime
+contract until promoted here and implemented by Rust dispatch. The IPC
+contract tests keep that boundary explicit.
 
 ## Performance Targets
 

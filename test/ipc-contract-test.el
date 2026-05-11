@@ -73,9 +73,7 @@
   "Current known Lisp request types that do not have Rust dispatch handlers.")
 
 (defconst ipc-contract-test--known-payload-debt
-  '("surface-resize geometry payload"
-    "focus event name/payload"
-    "gaze focus event name")
+  '("surface-resize geometry payload")
   "Known IPC schema debt not represented by command-name parity alone.")
 
 (defun ipc-contract-test--read-file (relative)
@@ -137,9 +135,44 @@
 
 (ert-deftest ipc-contract/known-schema-debt-is-explicit ()
   "Schema mismatches that command-name parity cannot see should stay explicit."
-  (dolist (item '("surface-resize geometry payload"
-                  "focus event name/payload"
-                  "gaze focus event name"))
+  (dolist (item '("surface-resize geometry payload"))
     (should (member item ipc-contract-test--known-payload-debt))))
+
+(ert-deftest ipc-contract/docs-do-not-make-emacs-the-wm-brain ()
+  "IPC docs should describe native authority, not Emacs WM authority."
+  (let ((docs (ipc-contract-test--read-file "docs/ipc-protocol.md")))
+    (should-not (string-match-p "Emacs is the window management brain" docs))
+    (should-not (string-match-p "All layout policy decisions flow from Emacs" docs))
+    (should (string-match-p "Rust compositor is the native WM/DE authority" docs))
+    (should (string-match-p "Emacs/eGreg clients" docs))
+    (should (string-match-p "not the WM authority" docs))))
+
+(ert-deftest ipc-contract/focus-event-legacy-alias-is-client-only ()
+  "Rust emits surface-focused; Lisp keeps focus-changed compatibility."
+  (let ((seat (ipc-contract-test--read-file "compositor/src/handlers/seat.rs"))
+        (lisp (ipc-contract-test--read-file "lisp/vr/ewwm-ipc.el")))
+    (should (string-match-p "\"surface-focused\"" seat))
+    (should (string-match-p "\"previous-id\"" seat))
+    (should-not (string-match-p "\"focus-changed\"" seat))
+    (should (string-match-p ":focus-changed" lisp))
+    (should (string-match-p "ewwm-ipc--on-focus-changed-compat" lisp))))
+
+(ert-deftest ipc-contract/gaze-focus-event-name-is-canonical ()
+  "Rust and Lisp agree on gaze-focus-request; Lisp accepts retired spelling."
+  (let ((rust (ipc-contract-test--read-file "compositor/src/vr/gaze_focus.rs"))
+        (lisp (ipc-contract-test--read-file "lisp/vr/ewwm-vr-eye.el")))
+    (should (string-match-p ":gaze-focus-request" rust))
+    (should-not (string-match-p ":gaze-focus-requested" rust))
+    (should (string-match-p ":gaze-focus-request[[:space:]]+\\. ewwm-vr-eye--on-gaze-focus-request" lisp))
+    (should (string-match-p ":gaze-focus-requested[[:space:]]+\\. ewwm-vr-eye--on-gaze-focus-request" lisp))))
+
+(ert-deftest ipc-contract/native-policy-aliases-are-documented ()
+  "Native aliases and client-only legacy events are explicitly documented."
+  (let ((docs (ipc-contract-test--read-file "docs/ipc-protocol.md")))
+    (dolist (token '(":launch-app" ":reload-config"
+                    ":focus-changed" ":gaze-focus-requested"))
+      (should (string-match-p (regexp-quote token) docs)))
+    (should (string-match-p "temporary command aliases" docs))
+    (should (string-match-p "client-only compatibility alias" docs))))
 
 ;;; ipc-contract-test.el ends here

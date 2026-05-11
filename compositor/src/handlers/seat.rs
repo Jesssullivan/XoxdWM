@@ -59,10 +59,6 @@ impl SeatHandler for EwwmState {
                 &[("id", &new_str), ("previous-id", &old_str)],
             );
             IpcServer::broadcast_event(self, &event);
-
-            // Compatibility alias for older clients and tests.
-            let event = format_event("focus-changed", &[("old", &old_str), ("new", &new_str)]);
-            IpcServer::broadcast_event(self, &event);
         }
     }
 }
