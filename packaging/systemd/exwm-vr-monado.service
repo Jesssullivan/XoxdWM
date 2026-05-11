@@ -1,11 +1,11 @@
 [Unit]
-Description=EXWM-VR Monado OpenXR Runtime
+Description=XoxdWM Monado OpenXR Runtime
 Documentation=https://github.com/Jesssullivan/XoxdWM
 After=exwm-vr-compositor.service
 ConditionUser=!root
 ConditionPathExists=/etc/xdg/openxr/1/active_runtime.json
 Conflicts=monado-dev.service
-PartOf=exwm-vr.target
+PartOf=xoxdwm.target exwm-vr.target
 
 [Service]
 Type=simple
@@ -17,7 +17,9 @@ Environment=IPC_EXIT_ON_DISCONNECT=OFF
 Environment=XR_RUNTIME_JSON=/etc/xdg/openxr/1/active_runtime.json
 Environment=WAYLAND_DISPLAY=wayland-0
 EnvironmentFile=-%h/.config/exwm-vr/monado.env
+EnvironmentFile=-%h/.config/xoxdwm/monado.env
 Restart=no
 
 [Install]
-WantedBy=exwm-vr.target
+WantedBy=xoxdwm.target exwm-vr.target
+Alias=xoxdwm-monado.service

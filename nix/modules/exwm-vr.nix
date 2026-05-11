@@ -60,7 +60,8 @@ let
     "LH_OVERRIDE_IPD_MM=64"
   ]);
 
-in {
+in
+{
 
   #
   # ── Interface ──────────────────────────────────────────────────────────
@@ -68,7 +69,7 @@ in {
 
   options.services.exwm-vr = {
 
-    enable = mkEnableOption (mdDoc "EXWM-VR window manager");
+    enable = mkEnableOption (mdDoc "XoxdWM window manager");
 
     # ── Compositor ──────────────────────────────────────────────────────
 
@@ -217,7 +218,7 @@ in {
       type = types.listOf types.str;
       readOnly = true;
       description = mdDoc ''
-        Groups that users must belong to in order to run EXWM-VR.
+        Groups that users must belong to in order to run XoxdWM.
         Add these to `users.users.<name>.extraGroups`.
       '';
     };
@@ -260,7 +261,8 @@ in {
 
       # ── Session variables ───────────────────────────────────────────
       environment.sessionVariables = {
-        XDG_CURRENT_DESKTOP = "EXWM-VR";
+        XDG_CURRENT_DESKTOP = "XoxdWM";
+        XDG_SESSION_DESKTOP = "xoxdwm";
         XDG_SESSION_TYPE = "wayland";
         # Prefer Wayland backends for toolkit applications
         GDK_BACKEND = "wayland,x11";
@@ -276,17 +278,18 @@ in {
 
       # ── Display manager session registration ─────────────────────
       services.displayManager.sessionPackages = [
-        (pkgs.runCommand "exwm-vr-session" { } ''
+        (pkgs.runCommand "xoxdwm-session" { } ''
           mkdir -p $out/share/wayland-sessions
-          cat > $out/share/wayland-sessions/exwm-vr.desktop << 'EOF'
+          cat > $out/share/wayland-sessions/xoxdwm.desktop << 'EOF'
           [Desktop Entry]
-          Name=EXWM-VR
-          Comment=VR-first Emacs Window Manager (Wayland)
+          Name=XoxdWM
+          Comment=Native Wayland WM/DE authority with Emacs/eGreg app-layer clients
           Exec=${cfg.compositor.package}/bin/ewwm-compositor
           TryExec=${cfg.compositor.package}/bin/ewwm-compositor
           Type=Application
-          DesktopNames=EXWM-VR;
+          DesktopNames=XoxdWM;EXWM-VR;
           EOF
+          ln -s xoxdwm.desktop $out/share/wayland-sessions/exwm-vr.desktop
         '')
       ];
 
@@ -307,15 +310,15 @@ in {
 
       # ── Compositor systemd user service ─────────────────────────────
       systemd.user.services."exwm-vr-compositor" = {
-        description = "EXWM-VR Wayland Compositor";
+        description = "XoxdWM Native Wayland Compositor";
         documentation = [ "https://github.com/Jesssullivan/XoxdWM" ];
-        aliases = [ "ewwm-compositor.service" ];
+        aliases = [ "xoxdwm-compositor.service" "ewwm-compositor.service" ];
 
         wantedBy = [ "graphical-session.target" ];
         before = [ "exwm-vr-emacs.service" ];
 
         environment = {
-          XDG_CURRENT_DESKTOP = "EXWM-VR";
+          XDG_CURRENT_DESKTOP = "XoxdWM";
           __EGL_VENDOR_LIBRARY_DIRS = "/run/opengl-driver/share/glvnd/egl_vendor.d";
         };
 
@@ -335,41 +338,43 @@ in {
 
       # ── Emacs systemd user service ──────────────────────────────────
       systemd.user.services."exwm-vr-emacs" = {
-        description = "EXWM-VR Emacs Window Manager Brain";
+        description = "XoxdWM Emacs App-Layer Client";
         documentation = [ "https://github.com/Jesssullivan/XoxdWM" ];
-        aliases = [ "ewwm-emacs.service" ];
+        aliases = [ "xoxdwm-emacs.service" "ewwm-emacs.service" ];
 
         requires = [ "exwm-vr-compositor.service" ];
         after = [ "exwm-vr-compositor.service" ];
         wantedBy = [ "graphical-session.target" ];
 
         environment = {
-          XDG_CURRENT_DESKTOP = "EXWM-VR";
+          XDG_CURRENT_DESKTOP = "XoxdWM";
         };
 
-        serviceConfig = let
-          emacsArgs = concatStringsSep " " ([
-            "${emacsWithPackages}/bin/emacs"
-            "--daemon=ewwm"
-          ] ++ optional (cfg.emacs.initFile != null)
-            "--load ${cfg.emacs.initFile}"
-          );
-        in {
-          ExecStart = emacsArgs;
-          ExecStop = "${emacsWithPackages}/bin/emacsclient --socket-name=ewwm --eval (kill-emacs)";
-          Restart = "on-failure";
-          RestartSec = 3;
-          ProtectSystem = "strict";
-          ProtectHome = "read-only";
-          NoNewPrivileges = true;
-          PrivateTmp = true;
-        };
+        serviceConfig =
+          let
+            emacsArgs = concatStringsSep " " ([
+              "${emacsWithPackages}/bin/emacs"
+              "--daemon=ewwm"
+            ] ++ optional (cfg.emacs.initFile != null)
+              "--load ${cfg.emacs.initFile}"
+            );
+          in
+          {
+            ExecStart = emacsArgs;
+            ExecStop = "${emacsWithPackages}/bin/emacsclient --socket-name=ewwm --eval (kill-emacs)";
+            Restart = "on-failure";
+            RestartSec = 3;
+            ProtectSystem = "strict";
+            ProtectHome = "read-only";
+            NoNewPrivileges = true;
+            PrivateTmp = true;
+          };
       };
 
       # ── Session target ──────────────────────────────────────────────
       systemd.user.targets."exwm-vr" = {
-        description = "EXWM-VR Session";
-        aliases = [ "ewwm-session.target" ];
+        description = "XoxdWM Session";
+        aliases = [ "xoxdwm.target" "ewwm-session.target" ];
         requires = [ "exwm-vr-compositor.service" "exwm-vr-emacs.service" ];
         after = [ "exwm-vr-compositor.service" "exwm-vr-emacs.service" ];
         wantedBy = [ "graphical-session.target" ];
@@ -469,9 +474,9 @@ in {
 
       # BrainFlow data-acquisition service
       systemd.user.services."exwm-vr-brainflow" = {
-        description = "EXWM-VR BrainFlow BCI Data Acquisition";
+        description = "XoxdWM BrainFlow BCI Data Acquisition";
         documentation = [ "https://brainflow.readthedocs.io" ];
-        aliases = [ "ewwm-brainflow.service" ];
+        aliases = [ "xoxdwm-brainflow.service" "ewwm-brainflow.service" ];
 
         after = [ "exwm-vr-compositor.service" ];
         wantedBy = [ "exwm-vr.target" ];
@@ -530,8 +535,9 @@ in {
       # Monado systemd user service with CAP_SYS_NICE for real-time
       # frame scheduling and reduced compositor latency
       systemd.user.services.exwm-vr-monado = {
-        description = "Monado OpenXR Runtime for EXWM-VR";
+        description = "Monado OpenXR Runtime for XoxdWM";
         documentation = [ "https://monado.freedesktop.org" ];
+        aliases = [ "xoxdwm-monado.service" ];
 
         after = [ "graphical-session.target" ];
         partOf = [ "graphical-session.target" ];
@@ -545,10 +551,10 @@ in {
           AmbientCapabilities = "CAP_SYS_NICE";
           # Hardening
           ProtectHome = "read-only";
-          NoNewPrivileges = false;  # required for AmbientCapabilities
+          NoNewPrivileges = false; # required for AmbientCapabilities
           RestrictNamespaces = true;
           LockPersonality = true;
-          MemoryDenyWriteExecute = false;  # GPU JIT requires W+X pages
+          MemoryDenyWriteExecute = false; # GPU JIT requires W+X pages
           SupplementaryGroups = [ "video" ];
         };
       };

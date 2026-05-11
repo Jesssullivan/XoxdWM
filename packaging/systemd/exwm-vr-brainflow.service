@@ -1,9 +1,9 @@
 [Unit]
-Description=EXWM-VR BrainFlow BCI Daemon
+Description=XoxdWM BrainFlow BCI Daemon
 Documentation=https://github.com/Jesssullivan/XoxdWM
 After=exwm-vr-compositor.service
 ConditionPathExists=/dev/openbci
-PartOf=exwm-vr.target
+PartOf=xoxdwm.target exwm-vr.target
 
 [Service]
 Type=oneshot
@@ -11,4 +11,5 @@ RemainAfterExit=true
 ExecStart=/usr/bin/true
 
 [Install]
-WantedBy=exwm-vr.target
+WantedBy=xoxdwm.target exwm-vr.target
+Alias=xoxdwm-brainflow.service

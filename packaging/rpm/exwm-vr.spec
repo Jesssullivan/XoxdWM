@@ -1,4 +1,4 @@
-# RPM spec for EXWM-VR (XoxdWM) - VR-first Wayland compositor + Emacs WM
+# RPM spec for XoxdWM - native Wayland WM/DE authority with compatibility names
 # Targets: Rocky Linux 9 (EPEL required) and Rocky Linux 10
 
 %global project_name    exwm-vr
@@ -43,7 +43,7 @@
 Name:           %{project_name}
 Version:        %{package_version}
 Release:        1%{?dist}
-Summary:        VR-first transhuman Emacs window manager (Wayland)
+Summary:        Native Wayland WM/DE authority with Emacs/eGreg app-layer clients
 License:        GPL-3.0-or-later
 URL:            https://github.com/Jesssullivan/XoxdWM
 Source0:        %{project_name}-%{version}.tar.gz
@@ -133,10 +133,10 @@ BuildRequires:  epel-release
 # Package descriptions
 # ---------------------------------------------------------------------------
 %description
-EXWM-VR (XoxdWM) is a VR-first transhuman Emacs window manager built on
-Smithay (Wayland compositor), Emacs (pgtk) as the WM brain, and Monado
-(OpenXR runtime) for VR headset integration.  This meta-package pulls in the
-currently supported native Rocky package components for the release lane.
+XoxdWM is a native Wayland WM/DE authority built on Smithay, with Emacs/eGreg
+kept as app-layer clients and Monado/OpenXR carried as an optional VR
+integration lane.  The RPM name remains `exwm-vr` for compatibility with
+existing repositories, host scripts, and proof notes.
 
 Requires:       %{name}-compositor = %{version}-%{release}
 Requires:       %{name}-elisp = %{version}-%{release}
@@ -151,7 +151,7 @@ Requires:       %{name}-selinux = %{version}-%{release}
 # Subpackage: compositor
 # ===========================================================================
 %package compositor
-Summary:        EXWM-VR Wayland compositor (native Rocky package lane)
+Summary:        XoxdWM native Wayland compositor
 Requires:       mesa-libEGL
 Requires:       mesa-libgbm
 Requires:       libwayland-server
@@ -178,14 +178,15 @@ than a release gate for this base compositor lane.
 # Subpackage: elisp
 # ===========================================================================
 %package elisp
-Summary:        EXWM-VR Emacs Lisp modules
+Summary:        XoxdWM Emacs/eGreg app-layer modules
 BuildArch:      noarch
 Requires:       emacs >= 29.1
 Requires:       %{name}-compositor = %{version}-%{release}
 
 %description elisp
-Emacs Lisp modules for EXWM-VR: core WM logic (ewwm-core, ewwm-workspace,
-ewwm-layout, ewwm-input, ewwm-manage, ewwm-floating), VR integration
+Emacs Lisp modules for XoxdWM's app-layer and legacy compatibility surfaces:
+core EWWM logic (ewwm-core, ewwm-workspace, ewwm-layout, ewwm-input,
+ewwm-manage, ewwm-floating), VR integration
 (ewwm-vr, ewwm-vr-scene, ewwm-vr-display, ewwm-vr-eye), accessibility
 (ewwm-vr-wink, ewwm-vr-gaze-zone, ewwm-vr-fatigue), secrets management
 (ewwm-secrets, ewwm-keepassxc-browser, ewwm-secrets-autotype), and the
@@ -198,7 +199,7 @@ depends on EXWM Lisp dependencies that are not yet packaged in Rocky 10.
 # ===========================================================================
 %if %{with monado_integration}
 %package monado
-Summary:        Monado OpenXR runtime integration for EXWM-VR
+Summary:        Monado OpenXR runtime integration for XoxdWM
 BuildArch:      noarch
 Requires:       bash
 Requires:       coreutils
@@ -207,7 +208,7 @@ Requires:       %{name}-compositor = %{version}-%{release}
 
 %description monado
 Configuration files, systemd service units, and udev rules for integrating
-the Monado OpenXR runtime with the EXWM-VR compositor.  Includes HMD
+the Monado OpenXR runtime with the XoxdWM compositor.  Includes HMD
 auto-detection and DRM lease handoff.
 %endif
 
@@ -216,13 +217,13 @@ auto-detection and DRM lease handoff.
 # ===========================================================================
 %if %{with bci}
 %package bci
-Summary:        BrainFlow BCI integration for EXWM-VR
+Summary:        BrainFlow BCI integration for XoxdWM
 Requires:       python3 >= 3.9
 Requires:       %{name}-compositor = %{version}-%{release}
 
 %description bci
 A self-contained Python virtual environment at %{bci_venv_dir} providing
-BrainFlow-based brain-computer interface support for EXWM-VR.  Communicates
+BrainFlow-based brain-computer interface support for XoxdWM.  Communicates
 with the compositor over Unix domain sockets.
 %endif
 
@@ -231,14 +232,14 @@ with the compositor over Unix domain sockets.
 # ===========================================================================
 %if %{with selinux_policy}
 %package selinux
-Summary:        SELinux policy module for EXWM-VR
+Summary:        SELinux policy module for XoxdWM
 BuildArch:      noarch
 Requires:       selinux-policy >= %{_selinux_policy_version}
 Requires(post): policycoreutils
 Requires(postun): policycoreutils
 
 %description selinux
-SELinux type-enforcement policy module for EXWM-VR.  Confines the compositor,
+SELinux type-enforcement policy module for XoxdWM.  Confines the compositor,
 Monado runtime, and BrainFlow BCI processes with mandatory access controls.
 Denies network access for the compositor and restricts file writes to
 designated directories only.
@@ -249,7 +250,7 @@ designated directories only.
 # ===========================================================================
 %if %{with headless}
 %package headless
-Summary:        EXWM-VR headless compositor for servers and mainframes
+Summary:        XoxdWM headless compositor for servers and mainframes
 Requires:       emacs-nox >= 29.1
 Requires:       systemd-libs
 Requires(post): systemd
@@ -257,7 +258,7 @@ Requires(preun): systemd
 Requires(postun): systemd
 
 %description headless
-Headless compositor variant for EXWM-VR, intended for servers, mainframes
+Headless compositor variant for XoxdWM, intended for servers, mainframes
 (IBM Z / s390x), and environments without GPU hardware.  Provides IPC-based
 workspace management with terminal Emacs (emacs -nw).  No VR, eye tracking,
 or BCI support.  Suitable for remote administration via SSH or VNC.
@@ -359,10 +360,16 @@ install -Dpm 0755 compositor/target/release/%{compositor_name}-native \
 %ifnarch s390x
 install -Dpm 0644 %{SOURCE40} \
     %{buildroot}%{_datadir}/wayland-sessions/exwm-vr.desktop
+ln -s exwm-vr.desktop \
+    %{buildroot}%{_datadir}/wayland-sessions/xoxdwm.desktop
 install -Dpm 0755 %{SOURCE41} \
     %{buildroot}%{_datadir}/%{project_name}/exwm-vr-session
+ln -s exwm-vr-session \
+    %{buildroot}%{_datadir}/%{project_name}/xoxdwm-session
 install -Dpm 0644 %{SOURCE42} \
     %{buildroot}%{_datadir}/xdg-desktop-portal/exwm-vr-portals.conf
+ln -s exwm-vr-portals.conf \
+    %{buildroot}%{_datadir}/xdg-desktop-portal/xoxdwm-portals.conf
 install -Dpm 0644 %{SOURCE43} \
     %{buildroot}%{_datadir}/%{project_name}/exwm-vr-session-init.el
 %endif
@@ -392,7 +399,7 @@ install -pm 0644 lisp/ext/*.el \
 # Emacs load-path setup
 install -d %{buildroot}%{_datadir}/emacs/site-lisp/site-start.d
 cat > %{buildroot}%{_datadir}/emacs/site-lisp/site-start.d/%{project_name}-init.el << 'ELISP_EOF'
-;;; exwm-vr-init.el --- Auto-load setup for EXWM-VR  -*- lexical-binding: t -*-
+;;; exwm-vr-init.el --- Auto-load setup for XoxdWM compatibility modules  -*- lexical-binding: t -*-
 (let ((base (file-name-directory load-file-name)))
   ;; lisp/core is packaged as a compatibility/archive surface, but default
   ;; runtime WM authority is native Rust plus lisp/vr app-layer clients.
@@ -405,9 +412,13 @@ ELISP_EOF
 %ifnarch s390x
 install -Dpm 0644 %{SOURCE20} \
     %{buildroot}%{_userunitdir}/exwm-vr-compositor.service
+ln -s exwm-vr-compositor.service \
+    %{buildroot}%{_userunitdir}/xoxdwm-compositor.service
 %if %{with monado_integration}
 install -Dpm 0644 %{SOURCE21} \
     %{buildroot}%{_userunitdir}/exwm-vr-monado.service
+ln -s exwm-vr-monado.service \
+    %{buildroot}%{_userunitdir}/xoxdwm-monado.service
 install -Dpm 0755 packaging/scripts/exwm-vr-monado-launch \
     %{buildroot}%{_libexecdir}/%{project_name}/monado-launch
 install -Dpm 0755 packaging/scripts/exwm-vr-openxr-smoke \
@@ -419,12 +430,18 @@ install -Dpm 0755 packaging/scripts/exwm-vr-kernel-dsc-truth \
 %endif
 install -Dpm 0644 %{SOURCE22} \
     %{buildroot}%{_userunitdir}/exwm-vr-emacs.service
+ln -s exwm-vr-emacs.service \
+    %{buildroot}%{_userunitdir}/xoxdwm-emacs.service
 %if %{with bci}
 install -Dpm 0644 %{SOURCE23} \
     %{buildroot}%{_userunitdir}/exwm-vr-brainflow.service
+ln -s exwm-vr-brainflow.service \
+    %{buildroot}%{_userunitdir}/xoxdwm-brainflow.service
 %endif
 install -Dpm 0644 %{SOURCE24} \
     %{buildroot}%{_userunitdir}/exwm-vr.target
+ln -s exwm-vr.target \
+    %{buildroot}%{_userunitdir}/xoxdwm.target
 install -Dpm 0755 packaging/scripts/xoxdwm-native-authority-proof \
     %{buildroot}%{_libexecdir}/%{project_name}/native-authority-proof
 %endif
@@ -448,7 +465,7 @@ JSON_EOF
 
 install -d %{buildroot}%{_sysconfdir}/%{project_name}
 cat > %{buildroot}%{_sysconfdir}/%{project_name}/monado.conf << 'CONF_EOF'
-# Monado integration settings for EXWM-VR
+# Monado integration settings for XoxdWM
 # DRM lease: compositor hands off HMD display to Monado
 [drm_lease]
 enabled = true
@@ -618,13 +635,19 @@ fi
 %license LICENSE
 %{_bindir}/%{compositor_name}
 %{_userunitdir}/exwm-vr-compositor.service
+%{_userunitdir}/xoxdwm-compositor.service
 %{_userunitdir}/exwm-vr-emacs.service
+%{_userunitdir}/xoxdwm-emacs.service
 %{_userunitdir}/exwm-vr.target
+%{_userunitdir}/xoxdwm.target
 %{_datadir}/wayland-sessions/exwm-vr.desktop
+%{_datadir}/wayland-sessions/xoxdwm.desktop
 %dir %{_datadir}/%{project_name}
 %{_datadir}/%{project_name}/exwm-vr-session
+%{_datadir}/%{project_name}/xoxdwm-session
 %{_datadir}/%{project_name}/exwm-vr-session-init.el
 %{_datadir}/xdg-desktop-portal/exwm-vr-portals.conf
+%{_datadir}/xdg-desktop-portal/xoxdwm-portals.conf
 %dir %{_libexecdir}/%{project_name}
 %{_libexecdir}/%{project_name}/native-authority-proof
 %dir %{_localstatedir}/lib/%{project_name}
@@ -645,6 +668,7 @@ fi
 %files monado
 %license LICENSE
 %{_userunitdir}/exwm-vr-monado.service
+%{_userunitdir}/xoxdwm-monado.service
 %{_libexecdir}/%{project_name}/monado-launch
 %{_libexecdir}/%{project_name}/openxr-smoke
 %{_libexecdir}/%{project_name}/hmd-connector
@@ -664,6 +688,7 @@ fi
 %files bci
 %license LICENSE
 %{_userunitdir}/exwm-vr-brainflow.service
+%{_userunitdir}/xoxdwm-brainflow.service
 %dir /opt/%{project_name}
 %{bci_venv_dir}/
 %endif

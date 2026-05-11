@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# EXWM-VR session wrapper for display managers (greetd, SDDM, GDM).
+# XoxdWM session wrapper for display managers (greetd, SDDM, GDM).
 # Starts the compositor + Emacs via systemd user services when available,
 # falling back to direct process launch otherwise.
 
 set -euo pipefail
 
 # ── XDG session identity ─────────────────────────────────────────────
-export XDG_CURRENT_DESKTOP=EXWM-VR
-export XDG_SESSION_DESKTOP=EXWM-VR
+export XDG_CURRENT_DESKTOP=XoxdWM
+export XDG_SESSION_DESKTOP=xoxdwm
 export XDG_SESSION_TYPE=wayland
 
 # ── Session-owned compositor surface ─────────────────────────────────
@@ -42,7 +42,8 @@ fi
 
 # ── XDG portal config ────────────────────────────────────────────────
 # Point portal backends at our config (screencopy, file chooser, etc.)
-if [ -f /usr/share/xdg-desktop-portal/exwm-vr-portals.conf ]; then
+if [ -f /usr/share/xdg-desktop-portal/xoxdwm-portals.conf ] ||
+    [ -f /usr/share/xdg-desktop-portal/exwm-vr-portals.conf ]; then
     export XDG_DESKTOP_PORTAL_DIR=/usr/share/xdg-desktop-portal
 fi
 
@@ -67,7 +68,19 @@ if [ -f /etc/xdg/openxr/1/active_runtime.json ]; then
 fi
 
 # ── Systemd path ─────────────────────────────────────────────────────
-if command -v systemctl >/dev/null 2>&1 && systemctl --user list-unit-files exwm-vr.target >/dev/null 2>&1; then
+session_target=
+compositor_service=
+if command -v systemctl >/dev/null 2>&1; then
+    if systemctl --user list-unit-files xoxdwm.target >/dev/null 2>&1; then
+        session_target=xoxdwm.target
+        compositor_service=xoxdwm-compositor.service
+    elif systemctl --user list-unit-files exwm-vr.target >/dev/null 2>&1; then
+        session_target=exwm-vr.target
+        compositor_service=exwm-vr-compositor.service
+    fi
+fi
+
+if [ -n "$session_target" ] && [ -n "$compositor_service" ]; then
     # Import the session environment into the user manager before starting the
     # target so compositor/user services inherit the same runtime context as
     # the launcher.
@@ -94,20 +107,20 @@ if command -v systemctl >/dev/null 2>&1 && systemctl --user list-unit-files exwm
         XCURSOR_THEME \
         XCURSOR_SIZE >/dev/null 2>&1 || true
 
-    echo "Starting EXWM-VR via systemd user target..."
-    systemctl --user start exwm-vr.target
+    echo "Starting XoxdWM via systemd user target..."
+    systemctl --user start "$session_target"
 
     # Wait until the compositor reaches a stable running or failed state.
     seen_active=0
     while true; do
-        state="$(systemctl --user show -p ActiveState --value exwm-vr-compositor.service 2>/dev/null || echo failed)"
+        state="$(systemctl --user show -p ActiveState --value "$compositor_service" 2>/dev/null || echo failed)"
         case "$state" in
             active)
                 seen_active=1
                 ;;
             failed)
-                echo "ERROR: exwm-vr-compositor.service failed to start" >&2
-                exec systemctl --user status exwm-vr-compositor.service --no-pager -l
+                echo "ERROR: $compositor_service failed to start" >&2
+                exec systemctl --user status "$compositor_service" --no-pager -l
                 ;;
             inactive)
                 if [ "$seen_active" -eq 1 ]; then
@@ -119,12 +132,12 @@ if command -v systemctl >/dev/null 2>&1 && systemctl --user list-unit-files exwm
     done
 
     # Once the compositor has run, bring the session target down cleanly.
-    systemctl --user stop exwm-vr.target >/dev/null 2>&1 || true
+    systemctl --user stop "$session_target" >/dev/null 2>&1 || true
     exit 0
 fi
 
 # ── Fallback: direct launch ──────────────────────────────────────────
-echo "systemd user units not found; launching directly..."
+echo "XoxdWM systemd user units not found; launching directly..."
 
 cleanup() {
     # Terminate emacs daemon if still running.

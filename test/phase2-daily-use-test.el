@@ -133,7 +133,7 @@
   "GetServerInformation returns expected values."
   (let ((info (ewwm-notify--get-server-information)))
     (should (equal (nth 0 info) "ewwm-notify"))
-    (should (equal (nth 1 info) "EXWM-VR"))))
+    (should (equal (nth 1 info) "XoxdWM"))))
 
 (ert-deftest phase2/notify-history-operations ()
   "Notification history can be added and cleared."

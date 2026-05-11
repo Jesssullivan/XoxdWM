@@ -80,7 +80,7 @@ Each entry: (ID TIMESTAMP APP-NAME SUMMARY BODY URGENCY).")
 
 (defun ewwm-notify--get-server-information ()
   "Return server name, vendor, version, spec-version."
-  (list "ewwm-notify" "EXWM-VR" "0.5.1" "1.2"))
+  (list "ewwm-notify" "XoxdWM" "0.5.1" "1.2"))
 
 (defun ewwm-notify--notify (app-name replaces-id _app-icon
                             summary body _actions hints

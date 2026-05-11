@@ -1,8 +1,8 @@
 [Desktop Entry]
-Name=EXWM-VR
-Comment=VR-first Emacs Window Manager (Wayland)
+Name=XoxdWM
+Comment=Native Wayland WM/DE authority with Emacs/eGreg app-layer clients
 Exec=/usr/share/exwm-vr/exwm-vr-session
 TryExec=/usr/bin/ewwm-compositor
 Type=Application
-DesktopNames=EXWM-VR;
+DesktopNames=XoxdWM;EXWM-VR;
 X-GDM-SessionRegisters=true
