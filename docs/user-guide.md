@@ -156,7 +156,7 @@ nix build .#packages.x86_64-linux.oci-image
 ### RPM Installation
 
 ```bash
-# Enable EPEL and EXWM-VR repository
+# Enable EPEL and the current compatibility RPM repository
 sudo dnf install epel-release
 sudo dnf config-manager --add-repo https://rpm.exwm-vr.dev/rocky-9.repo
 
@@ -189,37 +189,40 @@ sudo semodule -l | grep exwm
 
 ### systemd Services
 
-The RPM-packaged Rocky session uses user-level `exwm-vr-*` systemd units:
+The RPM-packaged Rocky session exposes `xoxdwm-*` user-level systemd aliases.
+The older `exwm-vr-*` unit names remain installed as compatibility names for
+existing host scripts and proof notes, including
+`exwm-vr-compositor.service`, `exwm-vr-monado.service`, and `exwm-vr.target`.
 
 ```bash
 # Enable and start the compositor
-systemctl --user enable exwm-vr-compositor.service
-systemctl --user start exwm-vr-compositor.service
+systemctl --user enable xoxdwm-compositor.service
+systemctl --user start xoxdwm-compositor.service
 
 # Enable VR (if Monado integration is installed)
-systemctl --user enable exwm-vr-monado.service
-systemctl --user start exwm-vr-monado.service
+systemctl --user enable xoxdwm-monado.service
+systemctl --user start xoxdwm-monado.service
 
 # Start the full stack
-systemctl --user start exwm-vr.target
+systemctl --user start xoxdwm.target
 ```
 
 On the packaged Rocky lane, host-specific direct-mode settings now have a
 supported user-scoped config surface instead of requiring arbitrary unit edits:
 
 ```bash
-mkdir -p ~/.config/exwm-vr
+mkdir -p ~/.config/xoxdwm
 
 hmd_connector=$(/usr/libexec/exwm-vr/hmd-connector --format name) || {
   echo "No live HMD connector resolved; set EXWM_VR_HMD_CONNECTOR=DP-n and rerun" >&2
   exit 1
 }
 
-cat > ~/.config/exwm-vr/compositor.env <<EOF
+cat > ~/.config/xoxdwm/compositor.env <<EOF
 EWWM_DRM_LEASE_CONNECTORS=${hmd_connector}
 EOF
 
-cat > ~/.config/exwm-vr/monado.env <<EOF
+cat > ~/.config/xoxdwm/monado.env <<EOF
 # Optional for hosts that still use a local Monado build:
 # MONADO_SERVICE_BIN=/usr/local/bin/monado-service
 XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1
@@ -233,18 +236,20 @@ EOF
 systemctl --user daemon-reload
 ```
 
-The packaged `exwm-vr-compositor.service` reads
-`~/.config/exwm-vr/compositor.env`, and the packaged
-`exwm-vr-monado.service` reads `~/.config/exwm-vr/monado.env`. Its launcher
+The packaged `xoxdwm-compositor.service` alias reads
+`~/.config/xoxdwm/compositor.env` after the legacy
+`~/.config/exwm-vr/compositor.env` path, and the packaged
+`xoxdwm-monado.service` alias does the same for `monado.env`. Its launcher
 defaults to `/usr/bin/monado-service`, but `MONADO_SERVICE_BIN` can point the
 service at a local `/usr/local/bin/monado-service` build on hosts like
 `honey`.
 
 ### Desktop Session
 
-Select "EXWM-VR" from your display manager (GDM, SDDM) session list. The
-session wrapper at `/usr/share/wayland-sessions/exwm-vr.desktop` handles
-environment setup, compositor launch, and Emacs startup.
+Select "XoxdWM" from your display manager (GDM, SDDM) session list. The
+session wrapper is exposed as `/usr/share/wayland-sessions/xoxdwm.desktop`,
+with `/usr/share/wayland-sessions/exwm-vr.desktop` retained as a compatibility
+entry. It handles environment setup, compositor launch, and Emacs startup.
 
 On `yoga`, this greeter-driven session path has now been smoke-validated once
 through SDDM on `seat0` using the installed package surface, and the packaged
@@ -260,7 +265,7 @@ avoids ambient `~/.emacs` / `init.el` state and optionally loads
 
 ## First Boot Walkthrough
 
-1. **Log in** via display manager selecting the EXWM-VR session
+1. **Log in** via display manager selecting the XoxdWM session
 2. **Compositor starts**: the Smithay compositor launches and creates the
    Wayland display socket at `$XDG_RUNTIME_DIR/wayland-0`
 3. **IPC socket appears**: the compositor also binds its control socket at
@@ -691,7 +696,7 @@ Then log out and back in.
 Check compositor logs:
 
 ```bash
-journalctl --user -u exwm-vr-compositor.service -n 50
+journalctl --user -u xoxdwm-compositor.service -n 50
 ```
 
 Common causes: missing GPU driver, wrong `WLR_RENDERER` setting, or

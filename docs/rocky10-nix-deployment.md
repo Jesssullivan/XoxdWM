@@ -1,6 +1,6 @@
 # Rocky Linux 10 + Nix Deployment Guide
 
-Deploy EXWM-VR (XoxdWM) on Rocky Linux 10 with Nix managing the compositor,
+Deploy XoxdWM on Rocky Linux 10 with Nix managing the compositor,
 Emacs, and user configuration. Rocky provides the stable kernel, drivers, and
 SELinux policy; Nix manages reproducible packages and systemd user services.
 
@@ -110,6 +110,10 @@ in {
 }
 ```
 
+The Home Manager option namespace remains `programs.exwm-vr` for compatibility
+while the generated session identity and primary user-service aliases are
+`xoxdwm-*`.
+
 ### Full configuration with systemd services
 
 This is the recommended setup for Rocky Linux — home-manager generates
@@ -164,11 +168,10 @@ This generates:
 - `~/.config/qutebrowser/exwm-vr-theme.py` — Qutebrowser theme
 
 When `programs.exwm-vr.systemd.enable = true`, the module generates
-`exwm-vr-*` user units and keeps compatibility aliases for the older
-`ewwm-*` names during the transition:
-- `~/.config/systemd/user/exwm-vr-compositor.service` (if systemd.enable)
-- `~/.config/systemd/user/exwm-vr-emacs.service` (if systemd.enable)
-- `~/.config/systemd/user/exwm-vr.target` (if systemd.enable)
+`exwm-vr-*` compatibility user units plus `xoxdwm-*` primary aliases:
+- `xoxdwm-compositor.service` (`exwm-vr-compositor.service` compatibility unit)
+- `xoxdwm-emacs.service` (`exwm-vr-emacs.service` compatibility unit)
+- `xoxdwm.target` (`exwm-vr.target` compatibility unit)
 
 ## 4. Config variable mapping
 
@@ -266,39 +269,42 @@ After `home-manager switch` with `systemd.enable = true`:
 systemctl --user daemon-reload
 
 # Start the full session
-systemctl --user start exwm-vr.target
+systemctl --user start xoxdwm.target
 
 # Check status
-systemctl --user status exwm-vr-compositor.service
-systemctl --user status exwm-vr-emacs.service
+systemctl --user status xoxdwm-compositor.service
+systemctl --user status xoxdwm-emacs.service
 
 # View logs
-journalctl --user -u exwm-vr-compositor.service -f
-journalctl --user -u exwm-vr-emacs.service -f
+journalctl --user -u xoxdwm-compositor.service -f
+journalctl --user -u xoxdwm-emacs.service -f
 
 # Stop everything
-systemctl --user stop exwm-vr.target
+systemctl --user stop xoxdwm.target
 
 # Enable auto-start on login
-systemctl --user enable exwm-vr.target
+systemctl --user enable xoxdwm.target
 ```
 
 ### Without home-manager
 
-Copy the packaged display-manager service files and keep their `exwm-vr-*`
-names:
+Copy the packaged display-manager service files and add `xoxdwm-*` aliases.
+The checked-in source filenames remain `exwm-vr-*` for compatibility:
 
 ```bash
 mkdir -p ~/.config/systemd/user
 cp packaging/systemd/exwm-vr-compositor.service ~/.config/systemd/user/exwm-vr-compositor.service
 cp packaging/systemd/exwm-vr-emacs.service ~/.config/systemd/user/exwm-vr-emacs.service
 cp packaging/systemd/exwm-vr.target ~/.config/systemd/user/exwm-vr.target
+ln -sf exwm-vr-compositor.service ~/.config/systemd/user/xoxdwm-compositor.service
+ln -sf exwm-vr-emacs.service ~/.config/systemd/user/xoxdwm-emacs.service
+ln -sf exwm-vr.target ~/.config/systemd/user/xoxdwm.target
 
 # Edit ExecStart paths to point to Nix store results
 vim ~/.config/systemd/user/exwm-vr-compositor.service
 
 systemctl --user daemon-reload
-systemctl --user start exwm-vr.target
+systemctl --user start xoxdwm.target
 ```
 
 ## 8. Headless server deployment
@@ -347,7 +353,7 @@ nix flake update --flake ~/.config/home-manager
 home-manager switch
 
 # Restart services to pick up new binaries
-systemctl --user restart exwm-vr.target
+systemctl --user restart xoxdwm.target
 ```
 
 ### Pinning a version
@@ -420,7 +426,7 @@ sudo dnf install -y \
 
 ```bash
 # Check the journal for errors
-journalctl --user -u exwm-vr-compositor.service --no-pager -n 50
+journalctl --user -u xoxdwm-compositor.service --no-pager -n 50
 
 # Common issues:
 # 1. No DRM device access -> add user to video group

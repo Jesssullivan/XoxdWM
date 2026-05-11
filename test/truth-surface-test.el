@@ -185,19 +185,24 @@
 (ert-deftest truth-surface/user-guide-tracks-packaged-rocky-session-surface ()
   "The user guide should describe the packaged Rocky session honestly."
   (let ((guide (truth-surface-test--read-file "docs/user-guide.md")))
+    (should (string-match-p "xoxdwm-compositor\\.service" guide))
+    (should (string-match-p "xoxdwm\\.target" guide))
     (should (string-match-p "exwm-vr-compositor\\.service" guide))
     (should (string-match-p "exwm-vr\\.target" guide))
-    (should (string-match-p "Select \"EXWM-VR\"" guide))
+    (should (string-match-p "Select \"XoxdWM\"" guide))
     (should (string-match-p "\\$XDG_RUNTIME_DIR/wayland-0" guide))
     (should (string-match-p "\\$XDG_RUNTIME_DIR/ewwm-ipc\\.sock" guide))))
 
-(ert-deftest truth-surface/rocky-guide-tracks-exwm-vr-unit-names ()
-  "The Rocky deployment guide should use canonical exwm-vr unit names."
+(ert-deftest truth-surface/rocky-guide-tracks-xoxdwm-unit-aliases ()
+  "The Rocky deployment guide should use primary xoxdwm aliases."
   (let ((guide (truth-surface-test--read-file "docs/rocky10-nix-deployment.md")))
+    (should (string-match-p "xoxdwm-compositor\\.service" guide))
+    (should (string-match-p "xoxdwm-emacs\\.service" guide))
+    (should (string-match-p "xoxdwm\\.target" guide))
     (should (string-match-p "exwm-vr-compositor\\.service" guide))
     (should (string-match-p "exwm-vr-emacs\\.service" guide))
     (should (string-match-p "exwm-vr\\.target" guide))
-    (should (string-match-p "compatibility aliases" guide))))
+    (should (string-match-p "compatibility user units" guide))))
 
 (ert-deftest truth-surface/packaging-workflow-copies-rocky-session-bootstrap ()
   "The RPM packaging workflow should include the dedicated session bootstrap."

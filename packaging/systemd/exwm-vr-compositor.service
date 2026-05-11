@@ -1,18 +1,20 @@
 [Unit]
-Description=EXWM-VR Wayland Compositor
+Description=XoxdWM Native Wayland Compositor
 Documentation=https://github.com/Jesssullivan/XoxdWM
-PartOf=exwm-vr.target
+PartOf=xoxdwm.target exwm-vr.target
 
 [Service]
 Type=simple
 Environment=EXWM_VR_COMPOSITOR_BACKEND=drm
 Environment=EXWM_VR_WAYLAND_SOCKET=wayland-0
 EnvironmentFile=-%h/.config/exwm-vr/compositor.env
+EnvironmentFile=-%h/.config/xoxdwm/compositor.env
 ExecStart=/usr/bin/ewwm-compositor --backend drm --wayland-socket wayland-0
 Restart=on-failure
 RestartSec=3
-Environment=XDG_CURRENT_DESKTOP=EXWM-VR
+Environment=XDG_CURRENT_DESKTOP=XoxdWM
 Environment=XDG_SESSION_TYPE=wayland
 
 [Install]
-WantedBy=exwm-vr.target
+WantedBy=xoxdwm.target exwm-vr.target
+Alias=xoxdwm-compositor.service

@@ -121,5 +121,27 @@
     (should-not (string-match-p "exwm-vr/core" snippet))
     (should (string-match-p "compatibility/archive surface" snippet))))
 
+(ert-deftest native-authority/package-surfaces-prefer-xoxdwm-identity ()
+  "Package and session surfaces should expose XoxdWM as primary identity."
+  (let ((spec (native-authority-test--read-file "packaging/rpm/exwm-vr.spec"))
+        (desktop (native-authority-test--read-file "packaging/desktop/exwm-vr.desktop"))
+        (session (native-authority-test--read-file "packaging/desktop/exwm-vr-session"))
+        (nixos (native-authority-test--read-file "nix/modules/exwm-vr.nix"))
+        (home (native-authority-test--read-file "nix/home-manager/exwm-vr.nix")))
+    (dolist (needle '("xoxdwm.desktop"
+                      "xoxdwm-session"
+                      "xoxdwm-compositor.service"
+                      "xoxdwm-emacs.service"
+                      "xoxdwm.target"))
+      (should (string-match-p needle spec)))
+    (should (string-match-p "Name=XoxdWM" desktop))
+    (should (string-match-p "DesktopNames=XoxdWM;EXWM-VR;" desktop))
+    (should (string-match-p "XDG_CURRENT_DESKTOP=XoxdWM" session))
+    (should (string-match-p "session_target=xoxdwm.target" session))
+    (should (string-match-p "xoxdwm-compositor\\.service" nixos))
+    (should (string-match-p "xoxdwm.target" nixos))
+    (should (string-match-p "xoxdwm-compositor\\.service" home))
+    (should (string-match-p "xoxdwm.target" home))))
+
 (provide 'native-authority-test)
 ;;; native-authority-test.el ends here
