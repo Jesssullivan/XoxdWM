@@ -2,9 +2,12 @@
 
 ;;; Code:
 
+(setq load-prefer-newer t)
+
 (require 'ert)
 (require 'cl-lib)
 (require 'ewwm-core)
+(require 'ewwm-ipc)
 (require 'ewwm-vr-eye)
 
 ;; Forward-declare dynamic variables
@@ -317,6 +320,7 @@
     (should (assq :gaze-dwell ewwm-ipc--event-handlers))
     (should (assq :gaze-dwell-progress ewwm-ipc--event-handlers))
     (should (assq :gaze-focus-request ewwm-ipc--event-handlers))
+    (should (assq :gaze-focus-requested ewwm-ipc--event-handlers))
     (should (assq :gaze-cooldown ewwm-ipc--event-handlers))
     (should (assq :gaze-saccade-state ewwm-ipc--event-handlers))
     (should (assq :gaze-reading-mode ewwm-ipc--event-handlers))))

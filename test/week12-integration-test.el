@@ -2,6 +2,8 @@
 
 ;;; Code:
 
+(setq load-prefer-newer t)
+
 (require 'ert)
 (require 'ewwm-core)
 (require 'ewwm-vr-eye)
@@ -237,7 +239,8 @@
       (goto-char (point-min))
       (should (search-forward ":gaze-dwell-progress" nil t))
       (goto-char (point-min))
-      (should (search-forward ":gaze-focus-requested" nil t))
+      (should (search-forward ":gaze-focus-request" nil t))
+      (should-not (search-forward ":gaze-focus-requested" nil t))
       (goto-char (point-min))
       (should (search-forward ":gaze-cooldown-started" nil t))
       (goto-char (point-min))

@@ -37,11 +37,11 @@
       (should (search-forward "pub enum CursorImageStatus" nil t)))))
 
 (ert-deftest v040/seat-focus-changed-emits-ipc ()
-  "focus_changed handler broadcasts IPC event."
+  "focus_changed handler broadcasts the canonical IPC event."
   (let ((file (expand-file-name "compositor/src/handlers/seat.rs" v040-test--root)))
     (with-temp-buffer
       (insert-file-contents file)
-      (should (search-forward "focus-changed" nil t)))))
+      (should (search-forward "surface-focused" nil t)))))
 
 (ert-deftest v040/seat-focus-changed-updates-state ()
   "focus_changed handler updates focused_surface state."
@@ -132,14 +132,20 @@
       (should (search-forward "(\"id\"" nil t))
       (should (search-forward "(\"previous-id\"" nil t)))))
 
-(ert-deftest v040/focus-event-keeps-compat-alias ()
-  "focus-changed remains a temporary compatibility alias."
+(ert-deftest v040/focus-event-does-not-emit-legacy-focus-changed ()
+  "Rust no longer emits the retired focus-changed alias."
   (let ((file (expand-file-name "compositor/src/handlers/seat.rs" v040-test--root)))
     (with-temp-buffer
       (insert-file-contents file)
-      (should (search-forward "focus-changed" nil t))
-      (should (search-forward "(\"old\"" nil t))
-      (should (search-forward "(\"new\"" nil t)))))
+      (should-not (search-forward "focus-changed" nil t)))))
+
+(ert-deftest v040/lisp-keeps-focus-changed-compat-handler ()
+  "Lisp keeps a client-only compatibility handler for focus-changed."
+  (let ((file (expand-file-name "lisp/vr/ewwm-ipc.el" v040-test--root)))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (should (search-forward ":focus-changed" nil t))
+      (should (search-forward "ewwm-ipc--on-focus-changed-compat" nil t)))))
 
 (ert-deftest v040/focused-surface-returns-metadata ()
   "focused-surface response includes :app-id and :title."
