@@ -95,6 +95,7 @@ impl EwwmState {
         if changed {
             let aid = app_id.as_deref().unwrap_or("");
             let ttl = title.as_deref().unwrap_or("");
+            let protocol = data.protocol();
             trace!(
                 surface_id,
                 app_id = aid,
@@ -108,6 +109,7 @@ impl EwwmState {
                     ("id", &surface_id.to_string()),
                     ("app-id", &format!("\"{}\"", aid)),
                     ("title", &format!("\"{}\"", ttl)),
+                    ("protocol", &format!("\"{}\"", protocol)),
                 ],
             );
             IpcServer::broadcast_event(self, &event);

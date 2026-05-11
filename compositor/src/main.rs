@@ -1,6 +1,6 @@
-//! EWWM Compositor - VR-first Wayland compositor built on Smithay
+//! XoxdWM compositor - native Wayland WM/DE authority built on Smithay
 //!
-//! Part of the EXWM-VR project: a transhuman Emacs window manager.
+//! Emacs/eGreg integration remains an app-layer client surface.
 
 use ewwm_compositor::{backend, config::CompositorConfig};
 
@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use tracing::info;
 
 #[derive(Parser, Debug)]
-#[command(name = "ewwm-compositor", about = "EXWM-VR Wayland compositor")]
+#[command(name = "ewwm-compositor", about = "XoxdWM native Wayland compositor")]
 struct Cli {
     /// Backend to use: winit, drm, or headless
     #[arg(long, default_value = "auto")]

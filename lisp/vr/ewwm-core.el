@@ -41,13 +41,17 @@ Analogous to `exwm--id-buffer-alist' in EXWM.")
 (put 'ewwm-surface-id 'permanent-local t)
 
 (defvar-local ewwm-app-id nil
-  "Application ID (string, from xdg_toplevel set_app_id).
+  "Protocol-neutral application ID string.
 For example: \"org.qutebrowser.qutebrowser\" or \"foot\".")
 (put 'ewwm-app-id 'permanent-local t)
 
 (defvar-local ewwm-title ""
   "Surface title (string, from xdg_toplevel set_title).")
 (put 'ewwm-title 'permanent-local t)
+
+(defvar-local ewwm-surface-protocol "wayland"
+  "Protocol that created this surface, normally \"wayland\" or \"xwayland\".")
+(put 'ewwm-surface-protocol 'permanent-local t)
 
 (defvar-local ewwm-class-name nil
   "Window class name (alias for `ewwm-app-id', EXWM compatibility).")
@@ -123,6 +127,7 @@ Sets buffer-local variables and returns the buffer."
       (setq ewwm-surface-id surface-id
             ewwm-app-id (or app-id "")
             ewwm-title (or title "")
+            ewwm-surface-protocol "wayland"
             ewwm-class-name (or app-id "")
             ewwm-instance-name (or app-id "")
             ewwm-surface-state 'managed
@@ -171,6 +176,7 @@ Should be called in the context of an ewwm-mode buffer."
       (erase-buffer)
       (insert (format "Wayland surface: %s\n" ewwm-title))
       (insert (format "App ID: %s\n" ewwm-app-id))
+      (insert (format "Protocol: %s\n" ewwm-surface-protocol))
       (insert (format "Surface ID: %d\n" ewwm-surface-id))
       (insert (format "Workspace: %d\n" ewwm-workspace))
       (insert (format "State: %s\n" ewwm-surface-state))
@@ -223,6 +229,7 @@ Each buffer in this mode represents a Wayland surface.
   (setq mode-line-format
         '(" " ewwm-title
           " [" ewwm-app-id "]"
+          " " (:eval ewwm-surface-protocol)
           " ws:" (:eval (number-to-string ewwm-workspace))
           " " (:eval (symbol-name ewwm-surface-state))
           (:eval (if ewwm-x11-p " [X11]" ""))
@@ -266,9 +273,9 @@ Each buffer in this mode represents a Wayland surface.
   "Display detailed info about the current surface."
   (interactive)
   (when ewwm-surface-id
-    (message "Surface %d: %s [%s] ws:%d state:%s%s"
+    (message "Surface %d: %s [%s] protocol:%s ws:%d state:%s%s"
              ewwm-surface-id ewwm-title ewwm-app-id
-             ewwm-workspace ewwm-surface-state
+             ewwm-surface-protocol ewwm-workspace ewwm-surface-state
              (if ewwm-x11-p " (X11)" ""))))
 
 (provide 'ewwm-core)

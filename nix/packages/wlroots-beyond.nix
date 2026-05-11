@@ -11,7 +11,8 @@ pkgs.wlroots_0_18.overrideAttrs (old: {
     ../../patches/wlroots-bigscreen-non-desktop.patch
   ];
 
-  # Ensure XWayland support (needed for Steam/SteamVR)
+  # Honey/Sway compatibility package explicitly enables XWayland for
+  # Steam/SteamVR. Native XoxdWM keeps XWayland behind its Cargo feature gate.
   mesonFlags = (old.mesonFlags or []) ++ [
     "-Dxwayland=enabled"
   ];

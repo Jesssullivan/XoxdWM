@@ -112,6 +112,14 @@ impl SurfaceData {
         data.is_x11 = true;
         data
     }
+
+    pub fn protocol(&self) -> &'static str {
+        if self.is_x11 {
+            "xwayland"
+        } else {
+            "wayland"
+        }
+    }
 }
 
 /// Usable output area after accounting for layer-shell exclusive zones.

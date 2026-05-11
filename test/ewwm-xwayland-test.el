@@ -22,6 +22,7 @@
       (unwind-protect
           (progn
             (should (buffer-live-p buf))
+            (should (string= (buffer-local-value 'ewwm-surface-protocol buf) "xwayland"))
             (should (buffer-local-value 'ewwm-x11-p buf))
             (should (string= (buffer-local-value 'ewwm-x11-class buf) "XTerm"))
             (should (string= (buffer-local-value 'ewwm-x11-instance buf) "xterm")))
@@ -37,7 +38,22 @@
       (unwind-protect
           (progn
             (should (buffer-live-p buf))
+            (should (string= (buffer-local-value 'ewwm-surface-protocol buf) "wayland"))
             (should-not (buffer-local-value 'ewwm-x11-p buf)))
+        (ewwm--destroy-surface-buffer 1)))))
+
+(ert-deftest ewwm-xwayland/protocol-field-marks-xwayland ()
+  "The protocol-neutral :protocol field marks XWayland without requiring :x11."
+  (let ((ewwm--surface-buffer-alist nil)
+        (ewwm-workspace-current-index 0)
+        (ewwm-manage-rules nil))
+    (let ((buf (ewwm-manage--on-create
+                '(:id 1 :app-id "legacy-app" :title "Legacy"
+                  :protocol "xwayland" :x11-class "Legacy"))))
+      (unwind-protect
+          (progn
+            (should (string= (buffer-local-value 'ewwm-surface-protocol buf) "xwayland"))
+            (should (buffer-local-value 'ewwm-x11-p buf)))
         (ewwm--destroy-surface-buffer 1)))))
 
 (ert-deftest ewwm-xwayland/x11-class-populates-from-msg ()
