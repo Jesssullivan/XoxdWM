@@ -147,6 +147,14 @@ impl VrState {
         "(:fps 0 :missed 0 :frame-time-ms 0.0)".to_string()
     }
 
+    /// Generate IPC diagnostics for builds without OpenXR enabled.
+    pub fn diagnostics_sexp(&self) -> String {
+        format!(
+            "(:renderer-ready nil :xr-state :disabled :swapchain-count 0 :view-count 0 :frame-wait-count 0 :frame-begin-count 0 :frame-end-count 0 :scene-node-count {} :texture-count 0 :test-pattern nil :last-readback-hash nil :last-frame-error nil :last-end-error nil :drm-lease nil :beyond-hid nil)",
+            self.scene.surface_count(),
+        )
+    }
+
     /// Poll for VR events. No-op when VR is disabled.
     pub fn poll_events(&mut self) {}
 

@@ -2,6 +2,8 @@
 
 use std::path::PathBuf;
 
+use crate::config::CompositorConfig;
+
 #[cfg(feature = "full-backend")]
 pub mod drm;
 pub mod headless;
@@ -32,6 +34,7 @@ pub fn run(
     headless_config: headless::HeadlessConfig,
     ipc_socket: Option<PathBuf>,
     ipc_trace: bool,
+    compositor_config: CompositorConfig,
 ) -> anyhow::Result<()> {
     let ipc = IpcConfig {
         socket_path: ipc_socket,
@@ -42,6 +45,12 @@ pub fn run(
         BackendType::Winit => winit::run(socket_name, ipc),
         #[cfg(feature = "full-backend")]
         BackendType::Drm => drm::run(socket_name, ipc),
-        BackendType::Headless => headless::run(socket_name, headless_exit_after, ipc, headless_config),
+        BackendType::Headless => headless::run(
+            socket_name,
+            headless_exit_after,
+            ipc,
+            headless_config,
+            compositor_config,
+        ),
     }
 }

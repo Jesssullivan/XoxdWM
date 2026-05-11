@@ -91,6 +91,15 @@
       (insert-file-contents file)
       (should (search-forward ":count" nil t)))))
 
+(ert-deftest v041/workspace-list-uses-native-workspace-count ()
+  "workspace-list should use native state rather than hard-coded four."
+  (let ((file (expand-file-name "compositor/src/ipc/dispatch.rs" v041-test--root)))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (let ((content (buffer-string)))
+        (should (string-match-p "0\\.\\.state\\.workspace_count" content))
+        (should-not (string-match-p "for i in 0\\.\\.4" content))))))
+
 ;; ── Layout (Emacs-driven) ──────────────────────────────────
 
 (ert-deftest v041/layout-set-reads-layout-param ()

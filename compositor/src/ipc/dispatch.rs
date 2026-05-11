@@ -1,7 +1,7 @@
 //! IPC message dispatch — parse s-expressions and route to handlers.
 
-use crate::state::EwwmState;
 use super::server::IpcServer;
+use crate::state::EwwmState;
 use lexpr::Value;
 use tracing::{debug, warn};
 
@@ -45,9 +45,22 @@ pub fn handle_message(state: &mut EwwmState, client_id: u64, raw: &str) -> Optio
         Some("workspace-move-surface") => handle_workspace_move_surface(state, msg_id, &value),
         Some("layout-set") => handle_layout_set(state, msg_id, &value),
         Some("layout-cycle") => handle_layout_cycle(state, msg_id),
+        Some("app-launch") | Some("launch-app") => handle_app_launch(state, msg_id, &value),
+        Some("app-launch-list") => handle_app_launch_list(state, msg_id),
+        Some("config-reload") | Some("reload-config") => handle_config_reload(state, msg_id),
+        Some("autostart-list") => handle_autostart_list(state, msg_id),
+        Some("autostart-run") => handle_autostart_run(state, msg_id, &value),
+        Some("session-status") => handle_session_status(state, msg_id),
+        Some("session-lock") => handle_session_lock(state, msg_id),
+        Some("session-logout") => handle_session_logout(state, msg_id),
+        Some("session-idle-status") => handle_session_idle_status(state, msg_id),
+        Some("session-idle-start") => handle_session_idle_start(state, msg_id),
+        Some("session-idle-stop") => handle_session_idle_stop(state, msg_id),
+        Some("compositor-exit") => handle_compositor_exit(state, msg_id),
         Some("key-grab") => handle_key_grab(state, msg_id, &value),
         Some("key-ungrab") => handle_key_ungrab(state, msg_id, &value),
         Some("vr-status") => handle_vr_status(state, msg_id),
+        Some("vr-diagnostics") => handle_vr_diagnostics(state, msg_id),
         Some("vr-set-reference-space") => handle_vr_set_reference_space(state, msg_id, &value),
         Some("vr-restart") => handle_vr_restart(state, msg_id),
         Some("vr-get-frame-timing") => handle_vr_get_frame_timing(state, msg_id),
@@ -61,7 +74,9 @@ pub fn handle_message(state: &mut EwwmState, client_id: u64, raw: &str) -> Optio
         Some("vr-display-info") => handle_vr_display_info(state, msg_id),
         Some("vr-display-set-mode") => handle_vr_display_set_mode(state, msg_id, &value),
         Some("vr-display-select-hmd") => handle_vr_display_select_hmd(state, msg_id, &value),
-        Some("vr-display-set-refresh-rate") => handle_vr_display_set_refresh_rate(state, msg_id, &value),
+        Some("vr-display-set-refresh-rate") => {
+            handle_vr_display_set_refresh_rate(state, msg_id, &value)
+        }
         Some("vr-display-auto-detect") => handle_vr_display_auto_detect(state, msg_id),
         Some("vr-display-list-connectors") => handle_vr_display_list_connectors(state, msg_id),
         Some("vr-pointer-state") => handle_vr_pointer_state(state, msg_id),
@@ -156,8 +171,12 @@ pub fn handle_message(state: &mut EwwmState, client_id: u64, raw: &str) -> Optio
         // BCI attention
         Some("bci-attention-status") => handle_bci_attention_status(state, msg_id),
         Some("bci-attention-config") => handle_bci_attention_config(state, msg_id, &value),
-        Some("bci-attention-calibrate-start") => handle_bci_attention_calibrate_start(state, msg_id),
-        Some("bci-attention-calibrate-finish") => handle_bci_attention_calibrate_finish(state, msg_id),
+        Some("bci-attention-calibrate-start") => {
+            handle_bci_attention_calibrate_start(state, msg_id)
+        }
+        Some("bci-attention-calibrate-finish") => {
+            handle_bci_attention_calibrate_finish(state, msg_id)
+        }
         // BCI SSVEP
         Some("bci-ssvep-status") => handle_bci_ssvep_status(state, msg_id),
         Some("bci-ssvep-config") => handle_bci_ssvep_config(state, msg_id, &value),
@@ -263,11 +282,12 @@ fn handle_hello(
             if peer_uid != our_uid {
                 warn!(
                     client_id,
-                    peer_uid,
-                    our_uid,
-                    "rejecting client: UID mismatch"
+                    peer_uid, our_uid, "rejecting client: UID mismatch"
                 );
-                return Some(error_response(msg_id, "authentication failed: UID mismatch"));
+                return Some(error_response(
+                    msg_id,
+                    "authentication failed: UID mismatch",
+                ));
             }
         }
     }
@@ -289,7 +309,11 @@ fn handle_hello(
     let pid_field = peer_pid
         .map(|p| format!(" :peer-pid {}", p))
         .unwrap_or_default();
-    let xwayland_flag = if cfg!(feature = "xwayland") { "t" } else { "nil" };
+    let xwayland_flag = if cfg!(feature = "xwayland") {
+        "t"
+    } else {
+        "nil"
+    };
     Some(format!(
         "(:type :hello :id {} :version 1 :server \"ewwm-compositor\" :features (:xwayland {} :vr {}){})",
         msg_id, xwayland_flag, vr_flag, pid_field
@@ -421,18 +445,7 @@ fn handle_surface_focus(state: &mut EwwmState, msg_id: i64, value: &Value) -> Op
         ));
     }
 
-    // Find the Window by surface_id and raise it
-    let window = state.find_window(surface_id).cloned();
-
-    if let Some(w) = window {
-        state.space.raise_element(&w, true);
-        let keyboard = state.seat.get_keyboard().unwrap();
-        let serial = smithay::utils::SERIAL_COUNTER.next_serial();
-        let wl_surface = w.toplevel().map(|t| t.wl_surface().clone());
-        if let Some(surface) = wl_surface {
-            keyboard.set_focus(state, Some(surface), serial);
-        }
-    }
+    state.focus_surface(surface_id);
 
     Some(ok_response(msg_id))
 }
@@ -475,10 +488,13 @@ fn handle_surface_move(state: &mut EwwmState, msg_id: i64, value: &Value) -> Opt
         ));
     }
 
-    // Find window by surface_id and remap at new location
-    if let Some(w) = state.find_window(surface_id).cloned() {
-        state.space.map_element(w, (x, y), false);
-    }
+    let current = state
+        .surfaces
+        .get(&surface_id)
+        .map(|data| data.geometry)
+        .unwrap_or_else(|| state.initial_window_geometry());
+    let geometry = smithay::utils::Rectangle::new((x, y).into(), current.size);
+    state.set_surface_geometry(surface_id, geometry);
 
     Some(ok_response(msg_id))
 }
@@ -498,24 +514,18 @@ fn handle_surface_resize(state: &mut EwwmState, msg_id: i64, value: &Value) -> O
         ));
     }
 
-    // Resize via pending state using proper surface_id lookup
-    if let Some(win) = state.find_window(surface_id) {
-        if let Some(toplevel) = win.toplevel() {
-            toplevel.with_pending_state(|s| {
-                s.size = Some(smithay::utils::Size::from((w, h)));
-            });
-            toplevel.send_pending_configure();
-        }
-    }
+    let current = state
+        .surfaces
+        .get(&surface_id)
+        .map(|data| data.geometry)
+        .unwrap_or_else(|| state.initial_window_geometry());
+    let geometry = smithay::utils::Rectangle::new(current.loc, (w, h).into());
+    state.set_surface_geometry(surface_id, geometry);
 
     Some(ok_response(msg_id))
 }
 
-fn handle_surface_fullscreen(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_surface_fullscreen(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     use smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::State as ToplevelState;
 
     let surface_id = match get_int(value, "surface-id") {
@@ -525,7 +535,10 @@ fn handle_surface_fullscreen(
     let enable = get_bool(value, "enable").unwrap_or(true);
 
     if !state.surfaces.contains_key(&surface_id) {
-        return Some(error_response(msg_id, &format!("unknown surface: {surface_id}")));
+        return Some(error_response(
+            msg_id,
+            &format!("unknown surface: {surface_id}"),
+        ));
     }
 
     if let Some(win) = state.find_window(surface_id) {
@@ -555,11 +568,17 @@ fn handle_surface_float(state: &mut EwwmState, msg_id: i64, value: &Value) -> Op
 
     let data = match state.surfaces.get_mut(&surface_id) {
         Some(d) => d,
-        None => return Some(error_response(msg_id, &format!("unknown surface: {surface_id}"))),
+        None => {
+            return Some(error_response(
+                msg_id,
+                &format!("unknown surface: {surface_id}"),
+            ))
+        }
     };
 
     data.floating = enable;
     debug!(surface_id, floating = enable, "float toggle");
+    state.reflow_native_layout();
 
     let event = format_event(
         "surface-float-changed",
@@ -574,15 +593,34 @@ fn handle_surface_float(state: &mut EwwmState, msg_id: i64, value: &Value) -> Op
 }
 
 fn handle_workspace_switch(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
-    let workspace = get_int(value, "workspace").unwrap_or(0);
+    let workspace = match get_int(value, "workspace") {
+        Some(w) if w >= 0 => w as usize,
+        Some(w) => return Some(error_response(msg_id, &format!("invalid workspace: {w}"))),
+        None => 0,
+    };
+    if workspace >= state.workspace_count {
+        return Some(error_response(
+            msg_id,
+            &format!(
+                "workspace {} out of range (count {})",
+                workspace, state.workspace_count
+            ),
+        ));
+    }
     debug!(workspace, "workspace switch");
-    state.active_workspace = workspace as usize;
+    state.active_workspace = workspace;
+    state.reflow_native_layout();
+    let event = format_event(
+        "workspace-changed",
+        &[("workspace", &workspace.to_string())],
+    );
+    IpcServer::broadcast_event(state, &event);
     Some(ok_response(msg_id))
 }
 
 fn handle_workspace_list(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     let mut workspaces = String::from("(");
-    for i in 0..4 {
+    for i in 0..state.workspace_count {
         let active = if i == state.active_workspace {
             "t"
         } else {
@@ -623,18 +661,38 @@ fn handle_workspace_move_surface(
         None => return Some(error_response(msg_id, "missing :surface-id")),
     };
     let workspace = match get_int(value, "workspace") {
-        Some(w) => w as usize,
+        Some(w) if w >= 0 => w as usize,
+        Some(w) => return Some(error_response(msg_id, &format!("invalid workspace: {w}"))),
         None => return Some(error_response(msg_id, "missing :workspace")),
     };
+    if workspace >= state.workspace_count {
+        return Some(error_response(
+            msg_id,
+            &format!(
+                "workspace {} out of range (count {})",
+                workspace, state.workspace_count
+            ),
+        ));
+    }
 
     let data = match state.surfaces.get_mut(&surface_id) {
         Some(d) => d,
-        None => return Some(error_response(msg_id, &format!("unknown surface: {surface_id}"))),
+        None => {
+            return Some(error_response(
+                msg_id,
+                &format!("unknown surface: {surface_id}"),
+            ))
+        }
     };
 
     let old_workspace = data.workspace;
     data.workspace = workspace;
-    debug!(surface_id, from = old_workspace, to = workspace, "workspace move");
+    debug!(
+        surface_id,
+        from = old_workspace,
+        to = workspace,
+        "workspace move"
+    );
 
     let event = format_event(
         "surface-workspace-changed",
@@ -645,22 +703,224 @@ fn handle_workspace_move_surface(
         ],
     );
     IpcServer::broadcast_event(state, &event);
+    state.reflow_native_layout();
 
     Some(ok_response(msg_id))
 }
 
-fn handle_layout_set(_state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
-    // Layout is driven by Emacs (the WM brain). The compositor just
-    // acknowledges the request. Emacs calls surface-move / surface-resize
-    // to position each window.
+fn handle_layout_set(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let layout = get_string(value, "layout").unwrap_or_default();
-    debug!(layout, "layout set (Emacs-driven)");
+    state.set_native_layout(&layout);
+    debug!(layout, "native layout set");
+    let event = format_event("layout-changed", &[("layout", &format!("\"{}\"", layout))]);
+    IpcServer::broadcast_event(state, &event);
+    Some(format!(
+        "(:type :response :id {} :status :ok :layout \"{}\")",
+        msg_id,
+        escape_string(&state.current_layout)
+    ))
+}
+
+fn handle_layout_cycle(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    state.cycle_native_layout();
+    debug!(layout = state.current_layout, "native layout cycle");
+    let event = format_event(
+        "layout-changed",
+        &[("layout", &format!("\"{}\"", state.current_layout))],
+    );
+    IpcServer::broadcast_event(state, &event);
+    Some(format!(
+        "(:type :response :id {} :status :ok :layout \"{}\")",
+        msg_id,
+        escape_string(&state.current_layout)
+    ))
+}
+
+fn handle_app_launch(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
+    let target = get_string(value, "target")
+        .or_else(|| get_string(value, "name"))
+        .or_else(|| get_string(value, "app"));
+    let target = match target {
+        Some(target) => target,
+        None => return Some(error_response(msg_id, "missing :target")),
+    };
+    match state.launch_configured_app(&target) {
+        Ok(pid) => {
+            let event = format_event(
+                "app-launched",
+                &[
+                    ("target", &format!("\"{}\"", escape_string(&target))),
+                    ("pid", &pid.to_string()),
+                ],
+            );
+            IpcServer::broadcast_event(state, &event);
+            Some(format!(
+                "(:type :response :id {} :status :ok :target \"{}\" :pid {})",
+                msg_id,
+                escape_string(&target),
+                pid
+            ))
+        }
+        Err(err) => Some(error_response(msg_id, &err)),
+    }
+}
+
+fn handle_app_launch_list(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let mut targets: Vec<String> = state
+        .config
+        .app_launch_commands
+        .keys()
+        .map(|target| format!("\"{}\"", escape_string(target)))
+        .collect();
+    targets.sort();
+    Some(format!(
+        "(:type :response :id {} :status :ok :targets ({}))",
+        msg_id,
+        targets.join(" ")
+    ))
+}
+
+fn handle_config_reload(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    match state.reload_native_config() {
+        Ok(()) => {
+            let event = format_event(
+                "config-reloaded",
+                &[
+                    ("workspace-count", &state.workspace_count.to_string()),
+                    ("active-workspace", &state.active_workspace.to_string()),
+                    (
+                        "layout",
+                        &format!("\"{}\"", escape_string(&state.current_layout)),
+                    ),
+                ],
+            );
+            IpcServer::broadcast_event(state, &event);
+            Some(format!(
+                "(:type :response :id {} :status :ok :workspace-count {} :active-workspace {} :layout \"{}\")",
+                msg_id,
+                state.workspace_count,
+                state.active_workspace,
+                escape_string(&state.current_layout)
+            ))
+        }
+        Err(err) => Some(error_response(msg_id, &err)),
+    }
+}
+
+fn handle_autostart_list(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let targets: Vec<String> = state
+        .config
+        .autostart_targets
+        .iter()
+        .map(|target| {
+            format!(
+                "(:target \"{}\" :configured {} :launched {})",
+                escape_string(target),
+                if state.config.app_launch_commands.contains_key(target) {
+                    "t"
+                } else {
+                    "nil"
+                },
+                if state.autostart_launched.contains(target) {
+                    "t"
+                } else {
+                    "nil"
+                }
+            )
+        })
+        .collect();
+    Some(format!(
+        "(:type :response :id {} :status :ok :enabled {} :targets ({}))",
+        msg_id,
+        if state.config.autostart_enabled {
+            "t"
+        } else {
+            "nil"
+        },
+        targets.join(" ")
+    ))
+}
+
+fn handle_autostart_run(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
+    let force = get_bool(value, "force").unwrap_or(false);
+    let (launched, skipped, errors) = state.run_autostart(force);
+    for target in &launched {
+        let event = format_event(
+            "autostart-ran",
+            &[("target", &format!("\"{}\"", escape_string(target)))],
+        );
+        IpcServer::broadcast_event(state, &event);
+    }
+    Some(format!(
+        "(:type :response :id {} :status :ok :launched ({}) :skipped ({}) :errors ({}))",
+        msg_id,
+        quoted_list(&launched),
+        quoted_list(&skipped),
+        quoted_list(&errors)
+    ))
+}
+
+fn handle_session_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let lock_running = EwwmState::child_running(&mut state.session_lock_child);
+    let idle_running = EwwmState::child_running(&mut state.session_idle_child);
+    Some(format!(
+        "(:type :response :id {} :status :ok :locked {} :lock-running {} :lock-command-configured {} :idle-running {} :idle-enabled {})",
+        msg_id,
+        if state.session_locked { "t" } else { "nil" },
+        if lock_running { "t" } else { "nil" },
+        if state.config.session_lock_command.is_some() { "t" } else { "nil" },
+        if idle_running { "t" } else { "nil" },
+        if state.config.session_idle_enabled { "t" } else { "nil" },
+    ))
+}
+
+fn handle_session_lock(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    match state.start_session_lock() {
+        Ok(()) => Some(ok_response(msg_id)),
+        Err(err) => Some(error_response(msg_id, &err)),
+    }
+}
+
+fn handle_session_logout(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    state.running = false;
     Some(ok_response(msg_id))
 }
 
-fn handle_layout_cycle(_state: &mut EwwmState, msg_id: i64) -> Option<String> {
-    // Layout cycling is handled by Emacs. ACK the request.
-    debug!("layout cycle (Emacs-driven)");
+fn handle_session_idle_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let running = EwwmState::child_running(&mut state.session_idle_child);
+    Some(format!(
+        "(:type :response :id {} :status :ok :running {} :enabled {} :command-configured {})",
+        msg_id,
+        if running { "t" } else { "nil" },
+        if state.config.session_idle_enabled {
+            "t"
+        } else {
+            "nil"
+        },
+        if state.config.session_idle_command.is_some() {
+            "t"
+        } else {
+            "nil"
+        },
+    ))
+}
+
+fn handle_session_idle_start(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    match state.start_session_idle() {
+        Ok(()) => Some(ok_response(msg_id)),
+        Err(err) => Some(error_response(msg_id, &err)),
+    }
+}
+
+fn handle_session_idle_stop(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    match state.stop_session_idle() {
+        Ok(()) => Some(ok_response(msg_id)),
+        Err(err) => Some(error_response(msg_id, &err)),
+    }
+}
+
+fn handle_compositor_exit(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    state.running = false;
     Some(ok_response(msg_id))
 }
 
@@ -687,11 +947,23 @@ fn handle_key_ungrab(state: &mut EwwmState, msg_id: i64, value: &Value) -> Optio
 fn handle_vr_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     let session = state.vr_state.session_state_str();
     let hmd = state.vr_state.hmd_name();
-    let headless = if state.vr_state.is_headless() { "t" } else { "nil" };
+    let headless = if state.vr_state.is_headless() {
+        "t"
+    } else {
+        "nil"
+    };
     let frame_stats = state.vr_state.frame_stats_sexp();
     Some(format!(
         "(:type :response :id {} :status :ok :session :{} :hmd \"{}\" :headless {} :frame-stats {})",
         msg_id, session, escape_string(hmd), headless, frame_stats
+    ))
+}
+
+fn handle_vr_diagnostics(state: &mut EwwmState, msg_id: i64) -> Option<String> {
+    let diagnostics = state.vr_state.diagnostics_sexp();
+    Some(format!(
+        "(:type :response :id {} :status :ok :vr-diagnostics {})",
+        msg_id, diagnostics
     ))
 }
 
@@ -703,18 +975,27 @@ fn handle_vr_set_reference_space(
     let space_type = get_keyword(value, "space-type");
     match space_type.as_deref() {
         Some("local") => {
-            state.vr_state.set_reference_space(crate::vr::ReferenceSpaceType::Local);
+            state
+                .vr_state
+                .set_reference_space(crate::vr::ReferenceSpaceType::Local);
             Some(ok_response(msg_id))
         }
         Some("stage") => {
-            state.vr_state.set_reference_space(crate::vr::ReferenceSpaceType::Stage);
+            state
+                .vr_state
+                .set_reference_space(crate::vr::ReferenceSpaceType::Stage);
             Some(ok_response(msg_id))
         }
         Some("view") => {
-            state.vr_state.set_reference_space(crate::vr::ReferenceSpaceType::View);
+            state
+                .vr_state
+                .set_reference_space(crate::vr::ReferenceSpaceType::View);
             Some(ok_response(msg_id))
         }
-        _ => Some(error_response(msg_id, "invalid :space-type (use local, stage, or view)")),
+        _ => Some(error_response(
+            msg_id,
+            "invalid :space-type (use local, stage, or view)",
+        )),
     }
 }
 
@@ -740,11 +1021,7 @@ fn handle_vr_scene_status(state: &mut EwwmState, msg_id: i64) -> Option<String> 
     ))
 }
 
-fn handle_vr_scene_set_layout(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_vr_scene_set_layout(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     use crate::vr::scene::VrLayoutMode;
 
     let layout = get_keyword(value, "layout");
@@ -759,21 +1036,27 @@ fn handle_vr_scene_set_layout(
         Some("grid") => VrLayoutMode::Grid {
             columns: get_int(value, "columns").unwrap_or(2) as u32,
         },
-        _ => return Some(error_response(msg_id, "invalid :layout (use arc, grid, stack, freeform)")),
+        _ => {
+            return Some(error_response(
+                msg_id,
+                "invalid :layout (use arc, grid, stack, freeform)",
+            ))
+        }
     };
 
     state.vr_state.scene.set_layout(mode);
     Some(ok_response(msg_id))
 }
 
-fn handle_vr_scene_set_ppu(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_vr_scene_set_ppu(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let ppu = match get_int(value, "ppu") {
         Some(p) if p > 0 => p as f32,
-        _ => return Some(error_response(msg_id, "invalid :ppu (must be positive integer)")),
+        _ => {
+            return Some(error_response(
+                msg_id,
+                "invalid :ppu (must be positive integer)",
+            ))
+        }
     };
 
     let surface_id = get_int(value, "surface-id");
@@ -798,7 +1081,12 @@ fn handle_vr_scene_set_background(
         Some("gradient") => VrBackground::Gradient,
         Some("grid") => VrBackground::Grid,
         Some("passthrough") => VrBackground::Passthrough,
-        _ => return Some(error_response(msg_id, "invalid :background (use dark, gradient, grid, passthrough)")),
+        _ => {
+            return Some(error_response(
+                msg_id,
+                "invalid :background (use dark, gradient, grid, passthrough)",
+            ))
+        }
     };
 
     state.vr_state.scene.background = background;
@@ -821,29 +1109,26 @@ fn handle_vr_scene_set_projection(
     let projection = match proj.as_deref() {
         Some("flat") => ProjectionType::Flat,
         Some("cylinder") => ProjectionType::Cylinder,
-        _ => return Some(error_response(msg_id, "invalid :projection (use flat, cylinder)")),
+        _ => {
+            return Some(error_response(
+                msg_id,
+                "invalid :projection (use flat, cylinder)",
+            ))
+        }
     };
 
     state.vr_state.scene.set_projection(surface_id, projection);
     Some(ok_response(msg_id))
 }
 
-fn handle_vr_scene_focus(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_vr_scene_focus(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let surface_id = get_int(value, "surface-id").map(|id| id as u64);
     state.vr_state.scene.set_focus(surface_id);
     Some(ok_response(msg_id))
 }
 
-fn handle_vr_scene_move(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
-    use crate::vr::scene::{Transform3D, Vec3, Quat};
+fn handle_vr_scene_move(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
+    use crate::vr::scene::{Quat, Transform3D, Vec3};
 
     let surface_id = match get_int(value, "surface-id") {
         Some(id) => id as u64,
@@ -874,17 +1159,18 @@ fn handle_vr_display_info(state: &mut EwwmState, msg_id: i64) -> Option<String> 
     ))
 }
 
-fn handle_vr_display_set_mode(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_vr_display_set_mode(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     use crate::vr::drm_lease::VrDisplayMode;
 
     let mode_str = get_keyword(value, "mode");
     let mode = match mode_str.as_deref().and_then(VrDisplayMode::from_str) {
         Some(m) => m,
-        None => return Some(error_response(msg_id, "invalid :mode (use headset, preview, headless, off)")),
+        None => {
+            return Some(error_response(
+                msg_id,
+                "invalid :mode (use headset, preview, headless, off)",
+            ))
+        }
     };
 
     state.vr_state.hmd_manager.set_display_mode(mode);
@@ -904,7 +1190,10 @@ fn handle_vr_display_select_hmd(
     if state.vr_state.hmd_manager.select_hmd(connector_id) {
         Some(ok_response(msg_id))
     } else {
-        Some(error_response(msg_id, &format!("connector {} not found or not an HMD", connector_id)))
+        Some(error_response(
+            msg_id,
+            &format!("connector {} not found or not an HMD", connector_id),
+        ))
     }
 }
 
@@ -915,7 +1204,12 @@ fn handle_vr_display_set_refresh_rate(
 ) -> Option<String> {
     let target = match get_int(value, "rate") {
         Some(r) if r > 0 => r as u32,
-        _ => return Some(error_response(msg_id, "invalid :rate (must be positive integer)")),
+        _ => {
+            return Some(error_response(
+                msg_id,
+                "invalid :rate (must be positive integer)",
+            ))
+        }
     };
 
     let actual = state.vr_state.hmd_manager.set_target_refresh_rate(target);
@@ -963,19 +1257,30 @@ fn handle_vr_click(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<
     let button_str = get_keyword(value, "button").unwrap_or_else(|| "left".to_string());
     let click = match ClickType::from_str(&button_str) {
         Some(c) => c,
-        None => return Some(error_response(msg_id, "invalid :button (use left, right, middle, double)")),
+        None => {
+            return Some(error_response(
+                msg_id,
+                "invalid :button (use left, right, middle, double)",
+            ))
+        }
     };
 
     let target = state.vr_state.interaction.current_hit.map(|h| h.surface_id);
     let ptr = &state.vr_state.interaction.active_pointer;
-    let (px, py) = ptr.as_ref().map(|p| (p.pixel_x, p.pixel_y)).unwrap_or((0, 0));
+    let (px, py) = ptr
+        .as_ref()
+        .map(|p| (p.pixel_x, p.pixel_y))
+        .unwrap_or((0, 0));
 
     Some(format!(
         "(:type :response :id {} :status :ok :button :{} :surface-id {} :x {} :y {})",
         msg_id,
         click.as_str(),
-        target.map(|id| id.to_string()).unwrap_or_else(|| "nil".to_string()),
-        px, py
+        target
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| "nil".to_string()),
+        px,
+        py
     ))
 }
 
@@ -999,12 +1304,8 @@ fn handle_vr_grab_release(state: &mut EwwmState, msg_id: i64) -> Option<String> 
     }
 }
 
-fn handle_vr_adjust_depth(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
-    use crate::vr::vr_interaction::{adjust_depth, DEPTH_MIN, DEPTH_MAX};
+fn handle_vr_adjust_depth(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
+    use crate::vr::vr_interaction::{adjust_depth, DEPTH_MAX, DEPTH_MIN};
 
     let surface_id = match get_int(value, "surface-id") {
         Some(id) => id as u64,
@@ -1021,15 +1322,14 @@ fn handle_vr_adjust_depth(
             msg_id, surface_id, -new_z
         ))
     } else {
-        Some(error_response(msg_id, &format!("unknown surface: {}", surface_id)))
+        Some(error_response(
+            msg_id,
+            &format!("unknown surface: {}", surface_id),
+        ))
     }
 }
 
-fn handle_vr_set_follow(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_vr_set_follow(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     use crate::vr::vr_interaction::FollowMode;
 
     let surface_id = match get_int(value, "surface-id") {
@@ -1040,18 +1340,19 @@ fn handle_vr_set_follow(
     let mode_str = get_keyword(value, "mode");
     let mode = match mode_str.as_deref().and_then(FollowMode::from_str) {
         Some(m) => m,
-        None => return Some(error_response(msg_id, "invalid :mode (use none, lazy, sticky, locked)")),
+        None => {
+            return Some(error_response(
+                msg_id,
+                "invalid :mode (use none, lazy, sticky, locked)",
+            ))
+        }
     };
 
     state.vr_state.interaction.set_follow_mode(surface_id, mode);
     Some(ok_response(msg_id))
 }
 
-fn handle_vr_set_gaze_offset(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_vr_set_gaze_offset(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     use crate::vr::scene::Vec3;
 
     let x = get_int(value, "x").unwrap_or(15) as f32 / 100.0;
@@ -1064,24 +1365,34 @@ fn handle_vr_set_gaze_offset(
 
 fn handle_vr_calibrate_confirm(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     let head_pose = state.vr_state.interaction.head_pose;
-    let done = state.vr_state.interaction.calibration.record_point(
-        crate::vr::vr_interaction::HeadPose {
-            position: head_pose.position,
-            rotation: head_pose.rotation,
-        },
-    );
+    let done =
+        state
+            .vr_state
+            .interaction
+            .calibration
+            .record_point(crate::vr::vr_interaction::HeadPose {
+                position: head_pose.position,
+                rotation: head_pose.rotation,
+            });
 
     if done {
         // Compute new offset
         if let Some(offset) = state.vr_state.interaction.calibration.compute_offset() {
-            let rms = state.vr_state.interaction.calibration.rms_error_deg(&offset);
+            let rms = state
+                .vr_state
+                .interaction
+                .calibration
+                .rms_error_deg(&offset);
             state.vr_state.interaction.gaze_config.offset = offset;
             Some(format!(
                 "(:type :response :id {} :status :ok :calibration :complete :rms-error {:.1} :offset (:x {:.3} :y {:.3} :z {:.3}))",
                 msg_id, rms, offset.x, offset.y, offset.z
             ))
         } else {
-            Some(error_response(msg_id, "calibration failed: insufficient data"))
+            Some(error_response(
+                msg_id,
+                "calibration failed: insufficient data",
+            ))
         }
     } else {
         let next = state.vr_state.interaction.calibration.current_target;
@@ -1102,11 +1413,7 @@ fn handle_gaze_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     ))
 }
 
-fn handle_gaze_set_source(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_gaze_set_source(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let source_str = get_keyword(value, "source").unwrap_or_default();
     use crate::vr::eye_tracking::GazeSource;
     let source = if source_str == "auto" {
@@ -1114,7 +1421,12 @@ fn handle_gaze_set_source(
     } else {
         match GazeSource::from_str(&source_str) {
             Some(s) => Some(s),
-            None => return Some(error_response(msg_id, &format!("unknown gaze source: {source_str}"))),
+            None => {
+                return Some(error_response(
+                    msg_id,
+                    &format!("unknown gaze source: {source_str}"),
+                ))
+            }
         }
     };
     state.vr_state.eye_tracking.set_source(source);
@@ -1201,25 +1513,20 @@ fn handle_gaze_set_visualization(
             state.vr_state.eye_tracking.set_visualization(vis);
             Some(ok_response(msg_id))
         }
-        None => Some(error_response(msg_id, &format!("unknown visualization: {vis_str}"))),
+        None => Some(error_response(
+            msg_id,
+            &format!("unknown visualization: {vis_str}"),
+        )),
     }
 }
 
-fn handle_gaze_set_smoothing(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_gaze_set_smoothing(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let alpha = get_int(value, "alpha").unwrap_or(30) as f32 / 100.0;
     state.vr_state.eye_tracking.set_smoothing(alpha);
     Some(ok_response(msg_id))
 }
 
-fn handle_gaze_simulate(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_gaze_simulate(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let mode_str = get_keyword(value, "mode").unwrap_or_default();
     use crate::vr::eye_tracking::SimulatedGazeMode;
     if mode_str == "off" || mode_str == "nil" {
@@ -1231,7 +1538,10 @@ fn handle_gaze_simulate(
             state.vr_state.eye_tracking.set_simulate(Some(mode));
             Some(ok_response(msg_id))
         }
-        None => Some(error_response(msg_id, &format!("unknown simulate mode: {mode_str}"))),
+        None => Some(error_response(
+            msg_id,
+            &format!("unknown simulate mode: {mode_str}"),
+        )),
     }
 }
 
@@ -1370,16 +1680,16 @@ fn handle_wink_calibrate_start(
     ))
 }
 
-fn handle_wink_set_confidence(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_wink_set_confidence(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let threshold = get_int(value, "threshold").unwrap_or(70) as f32 / 100.0;
     if !(0.0..=1.0).contains(&threshold) {
         return Some(error_response(msg_id, "invalid :threshold (0-100)"));
     }
-    state.vr_state.blink_wink.blink_detector.confidence_threshold = threshold;
+    state
+        .vr_state
+        .blink_wink
+        .blink_detector
+        .confidence_threshold = threshold;
     Some(format!(
         "(:type :response :id {} :status :ok :threshold {:.2})",
         msg_id, threshold
@@ -1404,11 +1714,7 @@ fn handle_gaze_zone_config(state: &mut EwwmState, msg_id: i64) -> Option<String>
     ))
 }
 
-fn handle_gaze_zone_set_dwell(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_gaze_zone_set_dwell(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let dwell_ms = match get_int(value, "dwell-ms") {
         Some(d) if d >= 50 && d <= 2000 => d as f64,
         _ => return Some(error_response(msg_id, "invalid :dwell-ms (50-2000)")),
@@ -1454,11 +1760,7 @@ fn handle_fatigue_reset(state: &mut EwwmState, msg_id: i64) -> Option<String> {
 
 // ── Auto-type handlers ─────────────────────────────────────
 
-fn handle_autotype(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_autotype(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let text = match get_string(value, "text") {
         Some(t) => t,
         None => return Some(error_response(msg_id, "missing :text")),
@@ -1498,11 +1800,7 @@ fn handle_autotype_abort(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     Some(ok_response(msg_id))
 }
 
-fn handle_autotype_pause(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_autotype_pause(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     use crate::autotype::PauseReason;
 
     let reason_str = get_keyword(value, "reason").unwrap_or_else(|| "user-requested".to_string());
@@ -1521,11 +1819,7 @@ fn handle_autotype_resume(state: &mut EwwmState, msg_id: i64) -> Option<String> 
 
 // ── Secure input handlers ──────────────────────────────────
 
-fn handle_secure_input_mode(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_secure_input_mode(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let enable = get_keyword(value, "enable")
         .map(|v| v != "nil")
         .unwrap_or(true);
@@ -1555,11 +1849,7 @@ fn handle_secure_input_status(state: &mut EwwmState, msg_id: i64) -> Option<Stri
     ))
 }
 
-fn handle_gaze_away_monitor(
-    _state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_gaze_away_monitor(_state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let enable = get_keyword(value, "enable")
         .map(|v| v != "nil")
         .unwrap_or(true);
@@ -1619,6 +1909,12 @@ fn handle_headless_set_resolution(
 
     state.headless_width = w;
     state.headless_height = h;
+    for cfg in &mut state.output_management_state.configs {
+        if cfg.name.starts_with("headless-") {
+            cfg.width = w;
+            cfg.height = h;
+        }
+    }
 
     debug!(w, h, "headless resolution updated");
     Some(format!(
@@ -1658,6 +1954,15 @@ fn handle_headless_add_output(state: &mut EwwmState, msg_id: i64) -> Option<Stri
     );
     output.set_preferred(mode);
     state.space.map_output(&output, (x_offset, 0));
+    let mut output_config =
+        crate::handlers::output_management::OutputConfig::new(format!("headless-{}", new_index));
+    output_config.x = x_offset;
+    output_config.width = state.headless_width;
+    output_config.height = state.headless_height;
+    output_config.refresh = 60_000;
+    state
+        .output_management_state
+        .upsert_detected_output(output_config);
 
     debug!(index = new_index, "added headless output");
     Some(format!(
@@ -1688,6 +1993,9 @@ fn handle_headless_remove_output(state: &mut EwwmState, msg_id: i64) -> Option<S
     if let Some(o) = output {
         state.space.unmap_output(&o);
     }
+    state
+        .output_management_state
+        .remove_detected_output(&target_name);
 
     debug!(index = removed_index, "removed headless output");
     Some(format!(
@@ -1705,11 +2013,7 @@ fn handle_dpms_get(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     ))
 }
 
-fn handle_dpms_set(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_dpms_set(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     use crate::handlers::dpms::DpmsState;
 
     let state_str = match get_string(value, "state") {
@@ -1724,10 +2028,7 @@ fn handle_dpms_set(
             debug!(?old, ?new_state, "DPMS state changed");
 
             // Notify Emacs of the state change
-            let event = format_event(
-                "dpms-changed",
-                &[("state", &new_state.to_string())],
-            );
+            let event = format_event("dpms-changed", &[("state", &new_state.to_string())]);
             IpcServer::broadcast_event(state, &event);
 
             Some(format!(
@@ -1737,7 +2038,10 @@ fn handle_dpms_set(
         }
         None => Some(error_response(
             msg_id,
-            &format!("invalid DPMS state: {} (use on/standby/suspend/off)", state_str),
+            &format!(
+                "invalid DPMS state: {} (use on/standby/suspend/off)",
+                state_str
+            ),
         )),
     }
 }
@@ -1759,10 +2063,7 @@ fn handle_screencopy_status(state: &mut EwwmState, msg_id: i64) -> Option<String
     };
     Some(format!(
         "(:type :response :id {} :status :ok :active-count {} :frame-counter {} :frames {})",
-        msg_id,
-        count,
-        state.screencopy_state.frame_counter,
-        frames_sexp,
+        msg_id, count, state.screencopy_state.frame_counter, frames_sexp,
     ))
 }
 
@@ -1782,17 +2083,11 @@ fn handle_output_list(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     };
     Some(format!(
         "(:type :response :id {} :status :ok :serial {} :outputs {})",
-        msg_id,
-        state.output_management_state.serial,
-        list_sexp,
+        msg_id, state.output_management_state.serial, list_sexp,
     ))
 }
 
-fn handle_output_configure(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_output_configure(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     use crate::handlers::output_management::{OutputConfig, OutputTransform};
 
     let name = match get_string(value, "name") {
@@ -1816,9 +2111,15 @@ fn handle_output_configure(
         enabled: get_bool(value, "enabled").unwrap_or(base.enabled),
         x: get_int(value, "x").map(|v| v as i32).unwrap_or(base.x),
         y: get_int(value, "y").map(|v| v as i32).unwrap_or(base.y),
-        width: get_int(value, "width").map(|v| v as i32).unwrap_or(base.width),
-        height: get_int(value, "height").map(|v| v as i32).unwrap_or(base.height),
-        refresh: get_int(value, "refresh").map(|v| v as i32).unwrap_or(base.refresh),
+        width: get_int(value, "width")
+            .map(|v| v as i32)
+            .unwrap_or(base.width),
+        height: get_int(value, "height")
+            .map(|v| v as i32)
+            .unwrap_or(base.height),
+        refresh: get_int(value, "refresh")
+            .map(|v| v as i32)
+            .unwrap_or(base.refresh),
         scale: get_float(value, "scale").unwrap_or(base.scale),
         transform: get_string(value, "transform")
             .and_then(|s| OutputTransform::from_str_ipc(&s))
@@ -1837,10 +2138,7 @@ fn handle_output_configure(
         match state.output_management_state.apply_config(config) {
             Ok(serial) => {
                 // Notify Emacs of the configuration change.
-                let event = format_event(
-                    "output-configured",
-                    &[("serial", &serial.to_string())],
-                );
+                let event = format_event("output-configured", &[("serial", &serial.to_string())]);
                 IpcServer::broadcast_event(state, &event);
 
                 Some(format!(
@@ -1877,11 +2175,7 @@ fn handle_gaze_scroll_status(state: &mut EwwmState, msg_id: i64) -> Option<Strin
     ))
 }
 
-fn handle_gaze_scroll_config(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_gaze_scroll_config(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     if let Some(enabled_str) = get_keyword(value, "enable") {
         state.vr_state.gaze_scroll.config.enabled = enabled_str != "nil";
     }
@@ -1926,11 +2220,7 @@ fn handle_gaze_scroll_set_speed(
 
 // ── Link hint handlers ─────────────────────────────────────
 
-fn handle_link_hints_load(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_link_hints_load(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let json = match get_string(value, "hints") {
         Some(j) => j,
         None => return Some(error_response(msg_id, "missing :hints (JSON array)")),
@@ -1948,12 +2238,12 @@ fn handle_link_hints_load(
 
 fn handle_link_hints_confirm(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     match state.vr_state.link_hints.confirm() {
-        Some(crate::vr::link_hints::LinkHintEvent::Confirmed { hint_id, url }) => {
-            Some(format!(
-                "(:type :response :id {} :status :ok :hint-id {} :url \"{}\")",
-                msg_id, hint_id, escape_string(&url)
-            ))
-        }
+        Some(crate::vr::link_hints::LinkHintEvent::Confirmed { hint_id, url }) => Some(format!(
+            "(:type :response :id {} :status :ok :hint-id {} :url \"{}\")",
+            msg_id,
+            hint_id,
+            escape_string(&url)
+        )),
         _ => Some(error_response(msg_id, "no hint currently highlighted")),
     }
 }
@@ -2006,11 +2296,7 @@ fn handle_hand_tracking_config(
     ))
 }
 
-fn handle_hand_tracking_joint(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_hand_tracking_joint(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let hand_str = match get_string(value, "hand") {
         Some(h) => h,
         None => return Some(error_response(msg_id, "missing :hand (left or right)")),
@@ -2020,7 +2306,11 @@ fn handle_hand_tracking_joint(
         None => return Some(error_response(msg_id, "missing :joint")),
     };
 
-    match state.vr_state.hand_tracking.get_joint(&hand_str, &joint_name) {
+    match state
+        .vr_state
+        .hand_tracking
+        .get_joint(&hand_str, &joint_name)
+    {
         Some(joint) => {
             let pos = joint.position;
             let rot = joint.orientation;
@@ -2066,7 +2356,10 @@ fn handle_hand_tracking_skeleton(
             sexp.push(')');
             Some(format!(
                 "(:type :response :id {} :status :ok :hand :{} :joint-count {} :joints {})",
-                msg_id, hand_str, joints.len(), sexp
+                msg_id,
+                hand_str,
+                joints.len(),
+                sexp
             ))
         }
         None => Some(error_response(
@@ -2119,11 +2412,7 @@ fn handle_gesture_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     ))
 }
 
-fn handle_gesture_config(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_gesture_config(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     if let Some(pinch) = get_float(value, "pinch-threshold") {
         state.vr_state.gesture.config.pinch_threshold_m = pinch as f32;
     }
@@ -2147,11 +2436,7 @@ fn handle_gesture_config(
     ))
 }
 
-fn handle_gesture_bind(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_gesture_bind(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let gesture = match get_string(value, "gesture") {
         Some(g) => g,
         None => return Some(error_response(msg_id, "missing :gesture")),
@@ -2177,11 +2462,7 @@ fn handle_gesture_bind(
     ))
 }
 
-fn handle_gesture_unbind(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_gesture_unbind(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let gesture = match get_string(value, "gesture") {
         Some(g) => g,
         None => return Some(error_response(msg_id, "missing :gesture")),
@@ -2224,27 +2505,32 @@ fn handle_keyboard_hide(state: &mut EwwmState, msg_id: i64) -> Option<String> {
 
 fn handle_keyboard_toggle(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     state.vr_state.virtual_keyboard.toggle();
-    let visible = if state.vr_state.virtual_keyboard.visible { "t" } else { "nil" };
+    let visible = if state.vr_state.virtual_keyboard.visible {
+        "t"
+    } else {
+        "nil"
+    };
     Some(format!(
         "(:type :response :id {} :status :ok :visible {})",
         msg_id, visible
     ))
 }
 
-fn handle_keyboard_layout(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_keyboard_layout(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let layout_str = match get_string(value, "layout") {
         Some(l) => l,
         None => return Some(error_response(msg_id, "missing :layout")),
     };
 
-    match state.vr_state.virtual_keyboard.set_layout_by_name(&layout_str) {
+    match state
+        .vr_state
+        .virtual_keyboard
+        .set_layout_by_name(&layout_str)
+    {
         Ok(()) => Some(format!(
             "(:type :response :id {} :status :ok :layout \"{}\")",
-            msg_id, escape_string(&layout_str)
+            msg_id,
+            escape_string(&layout_str)
         )),
         Err(msg) => Some(error_response(
             msg_id,
@@ -2300,11 +2586,7 @@ fn handle_bci_signal_quality(state: &mut EwwmState, msg_id: i64) -> Option<Strin
     ))
 }
 
-fn handle_bci_config(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_bci_config(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     if let Some(board) = get_string(value, "board") {
         if let Err(e) = state.vr_state.bci.set_board_by_name(&board) {
             return Some(error_response(msg_id, &e));
@@ -2350,7 +2632,11 @@ fn handle_bci_inject_synthetic(
     if let Some(v) = get_string(value, "class") {
         params.push(("class".to_string(), v));
     }
-    match state.vr_state.bci.inject_synthetic_event(&event_type, &params) {
+    match state
+        .vr_state
+        .bci
+        .inject_synthetic_event(&event_type, &params)
+    {
         Ok(()) => Some(ok_response(msg_id)),
         Err(e) => Some(error_response(msg_id, &e)),
     }
@@ -2364,11 +2650,7 @@ fn handle_bci_data_list(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     ))
 }
 
-fn handle_bci_data_delete(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_bci_data_delete(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let session_id = match get_string(value, "session-id") {
         Some(s) => s,
         None => return Some(error_response(msg_id, "missing :session-id")),
@@ -2411,18 +2693,12 @@ fn handle_bci_attention_config(
     ))
 }
 
-fn handle_bci_attention_calibrate_start(
-    state: &mut EwwmState,
-    msg_id: i64,
-) -> Option<String> {
+fn handle_bci_attention_calibrate_start(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     state.vr_state.bci.attention.start_calibration();
     Some(ok_response(msg_id))
 }
 
-fn handle_bci_attention_calibrate_finish(
-    state: &mut EwwmState,
-    msg_id: i64,
-) -> Option<String> {
+fn handle_bci_attention_calibrate_finish(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     match state.vr_state.bci.attention.finish_calibration() {
         Ok(()) => Some(ok_response(msg_id)),
         Err(e) => Some(error_response(msg_id, &e)),
@@ -2439,11 +2715,7 @@ fn handle_bci_ssvep_status(state: &mut EwwmState, msg_id: i64) -> Option<String>
     ))
 }
 
-fn handle_bci_ssvep_config(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_bci_ssvep_config(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     if let Some(enabled) = get_bool(value, "enabled") {
         state.vr_state.bci.ssvep.config.enabled = enabled;
     }
@@ -2483,11 +2755,7 @@ fn handle_bci_p300_status(state: &mut EwwmState, msg_id: i64) -> Option<String> 
     ))
 }
 
-fn handle_bci_p300_config(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_bci_p300_config(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     if let Some(enabled) = get_bool(value, "enabled") {
         state.vr_state.bci.p300.config.enabled = enabled;
     }
@@ -2507,11 +2775,7 @@ fn handle_bci_p300_config(
     ))
 }
 
-fn handle_bci_p300_start(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_bci_p300_start(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let num_targets = get_int(value, "num-targets").unwrap_or(6) as usize;
     state.vr_state.bci.p300.start(num_targets);
     Some(ok_response(msg_id))
@@ -2532,11 +2796,7 @@ fn handle_bci_mi_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     ))
 }
 
-fn handle_bci_mi_config(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_bci_mi_config(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     if let Some(enabled) = get_bool(value, "enabled") {
         state.vr_state.bci.motor_imagery.config.enabled = enabled;
     }
@@ -2550,18 +2810,12 @@ fn handle_bci_mi_config(
     ))
 }
 
-fn handle_bci_mi_calibrate_start(
-    state: &mut EwwmState,
-    msg_id: i64,
-) -> Option<String> {
+fn handle_bci_mi_calibrate_start(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     state.vr_state.bci.motor_imagery.start_calibration();
     Some(ok_response(msg_id))
 }
 
-fn handle_bci_mi_calibrate_finish(
-    state: &mut EwwmState,
-    msg_id: i64,
-) -> Option<String> {
+fn handle_bci_mi_calibrate_finish(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     match state.vr_state.bci.motor_imagery.finish_calibration() {
         Ok(()) => Some(ok_response(msg_id)),
         Err(e) => Some(error_response(msg_id, &e)),
@@ -2607,11 +2861,7 @@ fn handle_bci_fatigue_eeg_config(
 
 // ── IPC recording handlers ─────────────────────────────────
 
-fn handle_ipc_record_start(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_ipc_record_start(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let session_name = get_string(value, "session-name");
     state.ipc_server.recorder.start(session_name);
     Some(format!("(:type :response :id {} :status :ok)", msg_id))
@@ -2636,14 +2886,16 @@ fn handle_ipc_record_status(state: &mut EwwmState, msg_id: i64) -> Option<String
 
 // ── IPC security handlers ────────────────────────────────
 
-fn handle_ipc_client_info(
-    state: &mut EwwmState,
-    client_id: u64,
-    msg_id: i64,
-) -> Option<String> {
+fn handle_ipc_client_info(state: &mut EwwmState, client_id: u64, msg_id: i64) -> Option<String> {
     if let Some(client) = state.ipc_server.clients.get(&client_id) {
-        let uid = client.peer_uid.map(|u| u.to_string()).unwrap_or_else(|| "nil".to_string());
-        let pid = client.peer_pid.map(|p| p.to_string()).unwrap_or_else(|| "nil".to_string());
+        let uid = client
+            .peer_uid
+            .map(|u| u.to_string())
+            .unwrap_or_else(|| "nil".to_string());
+        let pid = client
+            .peer_pid
+            .map(|p| p.to_string())
+            .unwrap_or_else(|| "nil".to_string());
         let rate = client.rate_limiter.max_per_second;
         Some(format!(
             "(:type :response :id {} :status :ok :client-id {} :peer-uid {} :peer-pid {} :authenticated t :rate-limit {})",
@@ -2721,11 +2973,7 @@ fn handle_vr_follow_grab_all(state: &mut EwwmState, msg_id: i64) -> Option<Strin
 
 // ── VR Transient Chains ──────────────────────────────────
 
-fn handle_vr_transient_add(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_vr_transient_add(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     use crate::vr::transient_3d::TransientPlacement;
 
     let child_id = match get_int(value, "child") {
@@ -2737,19 +2985,20 @@ fn handle_vr_transient_add(
         None => return Some(error_response(msg_id, "missing :parent")),
     };
     let placement_str = get_keyword(value, "placement").unwrap_or_else(|| "auto".to_string());
-    let placement = TransientPlacement::from_str(&placement_str).unwrap_or(TransientPlacement::Auto);
+    let placement =
+        TransientPlacement::from_str(&placement_str).unwrap_or(TransientPlacement::Auto);
 
-    match state.vr_state.transient_chains.add_transient(child_id, parent_id, placement) {
+    match state
+        .vr_state
+        .transient_chains
+        .add_transient(child_id, parent_id, placement)
+    {
         Ok(()) => Some(ok_response(msg_id)),
         Err(e) => Some(error_response(msg_id, &e)),
     }
 }
 
-fn handle_vr_transient_remove(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_vr_transient_remove(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let child_id = match get_int(value, "child") {
         Some(id) => id as u64,
         None => return Some(error_response(msg_id, "missing :child")),
@@ -2768,11 +3017,7 @@ fn handle_vr_transient_list(state: &mut EwwmState, msg_id: i64) -> Option<String
 
 // ── VR Overlays ─────────────────────────────────────────────
 
-fn handle_vr_overlay_create(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_vr_overlay_create(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     use crate::vr::overlay::OverlayType;
 
     let type_str = get_keyword(value, "overlay-type").unwrap_or_else(|| "head-locked".to_string());
@@ -2790,10 +3035,13 @@ fn handle_vr_overlay_create(
     let alpha = get_float(value, "alpha").unwrap_or(1.0) as f32;
     let sort_order = get_int(value, "sort-order").unwrap_or(0) as i32;
 
-    let id = state
-        .vr_state
-        .overlay_manager
-        .create_overlay(overlay_type, width, height, alpha, sort_order);
+    let id = state.vr_state.overlay_manager.create_overlay(
+        overlay_type,
+        width,
+        height,
+        alpha,
+        sort_order,
+    );
 
     if id == 0 {
         Some(error_response(msg_id, "max overlays reached"))
@@ -2805,11 +3053,7 @@ fn handle_vr_overlay_create(
     }
 }
 
-fn handle_vr_overlay_remove(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_vr_overlay_remove(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let overlay_id = match get_int(value, "overlay-id") {
         Some(id) => id as u64,
         None => return Some(error_response(msg_id, "missing :overlay-id")),
@@ -2897,11 +3141,7 @@ fn handle_vr_radial_toggle(state: &mut EwwmState, msg_id: i64) -> Option<String>
     Some(ok_response(msg_id))
 }
 
-fn handle_vr_radial_configure(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_vr_radial_configure(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     // Apply radius if provided.
     if let Some(radius) = get_float(value, "radius") {
         state.vr_state.radial_menu.radius = radius as f32;
@@ -2948,11 +3188,7 @@ fn handle_vr_radial_status(state: &mut EwwmState, msg_id: i64) -> Option<String>
 
 // ── VR Capture Visibility ───────────────────────────────────
 
-fn handle_vr_capture_set(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_vr_capture_set(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     use crate::vr::capture_visibility::CaptureVisibility;
 
     let surface_id = match get_int(value, "surface") {
@@ -2977,11 +3213,7 @@ fn handle_vr_capture_set(
     Some(ok_response(msg_id))
 }
 
-fn handle_vr_capture_get(
-    state: &mut EwwmState,
-    msg_id: i64,
-    value: &Value,
-) -> Option<String> {
+fn handle_vr_capture_get(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {
     let surface_id = match get_int(value, "surface") {
         Some(id) => id as u64,
         None => return Some(error_response(msg_id, "missing :surface")),
@@ -2989,7 +3221,9 @@ fn handle_vr_capture_get(
     let vis = state.vr_state.capture_visibility.get_visibility(surface_id);
     Some(format!(
         "(:type :response :id {} :status :ok :surface {} :visibility :{})",
-        msg_id, surface_id, vis.as_str()
+        msg_id,
+        surface_id,
+        vis.as_str()
     ))
 }
 
@@ -3126,10 +3360,7 @@ fn handle_beyond_set_led_color(
     }
 }
 
-fn handle_beyond_firmware_version(
-    state: &mut EwwmState,
-    msg_id: i64,
-) -> Option<String> {
+fn handle_beyond_firmware_version(state: &mut EwwmState, msg_id: i64) -> Option<String> {
     let version = state.vr_state.beyond_hid.firmware_version_str();
     Some(format!(
         "(:type :response :id {} :status :ok :firmware-version \"{}\")",
@@ -3191,6 +3422,14 @@ fn escape_string(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
+fn quoted_list(values: &[String]) -> String {
+    values
+        .iter()
+        .map(|value| format!("\"{}\"", escape_string(value)))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// Extract a keyword value from an s-expression plist.
 /// Walks cons pairs directly to find `:key` followed by its value.
 /// Handles both `Value::Keyword("key")` (elisp parser) and
@@ -3219,9 +3458,7 @@ fn get_keyword(value: &Value, key: &str) -> Option<String> {
                             }
                             Value::String(v) => Some(v.to_string()),
                             Value::Number(n) => Some(n.to_string()),
-                            Value::Bool(b) => {
-                                Some(if *b { "t" } else { "nil" }.to_string())
-                            }
+                            Value::Bool(b) => Some(if *b { "t" } else { "nil" }.to_string()),
                             Value::Null => Some("nil".to_string()),
                             _ => Some(val.to_string()),
                         };
@@ -3449,21 +3686,30 @@ mod tests {
     fn test_ok_response_is_valid_sexp() {
         let r = ok_response(1);
         let parsed = lexpr::from_str(&r);
-        assert!(parsed.is_ok(), "ok_response should produce valid s-expression");
+        assert!(
+            parsed.is_ok(),
+            "ok_response should produce valid s-expression"
+        );
     }
 
     #[test]
     fn test_error_response_is_valid_sexp() {
         let r = error_response(1, "test error");
         let parsed = lexpr::from_str(&r);
-        assert!(parsed.is_ok(), "error_response should produce valid s-expression");
+        assert!(
+            parsed.is_ok(),
+            "error_response should produce valid s-expression"
+        );
     }
 
     #[test]
     fn test_format_event_is_valid_sexp() {
         let e = format_event("test", &[("key", "123")]);
         let parsed = lexpr::from_str(&e);
-        assert!(parsed.is_ok(), "format_event should produce valid s-expression");
+        assert!(
+            parsed.is_ok(),
+            "format_event should produce valid s-expression"
+        );
     }
 
     #[test]

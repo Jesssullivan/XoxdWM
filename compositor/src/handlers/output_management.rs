@@ -131,6 +131,20 @@ impl OutputManagementState {
         Self::default()
     }
 
+    /// Synchronize a compositor-detected output into the IPC-visible state.
+    pub fn upsert_detected_output(&mut self, config: OutputConfig) {
+        if let Some(existing) = self.configs.iter_mut().find(|c| c.name == config.name) {
+            *existing = config;
+        } else {
+            self.configs.push(config);
+        }
+    }
+
+    /// Remove an output that is no longer mapped by the backend.
+    pub fn remove_detected_output(&mut self, name: &str) {
+        self.configs.retain(|c| c.name != name);
+    }
+
     /// Apply a configuration change.  Returns `Ok(serial)` on success.
     /// In a full implementation this would program the DRM/KMS backend.
     pub fn apply_config(&mut self, config: OutputConfig) -> Result<u32, String> {
@@ -239,6 +253,28 @@ mod tests {
         let s1 = state.apply_config(OutputConfig::new("a".into())).unwrap();
         let s2 = state.apply_config(OutputConfig::new("b".into())).unwrap();
         assert_eq!(s2, s1 + 1);
+    }
+
+    #[test]
+    fn detected_output_sync_populates_ipc_state() {
+        let mut state = OutputManagementState::new();
+        let mut cfg = OutputConfig::new("HDMI-A-1".into());
+        cfg.width = 1920;
+        cfg.height = 1080;
+        state.upsert_detected_output(cfg);
+
+        assert_eq!(state.configs.len(), 1);
+        assert_eq!(state.configs[0].name, "HDMI-A-1");
+        assert_eq!(state.configs[0].width, 1920);
+    }
+
+    #[test]
+    fn detected_output_sync_removes_unmapped_outputs() {
+        let mut state = OutputManagementState::new();
+        state.upsert_detected_output(OutputConfig::new("DP-1".into()));
+        state.remove_detected_output("DP-1");
+
+        assert!(state.configs.is_empty());
     }
 
     #[test]

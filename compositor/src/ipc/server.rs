@@ -328,21 +328,19 @@ impl IpcServer {
                 if state.ipc_server.ipc_trace {
                     info!(client_id, "<< {}", msg_str);
                 }
-                state.ipc_server.recorder.record(
-                    client_id,
-                    MessageDirection::Request,
-                    &msg_str,
-                );
+                state
+                    .ipc_server
+                    .recorder
+                    .record(client_id, MessageDirection::Request, &msg_str);
                 let response = dispatch::handle_message(state, client_id, &msg_str);
                 if let Some(ref resp) = response {
                     if state.ipc_server.ipc_trace {
                         info!(client_id, ">> {}", resp);
                     }
-                    state.ipc_server.recorder.record(
-                        client_id,
-                        MessageDirection::Response,
-                        resp,
-                    );
+                    state
+                        .ipc_server
+                        .recorder
+                        .record(client_id, MessageDirection::Response, resp);
                     if let Some(client) = state.ipc_server.clients.get_mut(&client_id) {
                         client.enqueue_message(resp);
                     }
@@ -370,11 +368,10 @@ impl IpcServer {
         if state.ipc_server.ipc_trace {
             info!("broadcast >> {}", event);
         }
-        state.ipc_server.recorder.record(
-            0,
-            MessageDirection::Event,
-            event,
-        );
+        state
+            .ipc_server
+            .recorder
+            .record(0, MessageDirection::Event, event);
         for client in state.ipc_server.clients.values_mut() {
             if client.authenticated {
                 client.enqueue_event(event);

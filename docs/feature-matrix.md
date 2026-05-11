@@ -9,7 +9,7 @@ This document is an inventory, not a support promise. For the current operationa
 ## 1. IPC Command Reference
 
 The dispatcher in `compositor/src/ipc/dispatch.rs` currently contains
-**184 commands** in this checkout. The grouped table below is still being
+**195 commands** in this checkout. The grouped table below is still being
 reconciled and should not be treated as exhaustive until it is regenerated
 from code.
 
@@ -31,6 +31,18 @@ from code.
 | `workspace-move-surface` | state.rs | ewwm-workspace | none |
 | `layout-set` | state.rs | ewwm-layout | none |
 | `layout-cycle` | state.rs | ewwm-layout | none |
+| `app-launch` / `launch-app` | state.rs | ewwm-launch | none |
+| `app-launch-list` | state.rs | ewwm-launch | none |
+| `config-reload` / `reload-config` | state.rs | ewwm-ipc | none |
+| `autostart-list` | state.rs | ewwm-autostart | none |
+| `autostart-run` | state.rs | ewwm-autostart | none |
+| `session-status` | state.rs | ewwm-session | none |
+| `session-lock` | state.rs | ewwm-session | none |
+| `session-logout` | state.rs | ewwm-session | none |
+| `session-idle-status` | state.rs | ewwm-session | none |
+| `session-idle-start` | state.rs | ewwm-session | none |
+| `session-idle-stop` | state.rs | ewwm-session | none |
+| `compositor-exit` | state.rs | ewwm-session | none |
 | `key-grab` | state.rs | ewwm-input | none |
 | `key-ungrab` | state.rs | ewwm-input | none |
 
@@ -39,6 +51,7 @@ from code.
 | Command | Rust module | Elisp module | Hardware |
 |---------|-------------|--------------|----------|
 | `vr-status` | openxr_state.rs / stub.rs | ewwm-vr | HMD |
+| `vr-diagnostics` | openxr_state.rs / stub.rs | ewwm-vr | HMD |
 | `vr-set-reference-space` | openxr_state.rs / stub.rs | ewwm-vr | HMD |
 | `vr-restart` | openxr_state.rs / stub.rs | ewwm-vr | HMD |
 | `vr-get-frame-timing` | frame_timing.rs | ewwm-vr | HMD |

@@ -74,9 +74,10 @@ length-prefixed s-expressions.
    parsed in Rust via the `lexpr` crate. Length-prefixed framing avoids
    incremental parsing complexity.
 
-4. **Feature flags**: The `vr` Cargo feature gates OpenXR dependencies.
-   The `full-backend` feature (default) gates DRM/winit. Headless builds
-   disable both.
+4. **Feature flags**: The portable Cargo default builds the headless lane.
+   The `full-backend` feature gates DRM/winit, and the `vr` feature gates
+   OpenXR dependencies. Linux host/session builds opt into `full-backend`
+   explicitly.
 
 5. **No openxrs in data modules**: Modules like `scene.rs`,
    `drm_lease.rs`, `gaze_focus.rs`, `blink_wink.rs`, `gaze_zone.rs`,
@@ -140,16 +141,19 @@ sudo dnf install wayland-devel wayland-protocols-devel \
   libxkbcommon-devel seatd-devel udev-devel \
   openxr-devel monado
 
-# Build compositor
+# Portable headless check/build
 cd compositor
 cargo build
 
-# Build with headless-only (no GPU required)
-cargo build --no-default-features
+# Build Linux host compositor with DRM/winit
+cargo build --features full-backend
 
-# Build with VR support
-cargo build --features vr
+# Build Linux host compositor with VR support
+cargo build --features full-backend,vr
 ```
+
+The `vr` feature follows the OpenXR crate stack and currently needs Rust
+1.88+; the flake dev shell provides a suitable nightly toolchain.
 
 ### Cross-Compilation
 
@@ -800,12 +804,12 @@ emacs --batch -L lisp/core -L lisp/vr -L lisp/ext \
   --eval '(setq ewwm-test-selector "ewwm-bci-core")' \
   -l test/run-tests.el
 
-# Rust unit tests
-cargo test --manifest-path compositor/Cargo.toml
+# Portable Rust test compile check
+cargo check --manifest-path compositor/Cargo.toml --tests
 
-# Headless-only Rust tests (no GPU)
+# Linux full-backend Rust tests
 cargo test --manifest-path compositor/Cargo.toml \
-  --no-default-features
+  --features full-backend
 ```
 
 ### Test File Inventory
