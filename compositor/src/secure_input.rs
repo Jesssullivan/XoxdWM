@@ -110,12 +110,7 @@ impl SecureInputState {
     /// Activate secure input mode for the given reason and surface.
     /// The `now` parameter should come from the compositor clock
     /// (`state.clock.now()`) so tests can control time.
-    pub fn enter(
-        &mut self,
-        reason: &str,
-        surface_id: u64,
-        now: std::time::Instant,
-    ) {
+    pub fn enter(&mut self, reason: &str, surface_id: u64, now: std::time::Instant) {
         if self.active {
             debug!(
                 "Secure input mode re-entered: reason=\"{}\" surface_id={}",

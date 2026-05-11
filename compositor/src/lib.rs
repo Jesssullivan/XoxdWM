@@ -4,12 +4,12 @@
 //! testing. The binary entry point lives in `main.rs`.
 
 pub mod autotype;
+pub mod backend;
 pub mod clock;
 pub mod config;
-pub mod input_source;
-pub mod backend;
 pub(crate) mod handlers;
 pub(crate) mod input;
+pub mod input_source;
 pub mod ipc;
 pub(crate) mod render;
 pub mod secure_input;

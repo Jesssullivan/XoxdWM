@@ -676,7 +676,7 @@ Multi-modal fusion (gaze + EEG + gesture).
 | `:surface-created` | `:id :app-id :title` | New surface |
 | `:surface-destroyed` | `:id` | Surface closed |
 | `:surface-title-changed` | `:id :title` | Title updated |
-| `:surface-focused` | `:id` | Focus changed |
+| `:surface-focused` | `:id :previous-id` | Canonical focus changed event |
 | `:surface-geometry-changed` | `:id :geometry` | Geometry changed |
 | `:workspace-changed` | `:workspace` | Workspace switched |
 | `:key-pressed` | `:key :modifiers :timestamp` | Grabbed key pressed |

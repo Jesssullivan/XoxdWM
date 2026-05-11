@@ -12,13 +12,31 @@ use std::time::Duration;
 #[derive(Debug, Clone)]
 pub enum InputEvent {
     /// Gaze direction (yaw, pitch in radians).
-    Gaze { yaw: f64, pitch: f64, confidence: f64 },
+    Gaze {
+        yaw: f64,
+        pitch: f64,
+        confidence: f64,
+    },
     /// Hand joint update (left=true/false, joint index 0-25, x/y/z).
-    Hand { left: bool, joint: u8, x: f64, y: f64, z: f64 },
+    Hand {
+        left: bool,
+        joint: u8,
+        x: f64,
+        y: f64,
+        z: f64,
+    },
     /// Blink event (left_closed, right_closed, duration_ms).
-    Blink { left_closed: bool, right_closed: bool, duration_ms: u32 },
+    Blink {
+        left_closed: bool,
+        right_closed: bool,
+        duration_ms: u32,
+    },
     /// Gesture detected.
-    Gesture { name: String, hand: String, confidence: f64 },
+    Gesture {
+        name: String,
+        hand: String,
+        confidence: f64,
+    },
     /// BCI sample (channel, value).
     BciSample { channel: u8, value: f64 },
     /// Raw IPC message string.
@@ -109,9 +127,17 @@ mod tests {
     #[test]
     fn test_scripted_provider() {
         let events = vec![
-            InputEvent::Gaze { yaw: 0.0, pitch: 0.0, confidence: 1.0 },
-            InputEvent::Wait { duration: Duration::from_millis(100) },
-            InputEvent::IpcMessage { payload: "(:type :ping :id 1)".to_string() },
+            InputEvent::Gaze {
+                yaw: 0.0,
+                pitch: 0.0,
+                confidence: 1.0,
+            },
+            InputEvent::Wait {
+                duration: Duration::from_millis(100),
+            },
+            InputEvent::IpcMessage {
+                payload: "(:type :ping :id 1)".to_string(),
+            },
         ];
 
         let mut provider = ScriptedInputProvider::new(events);
@@ -134,8 +160,15 @@ mod tests {
     #[test]
     fn test_recording_provider() {
         let events = vec![
-            InputEvent::BciSample { channel: 0, value: 0.5 },
-            InputEvent::Gesture { name: "pinch".to_string(), hand: "left".to_string(), confidence: 0.9 },
+            InputEvent::BciSample {
+                channel: 0,
+                value: 0.5,
+            },
+            InputEvent::Gesture {
+                name: "pinch".to_string(),
+                hand: "left".to_string(),
+                confidence: 0.9,
+            },
         ];
 
         let scripted = ScriptedInputProvider::new(events);
@@ -164,11 +197,28 @@ mod tests {
     #[test]
     fn test_hand_event() {
         let events = vec![
-            InputEvent::Hand { left: true, joint: 0, x: 0.1, y: 0.2, z: 0.3 },
-            InputEvent::Blink { left_closed: true, right_closed: false, duration_ms: 150 },
+            InputEvent::Hand {
+                left: true,
+                joint: 0,
+                x: 0.1,
+                y: 0.2,
+                z: 0.3,
+            },
+            InputEvent::Blink {
+                left_closed: true,
+                right_closed: false,
+                duration_ms: 150,
+            },
         ];
         let mut provider = ScriptedInputProvider::new(events);
         let e = provider.next_event().unwrap();
-        assert!(matches!(e, InputEvent::Hand { left: true, joint: 0, .. }));
+        assert!(matches!(
+            e,
+            InputEvent::Hand {
+                left: true,
+                joint: 0,
+                ..
+            }
+        ));
     }
 }

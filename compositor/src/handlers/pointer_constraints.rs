@@ -9,9 +9,7 @@ use smithay::{
     delegate_pointer_constraints,
     input::pointer::PointerHandle,
     reexports::wayland_server::protocol::wl_surface::WlSurface,
-    wayland::pointer_constraints::{
-        with_pointer_constraint, PointerConstraintsHandler,
-    },
+    wayland::pointer_constraints::{with_pointer_constraint, PointerConstraintsHandler},
 };
 use tracing::{debug, info};
 

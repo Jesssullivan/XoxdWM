@@ -52,7 +52,12 @@ mod tests {
 
     #[test]
     fn dpms_state_roundtrip() {
-        for state in [DpmsState::On, DpmsState::Standby, DpmsState::Suspend, DpmsState::Off] {
+        for state in [
+            DpmsState::On,
+            DpmsState::Standby,
+            DpmsState::Suspend,
+            DpmsState::Off,
+        ] {
             let s = state.to_string();
             assert_eq!(DpmsState::from_str_ipc(&s), Some(state));
         }
