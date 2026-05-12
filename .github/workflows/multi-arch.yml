@@ -59,6 +59,13 @@ jobs:
             cargo test --features full-backend,vr
           "
 
+      - name: Check explicit XWayland compatibility build
+        run: |
+          nix develop --command bash -c "
+            cd compositor
+            cargo check --no-default-features --features full-backend,xwayland
+          "
+
       - name: sccache stats
         if: always()
         shell: bash

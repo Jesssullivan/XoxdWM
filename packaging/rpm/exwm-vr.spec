@@ -40,6 +40,15 @@
 # validated there as a separate follow-on step.
 %bcond monado_integration 0
 
+# Build conditional: XWayland compatibility bridge. Disabled by default so the
+# native Rocky package does not make X11 part of the default WM/DE shape.
+%bcond xwayland_compat 0
+
+%global compositor_features full-backend
+%if %{with xwayland_compat}
+%global compositor_features full-backend,xwayland
+%endif
+
 Name:           %{project_name}
 Version:        %{package_version}
 Release:        1%{?dist}
@@ -97,8 +106,10 @@ BuildRequires:  libinput-devel
 BuildRequires:  libxkbcommon-devel
 BuildRequires:  libdrm-devel
 BuildRequires:  libseat-devel
+%if %{with xwayland_compat}
 BuildRequires:  libxcb-devel
 BuildRequires:  xcb-util-wm-devel
+%endif
 %endif
 BuildRequires:  systemd-devel
 
@@ -148,6 +159,8 @@ integration lane.  The RPM name remains `exwm-vr` for compatibility with
 existing repositories, host scripts, and proof notes. The default meta package
 requires the native compositor and only suggests the Emacs/eGreg app-layer
 subpackage, so EXWM/XCB Lisp is not part of the normal WM authority runtime.
+XWayland is an explicit compatibility build option, not part of the default
+compositor feature set.
 
 # ===========================================================================
 # Subpackage: compositor
@@ -162,6 +175,9 @@ Requires:       libxkbcommon
 Requires:       libseat
 Requires:       libdrm
 Requires:       systemd-libs
+%if %{with xwayland_compat}
+Requires:       xorg-x11-server-Xwayland
+%endif
 Requires(post): systemd
 Requires(preun): systemd
 Requires(postun): systemd
@@ -309,7 +325,7 @@ cargo build --release --no-default-features \
 # Native Rocky RPMs currently build the host-runnable compositor without the
 # `vr` feature; the full VR lane still depends on libuvc packaging that is not
 # yet proven on named Rocky hosts.
-cargo build --release --features full-backend \
+cargo build --release --features %{compositor_features} \
     --jobs %{_smp_build_ncpus} \
     %{?_cargo_extra_args}
 # Save the native compositor binary before the headless build overwrites
@@ -525,7 +541,7 @@ cargo test --release --no-default-features \
     %{?_cargo_extra_args} || \
     echo "WARN: Rust tests (headless) -- skipped on mock build"
 %else
-cargo test --release --features full-backend %{?_cargo_extra_args} || \
+cargo test --release --features %{compositor_features} %{?_cargo_extra_args} || \
     echo "WARN: Rust tests require Linux DRM/Wayland -- skipped on mock build"
 %endif
 popd

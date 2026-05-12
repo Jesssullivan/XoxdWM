@@ -15,12 +15,19 @@ use smithay::{
     },
     reexports::wayland_server::Display,
     utils::Transform,
+};
+use std::time::Duration;
+use tracing::{info, warn};
+
+#[cfg(feature = "xwayland")]
+use smithay::{
     xwayland::xwm::X11Wm,
     xwayland::{XWayland, XWaylandEvent},
 };
+#[cfg(feature = "xwayland")]
 use std::process::Stdio;
-use std::time::Duration;
-use tracing::{error, info, warn};
+#[cfg(feature = "xwayland")]
+use tracing::error;
 
 pub fn run(
     socket_name: Option<String>,
@@ -118,56 +125,69 @@ pub fn run(
         )
         .map_err(|e| anyhow::anyhow!("failed to insert socket source: {:?}", e))?;
 
-    // Spawn XWayland
-    match XWayland::spawn(
-        &display.handle(),
-        None,
-        std::iter::empty::<(String, String)>(),
-        true,
-        Stdio::null(),
-        Stdio::null(),
-        |_| (),
-    ) {
-        Ok((xwayland, client)) => {
-            event_loop
-                .handle()
-                .insert_source(
-                    xwayland,
-                    move |event, _, state: &mut EwwmState| match event {
-                        XWaylandEvent::Ready {
-                            x11_socket,
-                            display_number,
-                        } => {
-                            info!(display_number, "XWayland ready");
-                            match X11Wm::start_wm(
-                                state.loop_handle.clone(),
+    // Optional XWayland compatibility bridge.
+    #[cfg(feature = "xwayland")]
+    {
+        match XWayland::spawn(
+            &display.handle(),
+            None,
+            std::iter::empty::<(String, String)>(),
+            true,
+            Stdio::null(),
+            Stdio::null(),
+            |_| (),
+        ) {
+            Ok((xwayland, client)) => {
+                event_loop
+                    .handle()
+                    .insert_source(
+                        xwayland,
+                        move |event, _, state: &mut EwwmState| match event {
+                            XWaylandEvent::Ready {
                                 x11_socket,
-                                client.clone(),
-                            ) {
-                                Ok(wm) => {
-                                    state.xwm = Some(wm);
-                                    state.xdisplay = Some(display_number);
-                                    std::env::set_var("DISPLAY", format!(":{}", display_number));
-                                }
-                                Err(e) => {
-                                    error!("Failed to start X11 WM: {}", e);
+                                display_number,
+                            } => {
+                                info!(display_number, "XWayland ready");
+                                match X11Wm::start_wm(
+                                    state.loop_handle.clone(),
+                                    x11_socket,
+                                    client.clone(),
+                                ) {
+                                    Ok(wm) => {
+                                        state.xwm = Some(wm);
+                                        state.xdisplay = Some(display_number);
+                                        std::env::set_var(
+                                            "DISPLAY",
+                                            format!(":{}", display_number),
+                                        );
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to start X11 WM: {}", e);
+                                    }
                                 }
                             }
-                        }
-                        XWaylandEvent::Error => {
-                            warn!("XWayland crashed on startup (continuing without X11 support)");
-                        }
-                    },
-                )
-                .ok();
-            info!("XWayland spawning");
+                            XWaylandEvent::Error => {
+                                warn!(
+                                    "XWayland crashed on startup \
+                                     (continuing without X11 support)"
+                                );
+                            }
+                        },
+                    )
+                    .ok();
+                info!("XWayland spawning");
+            }
+            Err(e) => {
+                warn!(
+                    "XWayland not available: {} (continuing without X11 support)",
+                    e
+                );
+            }
         }
-        Err(e) => {
-            warn!(
-                "XWayland not available: {} (continuing without X11 support)",
-                e
-            );
-        }
+    }
+    #[cfg(not(feature = "xwayland"))]
+    {
+        info!("XWayland compatibility feature disabled; not starting X11 bridge");
     }
 
     // Wayland display dispatch is handled directly in the main loop
