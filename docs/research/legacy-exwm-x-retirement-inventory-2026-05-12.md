@@ -30,6 +30,8 @@ EXWM/XCB Lisp and XWayland are compatibility surfaces:
 | DRM/Winit XWayland spawn | Rust compositor backends | Optional XWayland compatibility | Guard startup behind `#[cfg(feature = "xwayland")]`. |
 | `compositor/Cargo.toml` `full-backend` | Rust compositor build feature | Native Linux backend support | Must not imply `xwayland`; use `full-backend,xwayland` when compatibility is needed. |
 | `packaging/rpm/exwm-vr.spec` | Rocky package lane | Native package with compatibility names | Default build uses `full-backend`; `%bcond xwayland_compat` is opt-in and carries the Xwayland runtime dependency. |
+| `xoxdwm.target` | Package/Nix session lane | Native compositor target | Start compositor only; do not want `exwm-vr-emacs.service`. |
+| `exwm-vr.target` | Package/Nix session lane | Legacy EXWM-VR compatibility target | Keep as an explicit app-layer compatibility route that may want Emacs. |
 | `packages.compositor-xwayland` | Nix package lane | Explicit compatibility build | Keep separate from the default `packages.compositor` output. |
 | `test/exwm-*.el` | Static legacy tests | Inventory/compatibility guard | Keep as tests for legacy archive behavior, not product proof. |
 | Research docs with EXWM examples | Historical docs | Research/archive | Leave unless they make current support or authority claims. |
@@ -43,6 +45,7 @@ available without letting X11 define the default product shape.
 ## Guardrails
 
 - `native-authority/package-default-does-not-load-lisp-core`
+- `native-authority/default-session-target-does-not-pull-emacs`
 - `native-authority/xwayland-is-optional-compatibility-feature`
 - `ipc-contract/surface-metadata-is-protocol-neutral`
 - `just build-compositor-xwayland`

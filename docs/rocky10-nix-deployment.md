@@ -168,10 +168,11 @@ This generates:
 - `~/.config/qutebrowser/exwm-vr-theme.py` — Qutebrowser theme
 
 When `programs.exwm-vr.systemd.enable = true`, the module generates
-`exwm-vr-*` compatibility user units plus `xoxdwm-*` primary aliases:
+`xoxdwm-*` primary user units plus `exwm-vr-*` compatibility user units:
 - `xoxdwm-compositor.service` (`exwm-vr-compositor.service` compatibility unit)
 - `xoxdwm-emacs.service` (`exwm-vr-emacs.service` compatibility unit)
-- `xoxdwm.target` (`exwm-vr.target` compatibility unit)
+- `xoxdwm.target` (native compositor target)
+- `exwm-vr.target` (legacy compatibility target that also wants Emacs)
 
 ## 4. Config variable mapping
 
@@ -268,11 +269,14 @@ After `home-manager switch` with `systemd.enable = true`:
 # Reload systemd user daemon
 systemctl --user daemon-reload
 
-# Start the full session
+# Start the native compositor session
 systemctl --user start xoxdwm.target
 
 # Check status
 systemctl --user status xoxdwm-compositor.service
+
+# Optional: start the Emacs app-layer client
+systemctl --user start xoxdwm-emacs.service
 systemctl --user status xoxdwm-emacs.service
 
 # View logs
@@ -289,16 +293,17 @@ systemctl --user enable xoxdwm.target
 ### Without home-manager
 
 Copy the packaged display-manager service files and add `xoxdwm-*` aliases.
-The checked-in source filenames remain `exwm-vr-*` for compatibility:
+The primary target is now a separate native unit; `exwm-vr.target` remains the
+legacy compatibility target:
 
 ```bash
 mkdir -p ~/.config/systemd/user
 cp packaging/systemd/exwm-vr-compositor.service ~/.config/systemd/user/exwm-vr-compositor.service
 cp packaging/systemd/exwm-vr-emacs.service ~/.config/systemd/user/exwm-vr-emacs.service
+cp packaging/systemd/xoxdwm.target ~/.config/systemd/user/xoxdwm.target
 cp packaging/systemd/exwm-vr.target ~/.config/systemd/user/exwm-vr.target
 ln -sf exwm-vr-compositor.service ~/.config/systemd/user/xoxdwm-compositor.service
 ln -sf exwm-vr-emacs.service ~/.config/systemd/user/xoxdwm-emacs.service
-ln -sf exwm-vr.target ~/.config/systemd/user/xoxdwm.target
 
 # Edit ExecStart paths to point to Nix store results
 vim ~/.config/systemd/user/exwm-vr-compositor.service

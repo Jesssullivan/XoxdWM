@@ -156,18 +156,18 @@
         (goto-char (point-min))
         (should-not (search-forward "wayland-1" nil t))))))
 
-(ert-deftest phase2p/session-wrapper-loads-dedicated-emacs-bootstrap ()
-  "Session wrapper should not rely on ambient user init.el state."
+(ert-deftest phase2p/session-wrapper-defaults-to-native-compositor-only ()
+  "Session wrapper should not start Emacs on the primary native path."
   (let* ((root phase2p-test--project-root)
          (wrapper (expand-file-name "packaging/desktop/exwm-vr-session" root)))
     (when (file-exists-p wrapper)
       (with-temp-buffer
         (insert-file-contents wrapper)
-        (should (search-forward "--quick" nil t))
+        (should (search-forward "session_target=xoxdwm.target" nil t))
         (goto-char (point-min))
-        (should (search-forward "/usr/share/exwm-vr/exwm-vr-session-init.el" nil t))
+        (should-not (search-forward "/usr/bin/emacs --fg-daemon" nil t))
         (goto-char (point-min))
-        (should-not (search-forward "-l ewwm" nil t))))))
+        (should-not (search-forward "/usr/share/exwm-vr/exwm-vr-session-init.el" nil t))))))
 
 (ert-deftest phase2p/desktop-file-has-tryexec ()
   "Desktop file includes TryExec and the XoxdWM identity."

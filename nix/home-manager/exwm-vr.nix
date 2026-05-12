@@ -312,7 +312,7 @@ in
             ];
           };
           Install = {
-            WantedBy = [ "exwm-vr.target" ];
+            WantedBy = [ "xoxdwm.target" "exwm-vr.target" ];
           };
         };
 
@@ -340,15 +340,23 @@ in
           };
         };
 
-        systemd.user.targets."exwm-vr" = {
-          aliases = [ "xoxdwm.target" "ewwm-session.target" ];
+        systemd.user.targets."xoxdwm" = {
+          aliases = [ "ewwm-session.target" ];
           Unit = {
-            Description = "XoxdWM Session";
+            Description = "XoxdWM Native Session";
             Documentation = "https://github.com/Jesssullivan/XoxdWM";
-            Wants = [ "exwm-vr-compositor.service" "exwm-vr-emacs.service" ];
+            Wants = [ "exwm-vr-compositor.service" ];
           };
           Install = {
             WantedBy = [ "graphical-session.target" ];
+          };
+        };
+
+        systemd.user.targets."exwm-vr" = {
+          Unit = {
+            Description = "XoxdWM Legacy EXWM-VR Compatibility Session";
+            Documentation = "https://github.com/Jesssullivan/XoxdWM";
+            Wants = [ "exwm-vr-compositor.service" "exwm-vr-emacs.service" ];
           };
         };
       }

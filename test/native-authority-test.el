@@ -131,6 +131,48 @@
     (should-not (string-match-p "^Requires:[[:space:]]+%{name}-elisp" spec))
     (should (string-match-p "^Suggests:[[:space:]]+%{name}-elisp" spec))))
 
+(ert-deftest native-authority/default-session-target-does-not-pull-emacs ()
+  "The primary XoxdWM target should start native authority without Emacs."
+  (let ((xoxdwm-target
+         (native-authority-test--read-file "packaging/systemd/xoxdwm.target"))
+        (legacy-target
+         (native-authority-test--read-file "packaging/systemd/exwm-vr.target"))
+        (emacs-service
+         (native-authority-test--read-file
+          "packaging/systemd/exwm-vr-emacs.service"))
+        (session
+         (native-authority-test--read-file "packaging/desktop/exwm-vr-session"))
+        (spec (native-authority-test--read-file "packaging/rpm/exwm-vr.spec"))
+        (workflow (native-authority-test--read-file
+                   ".github/workflows/packaging.yml"))
+        (nixos (native-authority-test--read-file "nix/modules/exwm-vr.nix"))
+        (home (native-authority-test--read-file
+               "nix/home-manager/exwm-vr.nix")))
+    (should (string-match-p "Description=XoxdWM Native Session Target"
+                            xoxdwm-target))
+    (should (string-match-p "Wants=exwm-vr-compositor\\.service"
+                            xoxdwm-target))
+    (should-not (string-match-p "exwm-vr-emacs\\.service" xoxdwm-target))
+    (should-not (string-match-p "Alias=xoxdwm\\.target" legacy-target))
+    (should (string-match-p "Wants=exwm-vr-compositor\\.service exwm-vr-emacs\\.service"
+                            legacy-target))
+    (should (string-match-p "WantedBy=exwm-vr\\.target" emacs-service))
+    (should-not (string-match-p "WantedBy=.*xoxdwm\\.target" emacs-service))
+    (should-not (string-match-p "PartOf=.*xoxdwm\\.target" emacs-service))
+    (should (string-match-p "session_target=xoxdwm\\.target" session))
+    (should-not (string-match-p "/usr/bin/emacs --fg-daemon" session))
+    (should (string-match-p "Source25:[[:space:]]+xoxdwm\\.target" spec))
+    (should-not (string-match-p "ln -s exwm-vr\\.target[[:space:]\n]+%{buildroot}%{_userunitdir}/xoxdwm\\.target"
+                                spec))
+    (should (string-match-p "cp packaging/systemd/xoxdwm\\.target"
+                            workflow))
+    (should (string-match-p "systemd\\.user\\.targets\\.\"xoxdwm\"" nixos))
+    (should (string-match-p "requires = \\[ \"exwm-vr-compositor\\.service\" \\]"
+                            nixos))
+    (should (string-match-p "systemd\\.user\\.targets\\.\"xoxdwm\"" home))
+    (should (string-match-p "Wants = \\[ \"exwm-vr-compositor\\.service\" \\]"
+                            home))))
+
 (ert-deftest native-authority/xwayland-is-optional-compatibility-feature ()
   "XWayland should stay feature-gated rather than define the default runtime."
   (let* ((cargo (native-authority-test--read-file "compositor/Cargo.toml"))

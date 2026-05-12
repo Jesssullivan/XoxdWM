@@ -129,6 +129,7 @@ jobs:
           cp packaging/systemd/exwm-vr-emacs.service ~/rpmbuild/SOURCES/
           cp packaging/systemd/exwm-vr-brainflow.service ~/rpmbuild/SOURCES/
           cp packaging/systemd/exwm-vr.target ~/rpmbuild/SOURCES/
+          cp packaging/systemd/xoxdwm.target ~/rpmbuild/SOURCES/
           # Copy udev rules
           cp packaging/udev/99-exwm-vr.rules ~/rpmbuild/SOURCES/
           # Copy desktop session files

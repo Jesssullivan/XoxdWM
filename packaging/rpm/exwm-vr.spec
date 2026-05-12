@@ -73,6 +73,7 @@ Source21:       exwm-vr-monado.service
 Source22:       exwm-vr-emacs.service
 Source23:       exwm-vr-brainflow.service
 Source24:       exwm-vr.target
+Source25:       xoxdwm.target
 
 # udev rules
 Source30:       99-exwm-vr.rules
@@ -458,7 +459,7 @@ ln -s exwm-vr-brainflow.service \
 %endif
 install -Dpm 0644 %{SOURCE24} \
     %{buildroot}%{_userunitdir}/exwm-vr.target
-ln -s exwm-vr.target \
+install -Dpm 0644 %{SOURCE25} \
     %{buildroot}%{_userunitdir}/xoxdwm.target
 install -Dpm 0755 packaging/scripts/xoxdwm-native-authority-proof \
     %{buildroot}%{_libexecdir}/%{project_name}/native-authority-proof
@@ -560,11 +561,13 @@ popd
 %post compositor
 %systemd_user_post exwm-vr-compositor.service
 %systemd_user_post exwm-vr-emacs.service
+%systemd_user_post xoxdwm.target
 %systemd_user_post exwm-vr.target
 
 %preun compositor
 %systemd_user_preun exwm-vr-compositor.service
 %systemd_user_preun exwm-vr-emacs.service
+%systemd_user_preun xoxdwm.target
 %systemd_user_preun exwm-vr.target
 
 %postun compositor

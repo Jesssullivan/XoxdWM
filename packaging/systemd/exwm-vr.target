@@ -1,9 +1,5 @@
 [Unit]
-Description=XoxdWM Session Target
+Description=XoxdWM Legacy EXWM-VR Compatibility Target
 Documentation=https://github.com/Jesssullivan/XoxdWM
 Wants=exwm-vr-compositor.service exwm-vr-emacs.service
 After=graphical-session.target
-
-[Install]
-WantedBy=graphical-session.target
-Alias=xoxdwm.target

@@ -314,7 +314,7 @@ in
         documentation = [ "https://github.com/Jesssullivan/XoxdWM" ];
         aliases = [ "xoxdwm-compositor.service" "ewwm-compositor.service" ];
 
-        wantedBy = [ "graphical-session.target" ];
+        wantedBy = [ "xoxdwm.target" ];
         before = [ "exwm-vr-emacs.service" ];
 
         environment = {
@@ -344,7 +344,7 @@ in
 
         requires = [ "exwm-vr-compositor.service" ];
         after = [ "exwm-vr-compositor.service" ];
-        wantedBy = [ "graphical-session.target" ];
+        wantedBy = [ "exwm-vr.target" ];
 
         environment = {
           XDG_CURRENT_DESKTOP = "XoxdWM";
@@ -372,12 +372,18 @@ in
       };
 
       # ── Session target ──────────────────────────────────────────────
+      systemd.user.targets."xoxdwm" = {
+        description = "XoxdWM Native Session";
+        aliases = [ "ewwm-session.target" ];
+        requires = [ "exwm-vr-compositor.service" ];
+        after = [ "exwm-vr-compositor.service" ];
+        wantedBy = [ "graphical-session.target" ];
+      };
+
       systemd.user.targets."exwm-vr" = {
-        description = "XoxdWM Session";
-        aliases = [ "xoxdwm.target" "ewwm-session.target" ];
+        description = "XoxdWM Legacy EXWM-VR Compatibility Session";
         requires = [ "exwm-vr-compositor.service" "exwm-vr-emacs.service" ];
         after = [ "exwm-vr-compositor.service" "exwm-vr-emacs.service" ];
-        wantedBy = [ "graphical-session.target" ];
       };
     }
 
