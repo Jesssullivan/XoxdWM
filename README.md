@@ -1,6 +1,6 @@
 # XoxdWM
 
-XoxdWM is an experimental Wayland compositor plus Emacs window-management layer with VR, eye-tracking, hand-tracking, and BCI research surfaces.
+XoxdWM is an experimental native Wayland WM/DE authority with optional Emacs/eGreg app-layer clients plus VR, eye-tracking, hand-tracking, and BCI research surfaces.
 
 This repository is the canonical public home for the compositor, packaging, releases, and status tracking. It is not a claim that every documented subsystem is proven on lab hardware today.
 
@@ -32,6 +32,7 @@ As of 2026-05-12:
 - [Honey Fresh-Boot Runbook](docs/honey-fresh-boot-runbook-2026-04-26.md)
 - [Honey Fresh-Boot Evidence Template](docs/honey-fresh-boot-evidence-template.md)
 - [Honey PPS Diagnostic Runbook](docs/honey-pps-diagnostic-runbook-2026-05-12.md)
+- [Emacs/eGreg App-Layer Contract](docs/emacs-egreg-app-layer.md)
 - [Status](docs/status.md)
 - [Q2 2026 Roadmap](docs/roadmap-2026-q2.md)
 - [Installation Quickstart](docs/installation-quickstart.md)
@@ -41,7 +42,7 @@ As of 2026-05-12:
 
 The repo contains four different kinds of work:
 
-- compositor and Emacs WM code
+- native compositor and Emacs/eGreg app-layer client code
 - packaging for Rocky/Nix/systemd/SELinux
 - hardware and upstream patch research
 - aspirational feature inventory

@@ -68,6 +68,34 @@
    (string-match-p "\\bPLAN\\.md\\b"
                    (truth-surface-test--read-file "docs/developer-guide.md"))))
 
+(ert-deftest truth-surface/emacs-egreg-app-layer-contract-is-explicit ()
+  "Public docs should keep Emacs/eGreg app-layer status separate from WM authority."
+  (let ((readme (truth-surface-test--read-file "README.md"))
+        (guide (truth-surface-test--read-file "docs/developer-guide.md"))
+        (app-doc (truth-surface-test--read-file "docs/emacs-egreg-app-layer.md"))
+        (compat (truth-surface-test--read-file "docs/app-compatibility.md"))
+        (status (truth-surface-test--read-file "docs/status.md")))
+    (should (string-match-p "docs/emacs-egreg-app-layer\\.md" readme))
+    (dolist (content (list readme guide))
+      (should-not (string-match-p "Emacs window-management layer" content))
+      (should-not (string-match-p "Emacs is the window management brain" content))
+      (should-not (string-match-p "Emacs as policy" content)))
+    (should (string-match-p "native Wayland WM/DE authority" readme))
+    (should (string-match-p "Rust compositor.*owns" guide))
+    (should (string-match-p "Emacs/eGreg runs as an[ \n]+optional" guide))
+    (should (string-match-p "xoxdwm-emacs\\.service" app-doc))
+    (should (string-match-p "emacsclient -c" app-doc))
+    (should (string-match-p "Wayland native" app-doc))
+    (should (string-match-p "XWayland" app-doc))
+    (should (string-match-p "compatibility path is explicit" app-doc))
+    (should (string-match-p "control/diagnostic/app integration only" app-doc))
+    (should (string-match-p "not the WM authority" app-doc))
+    (should (string-match-p "debug/editor-only" app-doc))
+    (should (string-match-p "Emacs pgtk / eGreg" compat))
+    (should (string-match-p "GitHub #47.*closed" status))
+    (should-not (string-match-p "Remaining authority-adjacent product gates.*#47"
+                                status))))
+
 (ert-deftest truth-surface/feature-matrix-command-count-matches-dispatcher ()
   "Feature-matrix IPC count should track the current dispatcher."
   (should
