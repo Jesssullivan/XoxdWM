@@ -6,8 +6,11 @@ support surface for the repo.
 
 Status vocabulary:
 
-- `Proven`: repeatably validated on a named host or in stable automation.
+- `Product`: repeatably validated on a named host or stable automation and
+  ready to present as a supported product surface.
 - `Smoke`: packaged or manually validated once, but not yet a stable supported lane.
+- `Prototype`: active implementation exists, but the path still needs named-host
+  proof before it becomes a support claim.
 - `Synthetic`: code/static/headless proof exists, but no named visual runtime proof.
 - `Design`: code/docs/research exist, but the flow is not yet claimed as working on a named target.
 
@@ -49,7 +52,7 @@ For PREEMPT_RT specifically, use the Dell claim ladder:
 
 | Target | Status | Notes |
 | --- | --- | --- |
-| `honey` kernel generic lane | Proven | The May 2026 lab pass was on `6.19.5-10.xr.el10`; generic XR kernel boot remains the default lane. Baseline validation belongs in [`Dell-7810/docs/platform/host-kernel-baseline.md`](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/platform/host-kernel-baseline.md). |
+| `honey` kernel generic lane | Smoke | The May 2026 lab pass was on `6.19.5-10.xr.el10`; generic XR kernel boot remains the default lane. Baseline validation belongs in [`Dell-7810/docs/platform/host-kernel-baseline.md`](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/platform/host-kernel-baseline.md). |
 | `honey` kernel RT lane | Smoke | Dell-7810 has RT boot proof, host-posture validation, and a cautionary repeated RT Chapel packet for `6.19.5-rt1-8.xr.el10`, but XoxdWM does not yet claim a downstream XR/software RT benefit on `honey`. |
 | `honey` XoxdWM compositor install | Smoke | `honey` has branch-scoped `exwm-vr-0.5.4-1.el10` packages installed, and `systemctl --user start exwm-vr.target` reached bounded named-host startup with active compositor plus Emacs and `ewwm: initialized`. Reinstalling the `24776900393` compositor RPM put the lease-capable `/usr/bin/ewwm-compositor` onto the host, and the installed package surface grants a real DRM lease to Monado when the live headset connector is designated via `~/.config/exwm-vr/compositor.env`; see [honey-substrate-proof-2026-04-22.md](honey-substrate-proof-2026-04-22.md). May 2026 live topology is `card0-DP-1` for BS2E and `card0-HDMI-A-1` for Dell, superseding the April `DP-2`/`HDMI-A-2` sample. |
 | `honey` OpenXR userspace prereqs | Smoke | `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `monado-beyond-0.0.1-1.20260310git.el10`, `/usr/bin/monado-service`, `/usr/share/openxr/1/openxr_monado.json`, and `/etc/xdg/openxr/1/active_runtime.json` are present. `monado-cli`/OpenXR clients can identify the Bigscreen Beyond when the host uses the explicit live connector and SteamVR environment. |
@@ -86,6 +89,23 @@ For PREEMPT_RT specifically, use the Dell claim ladder:
 | Hand tracking / gestures | Design | Same. |
 | BCI / BrainFlow | Design | Same. |
 
+## Multimodal Input Reality Ladder
+
+This ladder is the claim boundary for eye, head-gaze, hand, HID, mouth/voice,
+and BCI input. Upgrade any row only after the named acquisition proof in its
+gate exists; synthetic tests and subsystem inventories do not count as real
+acquisition proof or promote product support.
+
+| Surface | Class | Current Proof | Upgrade Gate |
+| --- | --- | --- | --- |
+| Eye tracking / gaze control | Design | OpenXR, Pupil Labs, and simulated gaze paths are documented and partially implemented, but no named-host packet records real eye-gaze acquisition. | Record a dated `honey`/`yoga` acquisition packet from OpenXR `XR_EXT_eye_gaze_interaction` or Pupil ZMQ with device, host, confidence/rate, and compositor/client consumer. |
+| Head-gaze fallback | Prototype | Head-pose and gaze-zone code exists as a fallback interaction design, but it is not evidence for eye tracking. | Record a VR pose acquisition plus target-selection proof on a named host and keep it separate from eye-gaze claims. |
+| Hand tracking / gestures | Design | Hand/gesture modules and tests exist; no current named-host hand-tracking acquisition proof is claimed. | Capture an OpenXR hand-tracking or controller/gesture stream on a named host. |
+| HMD HID helpers | Synthetic | The Bigscreen Beyond HID helper is corrected and statically guarded, but installed-host refresh and observed device effect are still separate evidence. | Refresh the helper on `honey`, capture the hidraw device transaction, and record the observed panel/service effect. |
+| BCI / BrainFlow acquisition | Design | BrainFlow/OpenBCI docs and Lisp modules exist; current automated coverage uses synthetic board/data paths rather than a real EEG stream. | Record a BrainFlow/OpenBCI acquisition packet with board ID, serial path, sample rate, channel quality, and consumer path on a named host. |
+| Synthetic gaze / BCI injection | Synthetic | Simulated gaze and BrainFlow board `0` exist for tests and development only. | Never promote directly; replace with a real acquisition packet before any smoke/product claim. |
+| Mouth / voice input | Design | Voice and mouth input are archived roadmap/design material; no active XoxdWM input path is claimed. | Add an active acquisition pipeline, tests, and named-host capture before claiming prototype or smoke support. |
+
 ## CI
 
 | Workflow Area | Status | Notes |
@@ -98,4 +118,4 @@ For PREEMPT_RT specifically, use the Dell claim ladder:
 
 ## Interpretation
 
-The feature matrix is a subsystem inventory, not a support promise. If a capability is not listed here as `Proven` or `Smoke`, treat it as `Design` regardless of how detailed the subsystem docs are.
+The feature matrix is a subsystem inventory, not a support promise. If a capability is not listed here as `Product` or `Smoke`, treat it as `Design` unless a narrower row explicitly labels it `Prototype` or `Synthetic`.

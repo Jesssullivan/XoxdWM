@@ -28,8 +28,8 @@ For named-host claims, read [status.md](status.md),
 
 XoxdWM targets the OpenXR standard via the Monado runtime. The table below is
 a design-oriented compatibility target, not a current named-host support
-promise. If a device is not called out as `Proven` or `Smoke` in the repo truth
-surface, treat it as design-level intent rather than current support.
+promise. If a device is not called out as `Product` or `Smoke` in the repo
+truth surface, treat it as design-level intent rather than current support.
 
 | HMD | Connection | Historical / Design Status | Notes |
 |-----|-----------|----------------------------|-------|

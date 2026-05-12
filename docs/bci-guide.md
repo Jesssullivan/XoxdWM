@@ -30,10 +30,12 @@ and [status.md](status.md). For the build/control-plane boundary, read
 
 ## Overview
 
-XoxdWM integrates EEG-based brain-computer interface (BCI) input alongside
-gaze tracking and hand gestures. The BCI pipeline uses BrainFlow for hardware
-abstraction, with a daemon process bridging the C++ BrainFlow library to the
-Rust compositor via shared memory.
+XoxdWM carries EEG-based brain-computer interface (BCI) design and prototype
+surfaces alongside gaze tracking and hand gestures. The intended BCI pipeline
+uses BrainFlow for hardware abstraction, with a daemon process bridging the C++
+BrainFlow library to the Rust compositor via shared memory. Current repo
+support remains `Design` until a named-host real EEG acquisition packet exists;
+synthetic board paths are for tests and development only.
 
 The BCI system is built from seven Elisp modules:
 
@@ -53,14 +55,14 @@ The BCI system is built from seven Elisp modules:
 
 ### Supported EEG Devices
 
-| Device | Board ID | Channels | Sample Rate | Notes |
+| Device | Board ID | Channels | Sample Rate | Evidence Class / Notes |
 |--------|----------|----------|-------------|-------|
-| OpenBCI Cyton | 1 | 8 | 250 Hz | Primary target |
-| OpenBCI CytonDaisy | 22 | 16 | 125 Hz | Full 10-20 coverage |
-| OpenBCI Ganglion | 2 | 4 | 200 Hz | Budget option |
-| Muse 2 | 45 | 4 | 256 Hz | Consumer-grade |
-| BrainBit | 38 | 4 | 250 Hz | Wireless |
-| Synthetic | 0 | 8 | 250 Hz | Testing only |
+| OpenBCI Cyton | 1 | 8 | 250 Hz | Design target until named-host BrainFlow acquisition proof exists |
+| OpenBCI CytonDaisy | 22 | 16 | 125 Hz | Design target until named-host BrainFlow acquisition proof exists |
+| OpenBCI Ganglion | 2 | 4 | 200 Hz | Design target until named-host BrainFlow acquisition proof exists |
+| Muse 2 | 45 | 4 | 256 Hz | Design target until named-host BrainFlow acquisition proof exists |
+| BrainBit | 38 | 4 | 250 Hz | Design target until named-host BrainFlow acquisition proof exists |
+| Synthetic | 0 | 8 | 250 Hz | Synthetic; testing only |
 
 ### Recommended Setup
 

@@ -326,5 +326,54 @@
     (should-not (string-match-p "passed_after_ready_timeout" smoke))
     (should-not (string-match-p "first frame confirmed" smoke))))
 
+(ert-deftest truth-surface/support-matrix-uses-current-evidence-classes ()
+  "Support matrix should use the current evidence vocabulary."
+  (let ((matrix (truth-surface-test--read-file "docs/support-matrix.md"))
+        (arc (truth-surface-test--read-file
+              "docs/reality-driven-development-arc-2026-q2.md")))
+    (dolist (class '("Product" "Smoke" "Prototype" "Synthetic" "Design"))
+      (should (string-match-p
+               (format "`%s`:" (regexp-quote class))
+               matrix))
+      (should (string-match-p
+               (format "`%s`:" (regexp-quote class))
+               arc)))
+    (should-not (string-match-p "|[^\n|]+|[[:space:]]*Proven[[:space:]]*|" matrix))
+    (should-not (string-match-p "`Proven`:" matrix))
+    (should (string-match-p
+             "If a capability is not listed here as `Product` or `Smoke`"
+             matrix))))
+
+(ert-deftest truth-surface/multimodal-inputs-remain-evidence-classed ()
+  "Eye, HID, BCI, synthetic, and voice surfaces should not outrun evidence."
+  (let ((matrix (truth-surface-test--read-file "docs/support-matrix.md"))
+        (readme (truth-surface-test--read-file "README.md"))
+        (eye (truth-surface-test--read-file "docs/eye-tracking-guide.md"))
+        (bci (truth-surface-test--read-file "docs/bci-guide.md"))
+        (quickstart (truth-surface-test--read-file "docs/bci-quickstart.md")))
+    (should (string-match-p "## Multimodal Input Reality Ladder" matrix))
+    (dolist (claim '("Eye tracking / gaze control.*Design"
+                     "Head-gaze fallback.*Prototype"
+                     "HMD HID helpers.*Synthetic"
+                     "BCI / BrainFlow acquisition.*Design"
+                     "Synthetic gaze / BCI injection.*Synthetic"
+                     "Mouth / voice input.*Design"))
+      (should (string-match-p claim matrix)))
+    (should (string-match-p "real[ \n]+acquisition proof" matrix))
+    (should (string-match-p "named acquisition proof" matrix))
+    (should (string-match-p "Multimodal input surfaces" readme))
+    (should (string-match-p "synthetic paths labeled test-only" readme))
+    (should (string-match-p "Evidence Class" eye))
+    (should (string-match-p "Simulated (mouse).*Synthetic; testing only" eye))
+    (should (string-match-p "Head-gaze fallback.*not eye-tracking proof" eye))
+    (should-not (string-match-p "OpenXR native.*Primary" eye))
+    (should-not (string-match-p "Pupil Labs Core.*Tested" eye))
+    (should (string-match-p "Current repo[ \n]+support remains `Design`" bci))
+    (should (string-match-p "Synthetic.*Synthetic; testing only" bci))
+    (should-not (string-match-p "OpenBCI Cyton.*Primary target" bci))
+    (should (string-match-p "prototype setup path" quickstart))
+    (should (string-match-p "Synthetic board[ \n]+paths are development-only" quickstart))
+    (should-not (string-match-p "you will have[ \n]+a working EEG stream" quickstart))))
+
 (provide 'truth-surface-test)
 ;;; truth-surface-test.el ends here

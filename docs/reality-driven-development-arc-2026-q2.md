@@ -141,8 +141,11 @@ Those areas remain design or subsystem work until they are tied to named-host pr
 
 From this point forward, use these labels consistently:
 
-- `Proven`: repeatably validated on a named host or stable automation
+- `Product`: repeatably validated on a named host or stable automation and
+  ready to present as a supported product surface
 - `Smoke`: packaged or validated once, but not yet stable
+- `Prototype`: active implementation exists, but still lacks named-host proof
+- `Synthetic`: code/static/headless/simulated proof only
 - `Design`: code, docs, or research exist without named-target proof
 
 And use these narrative rules:
