@@ -3,13 +3,14 @@
 ## Overview
 
 This guide walks you through setting up brain-computer interface (BCI)
-hardware and software for use with XoxdWM. By the end, you will have
-a working EEG stream feeding attention state into your VR window manager.
+hardware and software for use with XoxdWM. It is a prototype setup path, not
+proof that XoxdWM currently has a named-host real EEG acquisition lane.
 
 This is a subsystem quickstart, not a named-host support promise. For current
 support claims and the Linux-target / remote-lane build boundary, read
 [support-matrix.md](support-matrix.md), [status.md](status.md), and
-[remote-build-authority.md](remote-build-authority.md) first.
+[remote-build-authority.md](remote-build-authority.md) first. Synthetic board
+paths are development-only and do not upgrade BCI support claims.
 
 **Time required**: ~1 hour for first setup, ~5 minutes for daily use.
 

@@ -26,15 +26,17 @@ and [status.md](status.md).
 ## Supported Trackers
 
 EWWM supports multiple eye tracking sources through a unified gaze model.
+This is a subsystem inventory. Named-host support remains whatever is listed
+in the support matrix, and simulated gaze is a synthetic testing path only.
 
-| Tracker | Type | Connection | Refresh Rate | Status |
+| Tracker | Type | Connection | Refresh Rate | Evidence Class |
 |---------|------|-----------|-------------|--------|
-| OpenXR native | HMD-integrated | XR_EXT_eye_gaze_interaction | HMD-dependent | Primary |
-| Pupil Labs Core | External (clip-on) | USB + ZMQ | 200 Hz | Tested |
-| Pupil Labs Neon | External (glasses) | USB + ZMQ | 200 Hz | Recommended |
-| Simulated (mouse) | Development | Internal | 60 Hz | For testing |
-| Simulated (scripted) | Development | Internal | Configurable | For testing |
-| Head-gaze fallback | No hardware | VR head tracking | HMD-dependent | Always available |
+| OpenXR native | HMD-integrated | XR_EXT_eye_gaze_interaction | HMD-dependent | Design until a named-host eye-gaze acquisition packet exists |
+| Pupil Labs Core | External (clip-on) | USB + ZMQ | 200 Hz | Design until a named-host Pupil ZMQ acquisition packet exists |
+| Pupil Labs Neon | External (glasses) | USB + ZMQ | 200 Hz | Design until a named-host Pupil ZMQ acquisition packet exists |
+| Simulated (mouse) | Development | Internal | 60 Hz | Synthetic; testing only |
+| Simulated (scripted) | Development | Internal | Configurable | Synthetic; testing only |
+| Head-gaze fallback | No eye hardware | VR head tracking | HMD-dependent | Prototype fallback; not eye-tracking proof |
 
 ### Source Priority (auto mode)
 
