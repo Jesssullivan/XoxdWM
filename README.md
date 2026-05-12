@@ -6,7 +6,7 @@ This repository is the canonical public home for the compositor, packaging, rele
 
 ## Current State
 
-As of 2026-05-09:
+As of 2026-05-12:
 
 | Area | Status | Notes |
 | --- | --- | --- |
@@ -14,7 +14,7 @@ As of 2026-05-09:
 | Headless compositor path | Smoke | Build and test surfaces exist, but not re-validated in this pass. |
 | Rocky 10 package install | Smoke | `yoga` now has refreshed installed `0.5.4-1.el10` `exwm-vr-*` RPMs from the current branch, the real installed units pass a named-host bounded proof, and a controlled SDDM autologin run reached a real `EXWM-VR` Wayland user session on `seat0`. The packaged `SuccessExitStatus=15` stop-path fix is now on-host; the remaining follow-on is repeatability and operator polish, not package repair. |
 | `honey` compositor/substrate path | Smoke | `honey` now has installed branch-scoped `exwm-vr-0.5.4-1.el10` packages, a bounded named-host `exwm-vr.target` startup, and a direct-mode lease proof from the installed `/usr/bin/ewwm-compositor` after reinstalling the branch RPM artifact from run `24776900393`. |
-| `honey` VR session | Smoke | On `2026-04-22`, the installed `ewwm-compositor` on `honey` initialized `wp_drm_lease_v1`, reserved the headset connector, and granted a real DRM lease to Monado. The repo-owned `exwm-vr-monado.service`, installed `monado-beyond` host package, `exwm-vr-openxr-smoke-client` RPM, and `just honey-openxr-*` wrappers now prove the packaged OpenXR client lane. On `2026-05-09`, the current Honey topology was `card0-DP-1` for the BS2E and `card0-HDMI-A-1` for the Dell panel, with `rke2-server` still active. After correcting the host config from the old `DP-2` target to `DP-1`, repeated `/usr/libexec/exwm-vr/hello_xr -g Vulkan` runs selected Monado / Bigscreen Beyond, created two `3561x3561` eye swapchains, and reached `READY -> SYNCHRONIZED -> VISIBLE -> FOCUSED`. The human-visible headset output remained black, so the current classification is P3 OpenXR Session pass / P4 Visual First Frame fail, not first-frame or daily-driver proof. |
+| `honey` VR session | Smoke | On `2026-04-22`, the installed `ewwm-compositor` on `honey` initialized `wp_drm_lease_v1`, reserved the headset connector, and granted a real DRM lease to Monado. The repo-owned `exwm-vr-monado.service`, installed `monado-beyond` host package, `exwm-vr-openxr-smoke-client` RPM, and `just honey-openxr-*` wrappers now prove the packaged OpenXR client lane. On `2026-05-09`, the current Honey topology was `card0-DP-1` for the BS2E and `card0-HDMI-A-1` for the Dell panel, with `rke2-server` still active. After correcting the host config from the old `DP-2` target to `DP-1`, repeated `/usr/libexec/exwm-vr/hello_xr -g Vulkan` runs selected Monado / Bigscreen Beyond, created two `3561x3561` eye swapchains, and reached `READY -> SYNCHRONIZED -> VISIBLE -> FOCUSED`. The human-visible headset output remained black, so the current classification is P3 OpenXR Session pass / P4 Visual First Frame fail. `linux-xr` PR #69 now provides the next read-only PPS diagnostic artifact lane, but that is observability only until installed and attended on `honey`. |
 | `yoga` desktop/dev target | Smoke | `yoga` now has an installed `0.5.4` session proof with explicit `drm` backend and dedicated Emacs bootstrap, plus a one-time SDDM greeter-path proof via `sddm-autologin` on `seat0`. The remaining work is repeatability and session polish, not basic launch viability or packaged stop-path repair. |
 | Eye tracking / hand tracking / BCI | Design | Documented and partially implemented, but not currently claimed as proven on named lab hosts. |
 
@@ -31,6 +31,7 @@ As of 2026-05-09:
 - [Honey Substrate Proof](docs/honey-substrate-proof-2026-04-22.md)
 - [Honey Fresh-Boot Runbook](docs/honey-fresh-boot-runbook-2026-04-26.md)
 - [Honey Fresh-Boot Evidence Template](docs/honey-fresh-boot-evidence-template.md)
+- [Honey PPS Diagnostic Runbook](docs/honey-pps-diagnostic-runbook-2026-05-12.md)
 - [Status](docs/status.md)
 - [Q2 2026 Roadmap](docs/roadmap-2026-q2.md)
 - [Installation Quickstart](docs/installation-quickstart.md)

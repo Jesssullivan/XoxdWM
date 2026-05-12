@@ -1,6 +1,6 @@
 # XoxdWM Remote Proof Lanes
 
-Snapshot date: 2026-04-25
+Snapshot date: 2026-05-12
 
 This document names the remote workflow and host lanes that actually matter when
 you are operating XoxdWM from `neo`.
@@ -14,6 +14,8 @@ For the next attended `honey` fresh-boot proof, use
 [honey-fresh-boot-runbook-2026-04-26.md](honey-fresh-boot-runbook-2026-04-26.md).
 Record the result with
 [honey-fresh-boot-evidence-template.md](honey-fresh-boot-evidence-template.md).
+For the read-only packed DSC PPS diagnostic lane after `linux-xr` PR #69, use
+[honey-pps-diagnostic-runbook-2026-05-12.md](honey-pps-diagnostic-runbook-2026-05-12.md).
 
 ## Core Distinction
 
@@ -57,6 +59,7 @@ Not every remote workflow is authoritative in the same way.
    - `just honey-openxr-smoke`
    - `just honey-openxr-clean-cycle`
    - `just honey-openxr-fresh-boot-check`
+   - `just honey-kernel-dsc-truth`
 4. Inspect the live remote surface with `just remote-proof-surface` and
    `just remote-proof-runs`.
 5. Dispatch bounded remote checks when needed:
@@ -119,6 +122,13 @@ The repo now has a thin explicit remote-dev/operator lane for working from
     fresh boot has completed
   - use [honey-fresh-boot-runbook-2026-04-26.md](honey-fresh-boot-runbook-2026-04-26.md)
     for the evidence checklist and pass/fail criteria
+- `just honey-kernel-dsc-truth`
+  - copy the repo-owned DSC truth helper to `/tmp` on `honey`, then read kernel
+    module, EDID, connector debugfs, and packed PPS state through the Honey sudo
+    lane
+  - this target is read-only with respect to debugfs and must not be combined
+    with link retraining or service mutation unless the operator has explicitly
+    approved a broader attended run
 
 This lane is for live host work such as:
 
@@ -126,6 +136,8 @@ This lane is for live host work such as:
 - systemd unit inspection
 - DRM, Wayland, and IPC debugging
 - running repo commands on the real Linux host from `neo`
+- reading DSC/PPS truth for the active HMD connector after a diagnostic kernel
+  artifact is intentionally selected
 
 It is not a replacement for the external Bazel control plane in `rockies`.
 Use `rockies` when the work is really Rocky graph/orchestration policy rather
