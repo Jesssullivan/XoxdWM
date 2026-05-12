@@ -46,6 +46,7 @@ available without letting X11 define the default product shape.
 
 - `native-authority/package-default-does-not-load-lisp-core`
 - `native-authority/default-session-target-does-not-pull-emacs`
+- `just package-no-default-lisp-core-assert`
 - `native-authority/xwayland-is-optional-compatibility-feature`
 - `ipc-contract/surface-metadata-is-protocol-neutral`
 - `just build-compositor-xwayland`

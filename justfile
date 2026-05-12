@@ -124,7 +124,12 @@ package-no-default-lisp-core-assert:
     python3 - <<'PY'
     from pathlib import Path
 
-    spec = Path("{{project_root}}/packaging/rpm/exwm-vr.spec").read_text()
+    root = Path("{{project_root}}")
+    spec = (root / "packaging/rpm/exwm-vr.spec").read_text()
+    xoxdwm_target = (root / "packaging/systemd/xoxdwm.target").read_text()
+    legacy_target = (root / "packaging/systemd/exwm-vr.target").read_text()
+    emacs_service = (root / "packaging/systemd/exwm-vr-emacs.service").read_text()
+    session = (root / "packaging/desktop/exwm-vr-session").read_text()
     start = spec.index(";;; exwm-vr-init.el")
     end = spec.index("ELISP_EOF", start)
     snippet = spec[start:end]
@@ -138,7 +143,28 @@ package-no-default-lisp-core-assert:
         raise SystemExit("RPM must install native-authority-proof helper")
     if "%{_libexecdir}/%{project_name}/native-authority-proof" not in spec:
         raise SystemExit("RPM compositor package must own native-authority-proof helper")
+    if "Source25:       xoxdwm.target" not in spec:
+        raise SystemExit("RPM must source the native xoxdwm.target as a real unit")
+    if "ln -s exwm-vr.target" in spec:
+        raise SystemExit("RPM must not package xoxdwm.target as an exwm-vr.target symlink")
+    if "exwm-vr-emacs.service" in xoxdwm_target:
+        raise SystemExit("native xoxdwm.target must not want the Emacs app-layer service")
+    if "Wants=exwm-vr-compositor.service" not in xoxdwm_target:
+        raise SystemExit("native xoxdwm.target must want the compositor service")
+    if "Alias=xoxdwm.target" in legacy_target:
+        raise SystemExit("legacy exwm-vr.target must not alias the native xoxdwm.target")
+    if "Wants=exwm-vr-compositor.service exwm-vr-emacs.service" not in legacy_target:
+        raise SystemExit("legacy exwm-vr.target should remain the explicit Emacs compatibility path")
+    if "WantedBy=xoxdwm.target" in emacs_service or "PartOf=xoxdwm.target" in emacs_service:
+        raise SystemExit("Emacs app-layer service must not install into or bind to xoxdwm.target")
+    if "WantedBy=exwm-vr.target" not in emacs_service:
+        raise SystemExit("Emacs app-layer service should remain available through exwm-vr.target")
+    if "/usr/bin/emacs --fg-daemon" in session:
+        raise SystemExit("display-manager wrapper fallback must not launch Emacs by default")
+    if "/usr/share/exwm-vr/exwm-vr-session-init.el" in session:
+        raise SystemExit("display-manager wrapper fallback must not load the Emacs bootstrap by default")
     print("package_no_default_lisp_core=passed")
+    print("package_native_target_graph=passed")
     PY
 
 [group('test')]
