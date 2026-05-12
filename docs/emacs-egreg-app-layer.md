@@ -53,6 +53,9 @@ normal XoxdWM runtime path.
 
 ## Proof Surfaces
 
+- `just emacs-egreg-app-layer-test` proves the packaged Emacs/eGreg profile is
+  an optional Wayland app-layer client that connects to the native compositor
+  instead of owning the session target.
 - `just package-no-default-lisp-core-assert` proves the default package/session
   graph keeps `xoxdwm.target` native-only.
 - `just native-authority-test` guards native policy ownership and app-layer IPC
