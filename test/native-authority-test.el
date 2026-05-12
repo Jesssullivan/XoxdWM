@@ -122,6 +122,7 @@
 (ert-deftest native-authority/package-default-does-not-load-lisp-core ()
   "Default RPM init should not add lisp/core to load-path."
   (let* ((spec (native-authority-test--read-file "packaging/rpm/exwm-vr.spec"))
+         (justfile (native-authority-test--read-file "justfile"))
          (start (string-match ";;; exwm-vr-init\\.el" spec))
          (end (and start (string-match "ELISP_EOF" spec start)))
          (snippet (and start end (substring spec start end))))
@@ -129,7 +130,10 @@
     (should-not (string-match-p "exwm-vr/core" snippet))
     (should (string-match-p "compatibility/archive surface" snippet))
     (should-not (string-match-p "^Requires:[[:space:]]+%{name}-elisp" spec))
-    (should (string-match-p "^Suggests:[[:space:]]+%{name}-elisp" spec))))
+    (should (string-match-p "^Suggests:[[:space:]]+%{name}-elisp" spec))
+    (should (string-match-p "package_native_target_graph=passed" justfile))
+    (should (string-match-p "native xoxdwm.target must not want the Emacs app-layer service"
+                            justfile))))
 
 (ert-deftest native-authority/default-session-target-does-not-pull-emacs ()
   "The primary XoxdWM target should start native authority without Emacs."
