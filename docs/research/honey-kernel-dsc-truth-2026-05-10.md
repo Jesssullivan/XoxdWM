@@ -188,27 +188,16 @@ Sibling repo checks on May 10 keep the ownership split as follows:
   but not fully converged into host IaC. Do not use cluster drain, reboot, or
   rke2 operations as part of PPS evidence capture.
 
-The repo now carries a read-only kernel patch draft:
+The read-only PPS patch now lives in `linux-xr` as
+`xr/patches/amdgpu-dsc-pps-debugfs.patch`. It adds a connector debugfs file
+named `dsc_pic_parameter_set` that dumps the cached
+`dc_stream_state.dsc_packed_pps[128]` as hex bytes. This is the payload AMD DC
+already generates in `dsc_get_packed_pps()` and stores on the stream before
+sending the PPS SDP; the patch only reads it back.
 
-```text
-patches/amdgpu-dsc-pps-debugfs.patch
-```
-
-It adds a connector debugfs file named `dsc_pic_parameter_set` that dumps the
-cached `dc_stream_state.dsc_packed_pps[128]` as hex bytes. This is the payload
-AMD DC already generates in `dsc_get_packed_pps()` and stores on the stream
-before sending the PPS SDP; the patch only reads it back. It has been checked
-with:
-
-```bash
-git -C /Users/jess/git/linux-xr apply --check \
-  /Users/jess/git/XoxdWM/patches/amdgpu-dsc-pps-debugfs.patch
-```
-
-The diagnostic patch has also been staged in the `linux-xr-fast` release-carry
-repo as `xr/patches/amdgpu-dsc-pps-debugfs.patch`, listed after the existing
-DSC and Beyond EDID patches in `xr/patches/series`, and applied from
-`xr/specs/kernel-xr.spec` as `Patch20`.
+The patch merged through <https://github.com/tinyland-inc/linux-xr/pull/69> at
+`dbfcd3938a2f3`. It is listed after the existing DSC and Beyond EDID patches in
+`xr/patches/series` and applied from `xr/specs/kernel-xr.spec` as `Patch20`.
 
 The staged carry was validated with:
 
@@ -232,6 +221,13 @@ apply the patch. Both kernel carry dry-runs apply the full `series` with zero
 fuzz against kernel.org tarballs. This does not make the patch a visual fix; it
 only gives the next test kernel a read-only way to prove the exact packed PPS
 bytes that AMD DC cached for the live stream.
+
+Post-merge, Determinate CI passed for `xr/main` in run `25710732827`. An
+artifact-only generic diagnostic RPM build for `6.19.5-xr12` was dispatched as
+run `25710987473`; this is not a release tag and does not mutate `honey`.
+
+The attended operator procedure for using that artifact is captured in
+[honey-pps-diagnostic-runbook-2026-05-12.md](../honey-pps-diagnostic-runbook-2026-05-12.md).
 
 Useful next steps:
 

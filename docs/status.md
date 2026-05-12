@@ -1,6 +1,6 @@
 # XoxdWM Status
 
-Snapshot date: 2026-05-10
+Snapshot date: 2026-05-12
 
 ## Honest Assessment
 
@@ -20,6 +20,7 @@ Snapshot date: 2026-05-10
 - Current live Honey topology from the May 2026 lab pass is `card0-DP-1` for BS2E and `card0-HDMI-A-1` for the Dell management panel, not the older April `DP-2`/`HDMI-A-2` mapping. Host config must follow the live connector sample before attempting goggles proof.
 - The repo now carries `packaging/scripts/exwm-vr-hmd-connector` so setup/status/proof helpers resolve the headset as connected DP `non_desktop=1`, then BIG EDID `0x1234`/`0x5095`, then explicit override, instead of assuming Honey is always `DP-2`.
 - The May 2026 lab pass still failed human-visible first frame: the OpenXR session reached `FOCUSED`, but the goggles remained black. Treat this as `P3 OpenXR Session` pass / `P4 Visual First Frame` fail after successful host visibility, service lifecycle, DRM lease routing, runtime selection, and OpenXR session bring-up.
+- `linux-xr` PR #69 merged a read-only AMD DSC PPS debugfs carry at `dbfcd3938a2f3`; the follow-up diagnostic artifact lane is `6.19.5-xr12` generic from Actions run `25710987473`. This is PPS observability for the black-goggles lane, not a visual fix or P4 proof until installed, captured, and observed on `honey`.
 - The packaged `beyond-power-on` helper had drifted from the corrected Rust HID implementation by placing the SetWorkState command at byte 2 instead of byte 1. The repo copy is now corrected and guarded by a substrate test; any installed Honey helper should be refreshed before using the service as panel-power evidence.
 - Native XoxdWM authority now has a bounded named-host live-session proof: Rust owns configured workspace count, layout reflow, workspace visibility, native key actions, configured app-launch IPC, config reload, autostart, lock/logout, idle supervision, and DPMS IPC, and the `2026-05-10` Honey proof exercised native IPC hello, workspace list, focused surface, layout cycle, workspace switch, and configured app launch with `exwm-vr-emacs.service` inactive. GitHub #45 closed after merged PR #78, and IPC/config alias retirement closed with #46 after merged PR #82. Remaining authority-adjacent product gates are narrower: legacy EXWM/X retirement (#47), where this slice makes protocol-neutral app metadata canonical and keeps Emacs/eGreg Elisp out of the default package hard-dependency path, and eGreg app-layer polish (#48).
 - The active blockers on `honey` are now productization and repeatability, not missing lease support:
@@ -87,7 +88,7 @@ Snapshot date: 2026-05-10
 ## Immediate Priorities
 
 1. Preserve the now-explicit `monado_comp_ipc` cleanup path in the launcher and keep the `honey` OpenXR status wrapper as the safe preflight.
-2. Preserve the installed `monado-beyond` host lane on `honey`, refresh the corrected `beyond-power-on` helper on-host, and resolve the black first-frame blocker before promoting OpenXR smoke to product evidence.
+2. Preserve the installed `monado-beyond` host lane on `honey`, refresh the corrected `beyond-power-on` helper on-host, capture packed DSC PPS on the diagnostic kernel, and resolve the black first-frame blocker before promoting OpenXR smoke to product evidence.
 3. Keep using the installed `exwm-vr-openxr-smoke-client` path for honey OpenXR smoke runs and record whether failures are host/substrate, packaging/deployment, or compositor/runtime blockers.
 4. Keep the Rocky base package lane green while leaving Monado, SELinux, and BCI as separate follow-on concerns.
 5. Preserve the now-proven `yoga` package/session lane as the 2D reference host while packaging continues to evolve.

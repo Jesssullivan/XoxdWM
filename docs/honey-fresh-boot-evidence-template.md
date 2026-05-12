@@ -94,6 +94,34 @@ CLI smoke is not first-frame proof by itself.
 - If no visible frame, record `visual_observed=no` and classify as P3 pass /
   P4 fail even if CLI smoke reached `FOCUSED`.
 
+## Kernel / DSC PPS Evidence
+
+Use this section only when a diagnostic kernel with the `linux-xr` PPS debugfs
+carry is intentionally under test. Otherwise set `pps_available` to the observed
+value and leave the remaining fields empty.
+
+Command:
+
+```sh
+just honey-kernel-dsc-truth honey auto
+```
+
+Required fields:
+
+- kernel release:
+- resolved connector:
+- debugfs connector:
+- `debugfs_dsc_bits_per_pixel`:
+- `debugfs_dsc_pic_width`:
+- `debugfs_dsc_pic_height`:
+- `debugfs_dsc_slice_width`:
+- `debugfs_dsc_slice_height`:
+- `pps_available`:
+- `pps_sha256`:
+- `pps_bits_per_pixel_x16`:
+- `pps_rc_ranges_bpp8_444_patched`:
+- `pps_rc_ranges_bpp8_444_stock`:
+
 ## Classification
 
 Select exactly one primary classification:
