@@ -110,6 +110,14 @@ native-authority-test:
         -f ert-run-tests-batch-and-exit
 
 [group('test')]
+emacs-egreg-app-layer-test:
+    @echo "Running Emacs/eGreg app-layer boundary tests..."
+    emacs --batch \
+        {{load_flags}} \
+        -l "{{project_root}}/test/emacs-egreg-app-layer-test.el" \
+        -f ert-run-tests-batch-and-exit
+
+[group('test')]
 ipc-contract-test:
     @echo "Running IPC contract tests..."
     emacs --batch \
