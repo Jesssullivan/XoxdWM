@@ -15,6 +15,14 @@
     (insert-file-contents (expand-file-name relative native-authority-test--root))
     (buffer-string)))
 
+(defun native-authority-test--toml-array (key contents)
+  "Return TOML array text for KEY from CONTENTS."
+  (let ((start (string-match (concat "^" (regexp-quote key) " = \\[") contents)))
+    (should start)
+    (let ((end (string-match "^\\]" contents start)))
+      (should end)
+      (substring contents start (match-end 0)))))
+
 (ert-deftest native-authority/config-owns-workspace-layout-and-launch-policy ()
   "Native config should own core WM policy inputs."
   (let ((config (native-authority-test--read-file "compositor/src/config.rs")))
@@ -125,11 +133,35 @@
 
 (ert-deftest native-authority/xwayland-is-optional-compatibility-feature ()
   "XWayland should stay feature-gated rather than define the default runtime."
-  (let ((cargo (native-authority-test--read-file "compositor/Cargo.toml"))
-        (wlroots (native-authority-test--read-file "nix/packages/wlroots-beyond.nix")))
+  (let* ((cargo (native-authority-test--read-file "compositor/Cargo.toml"))
+         (full-backend (native-authority-test--toml-array "full-backend" cargo))
+         (drm (native-authority-test--read-file "compositor/src/backend/drm.rs"))
+         (winit (native-authority-test--read-file "compositor/src/backend/winit.rs"))
+         (spec (native-authority-test--read-file "packaging/rpm/exwm-vr.spec"))
+         (justfile (native-authority-test--read-file "justfile"))
+         (flake (native-authority-test--read-file "flake.nix"))
+         (workflow (native-authority-test--read-file ".github/workflows/multi-arch.yml"))
+         (inventory (native-authority-test--read-file
+                     "docs/research/legacy-exwm-x-retirement-inventory-2026-05-12.md"))
+         (wlroots (native-authority-test--read-file "nix/packages/wlroots-beyond.nix")))
     (should (string-match-p "default = \\[\\]" cargo))
     (should (string-match-p "^xwayland = \\[\"smithay/xwayland\"\\]" cargo))
-    (should (string-match-p "\"xwayland\"" cargo))
+    (should-not (string-match-p "\"xwayland\"" full-backend))
+    (should (string-match-p "#\\[cfg(feature = \"xwayland\")\\]" drm))
+    (should (string-match-p "#\\[cfg(not(feature = \"xwayland\"))\\]" drm))
+    (should (string-match-p "#\\[cfg(feature = \"xwayland\")\\]" winit))
+    (should (string-match-p "#\\[cfg(not(feature = \"xwayland\"))\\]" winit))
+    (should (string-match-p "%bcond xwayland_compat 0" spec))
+    (should (string-match-p "%global compositor_features full-backend" spec))
+    (should (string-match-p "full-backend,xwayland" spec))
+    (should (string-match-p "Requires:[[:space:]]+xorg-x11-server-Xwayland" spec))
+    (should (string-match-p "build-compositor-xwayland" justfile))
+    (should (string-match-p "test-compositor-xwayland" justfile))
+    (should (string-match-p "packages\\.compositor-xwayland" flake))
+    (should (string-match-p "features = \\[ \"full-backend\" \"xwayland\" \\]" flake))
+    (should (string-match-p "cargo check --no-default-features --features full-backend,xwayland" workflow))
+    (should (string-match-p "Default XoxdWM runtime authority is native Rust" inventory))
+    (should (string-match-p "`full-backend,xwayland`" inventory))
     (should (string-match-p "Native XoxdWM keeps XWayland behind its Cargo feature gate" wlroots))))
 
 (ert-deftest native-authority/package-surfaces-prefer-xoxdwm-identity ()

@@ -12,12 +12,13 @@ path = "src/main.rs"
 
 [features]
 default = []
+# XWayland is a legacy application compatibility bridge. Keep it separate from
+# the host backend feature so full Linux compositor builds do not imply X11.
 xwayland = ["smithay/xwayland"]
 # Portable default builds use the headless backend. Linux host/session builds
 # must opt into full-backend explicitly because it requires Wayland/DRM system
 # libraries that are not available on Darwin developer hosts.
 full-backend = [
-    "xwayland",
     "smithay/backend_drm",
     "smithay/backend_gbm",
     "smithay/backend_libinput",

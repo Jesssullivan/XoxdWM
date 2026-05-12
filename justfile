@@ -36,6 +36,19 @@ build-compositor:
     fi
 
 [group('build')]
+build-compositor-xwayland:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ "$(uname -s)" != "Linux" ]]; then
+        echo "ERROR: XWayland compatibility builds require Linux; Smithay xwayland is not portable to Darwin." >&2
+        exit 64
+    fi
+    echo "Building compositor with explicit XWayland compatibility..."
+    cargo build --manifest-path "{{project_root}}/compositor/Cargo.toml" \
+        --no-default-features \
+        --features full-backend,xwayland
+
+[group('build')]
 build-all: build build-compositor
 
 # ── test ───────────────────────────────────────────────
@@ -58,6 +71,19 @@ test-compositor:
     else
         cargo check --manifest-path "{{project_root}}/compositor/Cargo.toml" --tests
     fi
+
+[group('test')]
+test-compositor-xwayland:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ "$(uname -s)" != "Linux" ]]; then
+        echo "SKIP: XWayland compatibility tests require Linux; Smithay xwayland is not portable to Darwin."
+        exit 0
+    fi
+    echo "Testing compositor with explicit XWayland compatibility..."
+    cargo test --manifest-path "{{project_root}}/compositor/Cargo.toml" \
+        --no-default-features \
+        --features full-backend,xwayland
 
 [group('test')]
 test-integration:

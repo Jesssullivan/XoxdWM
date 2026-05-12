@@ -235,6 +235,13 @@
               extraBuildInputs = [ pkgs.openxr-loader ];
             };
 
+            # Explicit legacy XWayland compatibility build. The default package
+            # intentionally does not include this feature.
+            packages.compositor-xwayland = mkCompositor {
+              pname = "ewwm-compositor-xwayland";
+              features = [ "full-backend" "xwayland" ];
+            };
+
             # Headless compositor (no full-backend, no VR) for s390x / minimal
             packages.compositor-headless = mkCompositor {
               pname = "ewwm-compositor-headless";
