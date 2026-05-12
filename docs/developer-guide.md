@@ -28,56 +28,60 @@ plane, read [remote-build-authority.md](remote-build-authority.md).
 
 ## Architecture Overview
 
-XoxdWM is a split-brain architecture: Emacs is the window management
-brain (layout, policy, keybinds), and a Rust compositor (Smithay) is the
-pixel engine. They communicate over a Unix domain socket using
-length-prefixed s-expressions.
+XoxdWM is a native Wayland WM/DE authority with app-layer clients. The
+Rust compositor (Smithay) owns startup config, surface/workspace/layout/session
+policy, compositor key actions, and app launch targets. Emacs/eGreg runs as an
+optional Wayland or XWayland application client that can mirror state, expose
+editor workflows, and request native policy changes over IPC. The app-layer
+contract is documented in [emacs-egreg-app-layer.md](emacs-egreg-app-layer.md).
 
 ```
-+=======================+
-|     Emacs (pgtk)      |  User's primary interface
-|  ewwm.el (WM logic)  |  Elisp WM logic across layout/workspace/VR/BCI
-+-----------+-----------+
++==========================+
+|   Emacs/eGreg clients    |  Optional editor, shell, debug, and control UI
+|  ewwm.el / app helpers   |  IPC requests plus app-layer state mirrors
++------------+-------------+
             |
     Unix socket IPC (s-expression, length-prefixed)
     $XDG_RUNTIME_DIR/ewwm-ipc.sock
             |
-+-----------v-----------+
-|  VR Compositor (Rust) |  Built on Smithay 0.7
-|  +-- Wayland Server   |  xdg-shell, layer-shell, foreign-toplevel
-|  +-- XWayland         |  X11 client support
-|  +-- DRM Lease        |  wp_drm_lease_v1 for VR headset
-|  +-- OpenXR Bridge    |  Monado runtime (eye/hand tracking)
-|  +-- BCI Bridge       |  BrainFlow daemon (EEG acquisition)
-|  +-- IPC Server       |  Multi-client, authenticated
-|  +-- Headless Backend |  For s390x and CI
-+-----------+-----------+
++------------v-------------+
+| Native Compositor (Rust) |  Built on Smithay 0.7
+| +-- Wayland Server       |  xdg-shell, layer-shell, foreign-toplevel
+| +-- Optional XWayland    |  explicit compatibility feature
+| +-- Workspace/Layout     |  native policy and reflow
+| +-- Session/App Launch   |  native config and IPC authority
+| +-- DRM Lease/OpenXR     |  VR bridge surfaces
+| +-- IPC Server           |  Multi-client, authenticated
+| +-- Headless Backend     |  For s390x and CI
++------------+-------------+
             |
     DRM/KMS | OpenXR/Monado | BrainFlow
             |
-+-----------v-----------+
-|   GPU + VR + EEG HW   |
-+=======================+
++------------v-------------+
+|    GPU + VR + EEG HW     |
++==========================+
 ```
 
 ### Key Design Decisions
 
-1. **Emacs as policy, compositor as mechanism**: Emacs decides which
-   surface goes where; the compositor executes it. This keeps Elisp
-   hackability while maintaining rendering performance.
+1. **Rust as WM/DE authority, Emacs/eGreg as app layer**: Native Rust owns
+   workspace, layout, focus, session, configured key actions, and app-launch
+   policy. Emacs/eGreg helpers request policy through IPC when connected and
+   keep disconnected fallback behavior for editor/debug sessions.
 
-2. **Surface-as-buffer model**: Each Wayland surface becomes an Emacs
-   buffer with `permanent-local` buffer-local variables. The central
-   mapping is `ewwm--surface-buffer-alist`.
+2. **Surface metadata mirrors**: App-layer Lisp can mirror compositor surface
+   metadata into buffers for navigation, diagnostics, and editor integration.
+   The native compositor remains authoritative for surface placement and
+   lifecycle.
 
 3. **S-expression IPC**: Native to Emacs (`read`/`prin1-to-string`),
    parsed in Rust via the `lexpr` crate. Length-prefixed framing avoids
    incremental parsing complexity.
 
 4. **Feature flags**: The portable Cargo default builds the headless lane.
-   The `full-backend` feature gates DRM/winit, and the `vr` feature gates
-   OpenXR dependencies. Linux host/session builds opt into `full-backend`
-   explicitly.
+   The `full-backend` feature gates DRM/winit, `xwayland` is an explicit
+   compatibility feature, and the `vr` feature gates OpenXR dependencies.
+   Linux host/session builds opt into runtime features explicitly.
 
 5. **No openxrs in data modules**: Modules like `scene.rs`,
    `drm_lease.rs`, `gaze_focus.rs`, `blink_wink.rs`, `gaze_zone.rs`,

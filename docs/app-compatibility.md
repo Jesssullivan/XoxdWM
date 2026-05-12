@@ -13,7 +13,8 @@
 | **Alacritty** | Wayland native | Pending | Alternative terminal |
 | **Qutebrowser** | Wayland (Qt6) | Pending | `QT_QPA_PLATFORM=wayland` |
 | **Firefox** | Wayland native | Pending | `MOZ_ENABLE_WAYLAND=1` |
-| **Emacs pgtk** | Wayland native | Pending | Nested client via `emacsclient -c` |
+| **Emacs pgtk / eGreg** | Wayland native | Smoke | App-layer client via `xoxdwm-emacs.service` or `emacsclient -c`; not a WM requirement |
+| **Emacs non-pgtk** | XWayland | Compatibility | Only when XWayland is explicitly enabled and the host lacks a pgtk build |
 | **KeePassXC** | Wayland (Qt6) | Pending | Auto-type status TBD |
 | **waybar** | wlr-layer-shell | Pending | Panel/taskbar |
 | **mako** | wlr-layer-shell | Pending | Notification daemon |
@@ -27,6 +28,7 @@
 ## Classification Legend
 - **Works**: No issues detected
 - **Works with caveats**: Minor issues documented, usable
+- **Smoke**: Bounded package/session or VM evidence exists, but not a daily-driver claim
 - **Broken**: Critical issues, workaround needed
 - **Pending**: Not yet tested
 
@@ -66,11 +68,13 @@
 - D-Bus Secret Service: `(secrets-list-collections)` from Emacs
 - Browser integration: `keepassxc-proxy` socket
 
-### Emacs pgtk
-- GDK4 Wayland backend
-- `emacsclient -c` creates managed frame
-- Kill ring shared via Wayland clipboard
-- Multiple frames on different workspaces supported
+### Emacs pgtk / eGreg
+- Preferred app profile: Emacs pgtk on the native Wayland socket
+- Packaged app-layer unit: `xoxdwm-emacs.service`
+- Interactive frame path: `emacsclient -c`
+- IPC role: control/diagnostic/app integration only; not the WM authority
+- Non-pgtk Emacs builds are compatibility clients through XWayland when the
+  compositor was built with the explicit `xwayland` feature
 
 ### waybar
 - Exclusive zone: top of screen (default ~30px)

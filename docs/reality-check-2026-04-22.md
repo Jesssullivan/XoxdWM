@@ -6,7 +6,7 @@ This note is a reset on what XoxdWM is, what it is not, and what the repo can ho
 
 XoxdWM is currently three things at once:
 
-- an experimental Wayland compositor plus Emacs window-management layer
+- an experimental native Wayland compositor with optional Emacs/eGreg app-layer clients
 - a packaging and release lane for Rocky, Debian, and Nix surfaces
 - a large research and subsystem inventory for VR, eye tracking, hand tracking, and BCI work
 

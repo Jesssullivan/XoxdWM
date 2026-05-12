@@ -31,7 +31,7 @@ implementation, documentation, and research surface suggests.
 
 XoxdWM is currently all three of these at once:
 
-- a real compositor plus Emacs WM codebase
+- a real native compositor plus Emacs/eGreg app-layer client codebase
 - a real packaging and integration repo for Rocky, Debian, Nix, systemd, and SELinux
 - a large research and subsystem inventory for VR, eye tracking, hand tracking, and BCI
 
