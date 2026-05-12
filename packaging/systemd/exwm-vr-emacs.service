@@ -4,7 +4,7 @@ Documentation=https://github.com/Jesssullivan/XoxdWM
 After=exwm-vr-compositor.service
 BindsTo=exwm-vr-compositor.service
 Requires=exwm-vr-compositor.service
-PartOf=xoxdwm.target exwm-vr.target
+PartOf=exwm-vr.target
 
 [Service]
 Type=simple
@@ -19,5 +19,5 @@ Environment=XCURSOR_THEME=Adwaita
 Environment=XCURSOR_SIZE=24
 
 [Install]
-WantedBy=xoxdwm.target exwm-vr.target
+WantedBy=exwm-vr.target
 Alias=xoxdwm-emacs.service

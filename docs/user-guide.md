@@ -189,10 +189,13 @@ sudo semodule -l | grep exwm
 
 ### systemd Services
 
-The RPM-packaged Rocky session exposes `xoxdwm-*` user-level systemd aliases.
-The older `exwm-vr-*` unit names remain installed as compatibility names for
-existing host scripts and proof notes, including
+The RPM-packaged Rocky session exposes `xoxdwm-*` user-level systemd units for
+the native compositor path. The older `exwm-vr-*` unit names remain installed
+for compatibility host scripts and proof notes, including
 `exwm-vr-compositor.service`, `exwm-vr-monado.service`, and `exwm-vr.target`.
+The primary `xoxdwm.target` starts the native compositor only; start
+`xoxdwm-emacs.service` or the legacy `exwm-vr.target` when you explicitly want
+the Emacs app-layer client too.
 
 ```bash
 # Enable and start the compositor
@@ -203,8 +206,11 @@ systemctl --user start xoxdwm-compositor.service
 systemctl --user enable xoxdwm-monado.service
 systemctl --user start xoxdwm-monado.service
 
-# Start the full stack
+# Start the native compositor session
 systemctl --user start xoxdwm.target
+
+# Optional: start the Emacs app-layer client
+systemctl --user start xoxdwm-emacs.service
 ```
 
 On the packaged Rocky lane, host-specific direct-mode settings now have a
@@ -249,17 +255,18 @@ service at a local `/usr/local/bin/monado-service` build on hosts like
 Select "XoxdWM" from your display manager (GDM, SDDM) session list. The
 session wrapper is exposed as `/usr/share/wayland-sessions/xoxdwm.desktop`,
 with `/usr/share/wayland-sessions/exwm-vr.desktop` retained as a compatibility
-entry. It handles environment setup, compositor launch, and Emacs startup.
+entry. It handles environment setup and native compositor launch; Emacs remains
+available as the explicit `xoxdwm-emacs.service` app-layer client.
 
 On `yoga`, this greeter-driven session path has now been smoke-validated once
 through SDDM on `seat0` using the installed package surface, and the packaged
 `SuccessExitStatus=15` stop-path fix is now present on-host without a separate
 unit override.
 
-On the packaged Rocky session lane, Emacs starts through the dedicated
-`/usr/share/exwm-vr/exwm-vr-session-init.el` bootstrap. That session entrypoint
-avoids ambient `~/.emacs` / `init.el` state and optionally loads
-`~/.config/exwm-vr/config.el` instead.
+On the packaged Rocky compatibility lane, the Emacs app-layer service starts
+through the dedicated `/usr/share/exwm-vr/exwm-vr-session-init.el` bootstrap.
+That service entrypoint avoids ambient `~/.emacs` / `init.el` state and
+optionally loads `~/.config/exwm-vr/config.el` instead.
 
 ---
 
@@ -270,9 +277,10 @@ avoids ambient `~/.emacs` / `init.el` state and optionally loads
    Wayland display socket at `$XDG_RUNTIME_DIR/wayland-0`
 3. **IPC socket appears**: the compositor also binds its control socket at
    `$XDG_RUNTIME_DIR/ewwm-ipc.sock`
-4. **Emacs connects**: Emacs (pgtk) starts with `WAYLAND_DISPLAY=wayland-0`
-   and `ewwm-ipc.el` connects to the compositor via the Unix domain socket
-5. **Hello handshake**: Emacs sends `(:type :hello :version 1 :client "ewwm.el")`
+4. **Optional app-layer client connects**: starting `xoxdwm-emacs.service`
+   launches Emacs (pgtk) with `WAYLAND_DISPLAY=wayland-0`, and `ewwm-ipc.el`
+   connects to the compositor via the Unix domain socket
+5. **Hello handshake**: app-layer clients send `(:type :hello :version 1 :client "ewwm.el")`
    and receives feature flags (VR, XWayland status)
 6. **Workspace ready**: 4 workspaces are initialized; workspace 0 is active
 7. **Launch applications**: `s-r` opens `ewwm-launch`, type an application name

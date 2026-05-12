@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # XoxdWM session wrapper for display managers (greetd, SDDM, GDM).
-# Starts the compositor + Emacs via systemd user services when available,
-# falling back to direct process launch otherwise.
+# Starts the native compositor via systemd user services when available,
+# falling back to direct compositor launch otherwise.
 
 set -euo pipefail
 
@@ -140,10 +140,6 @@ fi
 echo "XoxdWM systemd user units not found; launching directly..."
 
 cleanup() {
-    # Terminate emacs daemon if still running.
-    if [ -n "${EMACS_PID:-}" ] && kill -0 "$EMACS_PID" 2>/dev/null; then
-        kill "$EMACS_PID"
-    fi
     if [ -n "${COMPOSITOR_PID:-}" ] && kill -0 "$COMPOSITOR_PID" 2>/dev/null; then
         kill "$COMPOSITOR_PID"
     fi
@@ -169,11 +165,6 @@ if [ ! -S "$WAYLAND_SOCKET" ]; then
     exit 1
 fi
 export WAYLAND_DISPLAY="${EXWM_VR_WAYLAND_SOCKET}"
-
-# Start Emacs as a foreground daemon.
-/usr/bin/emacs --fg-daemon=exwm-vr --quick \
-    --load /usr/share/exwm-vr/exwm-vr-session-init.el &
-EMACS_PID=$!
 
 # The session lives as long as the compositor does.
 wait "$COMPOSITOR_PID"
