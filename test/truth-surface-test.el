@@ -212,6 +212,8 @@
                                 truth-surface-test--root))))
     (dolist (recipe '("remote-proof-surface"
                       "remote-proof-runs"
+                      "runner-reachability-truth"
+                      "runner-reachability-proof"
                       "remote-runner-health"
                       "remote-cache-warm"
                       "remote-monado-package"
@@ -235,7 +237,11 @@
     (should (string-match-p "Bazel" authority))
     (should (string-match-p "neo.*honey" doc))
     (should (string-match-p "just honey-devshell" doc))
-    (should (string-match-p "just honey-proof-env" doc))))
+    (should (string-match-p "just honey-proof-env" doc))
+    (should (string-match-p "just runner-reachability-truth" doc))
+    (should (string-match-p "runner_name=null" doc))
+    (should (string-match-p "xoxdwm-nix" doc))
+    (should (string-match-p "just runner-reachability-truth" authority))))
 
 (ert-deftest truth-surface/developer-guide-keeps-neo-checks-cheap ()
   "The `neo` section should stay on cheap control-plane checks."

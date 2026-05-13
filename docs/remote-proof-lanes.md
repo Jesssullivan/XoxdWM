@@ -88,6 +88,25 @@ Until that proof variable is set:
 - this repo must not recreate repo-shaped `xoxdwm-*` runner labels to make the
   queue disappear
 
+The local proof classifier is:
+
+```bash
+just runner-reachability-truth
+```
+
+That command is read-only. It inspects GitHub metadata and classifies the
+current state as blocked, proved, or misconfigured. For a saved evidence packet
+from an attended/owner-boundary proof run, use:
+
+```bash
+just runner-reachability-proof path/to/runner-proof.json
+```
+
+Proof requires an opt-in job that requested `tinyland-nix` and received a
+non-empty `runner_name` on a compliant shared runner. A hosted fallback success,
+`runner_name=null`, setting `GF_SHARED_RUNNERS_REACHABLE=true` before proof, or
+recreating `xoxdwm-nix` is not proof.
+
 ## `neo` To `honey` Operator Lane
 
 The repo now has a thin explicit remote-dev/operator lane for working from
