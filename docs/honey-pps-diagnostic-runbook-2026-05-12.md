@@ -18,11 +18,22 @@ XoxdWM.
 - Merge commit: `dbfcd3938a2f3`
 - Post-merge CI: <https://github.com/tinyland-inc/linux-xr/actions/runs/25710732827>
 - Artifact-only diagnostic build: <https://github.com/tinyland-inc/linux-xr/actions/runs/25710987473>
-- Intended diagnostic release string: `6.19.5-xr12`, generic variant
+- Artifact ID: `6937251018`
+- Artifact name: `kernel-xr-rpms-generic`
+- Realized RPM release: `6.19.5-12.xr.el10`, generic variant
 
 Use a successful generic RPM artifact from that run or a later equivalent run.
 Do not treat a workflow artifact as a tagged release unless `linux-xr` cuts an
 actual release tag.
+
+The `25710987473` artifact was inspected on `neo` on `2026-05-13` at
+`/tmp/xoxdwm-linux-xr-25710987473`:
+
+| RPM | SHA-256 |
+| --- | --- |
+| `kernel-xr-6.19.5-12.xr.el10.x86_64.rpm` | `57f469a4b2ddebd5097c22606e1671eaa54a7860ff40feeca1e31ee09acfc2cb` |
+| `kernel-xr-devel-6.19.5-12.xr.el10.x86_64.rpm` | `53f4b02bb89bbb905b96c50a274aa800f7529ad452b63b1dc22ccd8f8fbe93f0` |
+| `kernel-xr-headers-6.19.5-12.xr.el10.x86_64.rpm` | `489c1406734856eb8edab3ec78d0e198265a9eede732612eab34bc11a694f16d` |
 
 ## Hard Boundaries
 

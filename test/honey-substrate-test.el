@@ -81,6 +81,10 @@
   (expand-file-name "docs/remote-build-authority.md"
                     (expand-file-name ".." (file-name-directory load-file-name))))
 
+(defconst honey-substrate--pps-runbook
+  (expand-file-name "docs/honey-pps-diagnostic-runbook-2026-05-12.md"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
 (defun honey-substrate--read-file (path)
   "Return PATH contents as a string."
   (with-temp-buffer
@@ -428,6 +432,21 @@
       (should-not (string-match-p (regexp-quote ".write = dp_dsc_pic_parameter_set") patch))
       (should-not (string-match-p (regexp-quote "link_settings") patch))
       (should-not (string-match-p (regexp-quote "dc_link_set_preferred_training_settings") patch)))))
+
+(ert-deftest honey-substrate/pps-runbook-pins-diagnostic-artifact-payload ()
+  "The Honey PPS runbook should pin the inspected diagnostic RPM artifact."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--pps-runbook)
+    (let ((runbook (buffer-string)))
+      (should (string-match-p (regexp-quote "Artifact ID: `6937251018`") runbook))
+      (should (string-match-p (regexp-quote "Artifact name: `kernel-xr-rpms-generic`") runbook))
+      (should (string-match-p (regexp-quote "Realized RPM release: `6.19.5-12.xr.el10`") runbook))
+      (should (string-match-p (regexp-quote "kernel-xr-6.19.5-12.xr.el10.x86_64.rpm") runbook))
+      (should (string-match-p (regexp-quote "57f469a4b2ddebd5097c22606e1671eaa54a7860ff40feeca1e31ee09acfc2cb") runbook))
+      (should (string-match-p (regexp-quote "53f4b02bb89bbb905b96c50a274aa800f7529ad452b63b1dc22ccd8f8fbe93f0") runbook))
+      (should (string-match-p (regexp-quote "489c1406734856eb8edab3ec78d0e198265a9eede732612eab34bc11a694f16d") runbook))
+      (should (string-match-p (regexp-quote "Do not install a kernel") runbook))
+      (should (string-match-p (regexp-quote "without explicit attended operator approval") runbook)))))
 
 (ert-deftest honey-substrate/monado-companion-lane-keeps-rocky-deps-honest ()
   "The Monado companion RPM lane should not depend on unavailable Rocky libuvc packaging."
