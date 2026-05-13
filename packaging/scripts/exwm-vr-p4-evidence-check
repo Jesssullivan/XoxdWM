@@ -1,0 +1,171 @@
+#!/usr/bin/env python3
+"""Validate filled Honey P4 visual first-frame evidence packets.
+
+This is a local/tracker-side guard.  It does not touch Honey, launch OpenXR,
+or inspect live hardware.  It rejects P4 promotion claims unless the packet
+contains the explicit human-observation gate fields emitted by
+exwm-vr-openxr-smoke.
+"""
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+import re
+import sys
+
+
+FIELD_RE = re.compile(r"^\s*(?:[-*]\s*)?(.+?)\s*(?::|=)\s*(.*?)\s*$")
+PLACEHOLDERS = {
+    "",
+    "-",
+    "unset",
+    "unknown",
+    "todo",
+    "tbd",
+    "n/a",
+    "na",
+    "none",
+    "yes / no",
+    "yes / no / not observed",
+    "lab-observer",
+    "<observer>",
+    "<observer-id>",
+    "observer",
+}
+
+ALIASES = {
+    "lab_observer_at_honey": "visual_observer",
+    "observer": "visual_observer",
+    "confirmation_token_if_visual_observed_yes": "visual_confirmation",
+    "visible_non_black_output": "visible_non_black_output",
+}
+
+
+def normalize_key(raw: str) -> str:
+    key = raw.replace("`", "").strip().lower()
+    key = re.sub(r"\s+from wrapper$", "", key)
+    key = re.sub(r"[^a-z0-9]+", "_", key).strip("_")
+    return ALIASES.get(key, key)
+
+
+def clean_value(raw: str) -> str:
+    return raw.strip().strip("`").strip()
+
+
+def parse_fields(text: str) -> dict[str, list[str]]:
+    fields: dict[str, list[str]] = {}
+    for line in text.splitlines():
+        match = FIELD_RE.match(line)
+        if not match:
+            continue
+        key = normalize_key(match.group(1))
+        value = clean_value(match.group(2))
+        fields.setdefault(key, []).append(value)
+    return fields
+
+
+def values(fields: dict[str, list[str]], key: str) -> list[str]:
+    return fields.get(key, [])
+
+
+def has_value(fields: dict[str, list[str]], key: str, expected: str) -> bool:
+    expected_lower = expected.lower()
+    return any(value.lower() == expected_lower for value in values(fields, key))
+
+
+def has_non_placeholder(fields: dict[str, list[str]], key: str) -> bool:
+    for value in values(fields, key):
+        normalized = value.strip().lower()
+        if normalized not in PLACEHOLDERS:
+            return True
+    return False
+
+
+def contains_value(fields: dict[str, list[str]], key: str, needle: str) -> bool:
+    needle_lower = needle.lower()
+    return any(needle_lower in value.lower() for value in values(fields, key))
+
+
+def p4_claimed(fields: dict[str, list[str]]) -> bool:
+    return (
+        has_value(fields, "visual_observed", "yes")
+        or has_value(fields, "visible_non_black_output", "yes")
+        or has_value(fields, "visual_first_frame", "P4_OBSERVED")
+        or contains_value(fields, "classification", "p4 pass")
+    )
+
+
+def validate(fields: dict[str, list[str]], require_p4: bool) -> list[str]:
+    errors: list[str] = []
+    claimed = p4_claimed(fields) or require_p4
+
+    if has_value(fields, "visual_first_frame", "P4_OBSERVED") and not has_value(
+        fields, "visual_observed", "yes"
+    ):
+        errors.append("visual_first_frame=P4_OBSERVED requires visual_observed=yes")
+
+    if contains_value(fields, "classification", "p4 pass") and (
+        has_value(fields, "visual_observed", "no")
+        or has_value(fields, "visual_observed", "not_observed")
+    ):
+        errors.append("P4 pass classification conflicts with visual_observed=no/not_observed")
+
+    if not claimed:
+        return errors
+
+    if not has_value(fields, "visual_observed", "yes"):
+        errors.append("P4 evidence requires visual_observed=yes")
+    if not has_non_placeholder(fields, "visual_observer"):
+        errors.append("P4 evidence requires a non-placeholder visual_observer")
+    if not has_value(fields, "visual_confirmation", "VISIBLE_NON_BLACK"):
+        errors.append("P4 evidence requires visual_confirmation=VISIBLE_NON_BLACK")
+    if not has_value(fields, "visual_first_frame", "P4_OBSERVED"):
+        errors.append("P4 evidence requires visual_first_frame=P4_OBSERVED")
+
+    return errors
+
+
+def read_input(path: str) -> str:
+    if path == "-":
+        return sys.stdin.read()
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
+        print(f"ERROR: cannot read evidence packet {path}: {exc}", file=sys.stderr)
+        raise SystemExit(66) from exc
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        description="Validate Honey P4 visual first-frame evidence packets."
+    )
+    parser.add_argument(
+        "--require-p4",
+        action="store_true",
+        help="Require a complete P4 pass packet instead of only rejecting bad P4 claims.",
+    )
+    parser.add_argument(
+        "packet",
+        nargs="?",
+        default="-",
+        help="Evidence packet path, tracker draft path, or '-' for stdin.",
+    )
+    args = parser.parse_args(argv)
+
+    fields = parse_fields(read_input(args.packet))
+    errors = validate(fields, args.require_p4)
+    if errors:
+        for error in errors:
+            print(f"ERROR: {error}", file=sys.stderr)
+        return 64
+
+    if args.require_p4 or p4_claimed(fields):
+        print("p4_evidence_check=passed")
+    else:
+        print("p4_evidence_check=no_p4_promotion_claim")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

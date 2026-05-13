@@ -962,6 +962,10 @@ honey-openxr-fresh-boot-check host="honey" cycles="1" timeout="20":
     ./packaging/scripts/exwm-vr-openxr-smoke --status-only'
     just honey-openxr-clean-cycle "{{host}}" "${cycles}" "${timeout_seconds}"
 
+[group('ci')]
+honey-p4-evidence-check evidence="-":
+    ./packaging/scripts/exwm-vr-p4-evidence-check "{{evidence}}"
+
 # ── nix ────────────────────────────────────────────────
 
 [group('nix')]

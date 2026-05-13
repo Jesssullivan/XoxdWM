@@ -49,6 +49,10 @@
   (expand-file-name "packaging/scripts/exwm-vr-openxr-smoke"
                     (expand-file-name ".." (file-name-directory load-file-name))))
 
+(defconst honey-substrate--p4-evidence-check-script
+  (expand-file-name "packaging/scripts/exwm-vr-p4-evidence-check"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
 (defconst honey-substrate--hmd-connector-script
   (expand-file-name "packaging/scripts/exwm-vr-hmd-connector"
                     (expand-file-name ".." (file-name-directory load-file-name))))
@@ -162,6 +166,19 @@
       (let ((rc (apply #'call-process honey-substrate--openxr-smoke-script
                        nil (list t t) nil args)))
         (cons rc (buffer-string))))))
+
+(defun honey-substrate--run-p4-evidence-check (content &rest args)
+  "Run the P4 evidence checker against CONTENT with ARGS."
+  (let ((packet (make-temp-file "honey-p4-evidence-" nil ".md")))
+    (unwind-protect
+        (progn
+          (write-region content nil packet nil 'silent)
+          (with-temp-buffer
+            (let ((rc (apply #'call-process honey-substrate--p4-evidence-check-script
+                             nil (list t t) nil
+                             (append args (list packet)))))
+              (cons rc (buffer-string)))))
+      (delete-file packet))))
 
 (ert-deftest honey-substrate/beyond-first-frame-sets-runtime-dir ()
   "beyond-first-frame uses a real runtime dir for remote OpenXR client tools."
@@ -279,6 +296,43 @@
             (should (string-match-p "visual_confirmation=VISIBLE_NON_BLACK" (cdr observed)))
             (should (string-match-p "visual_first_frame=P4_OBSERVED" (cdr observed)))))
       (delete-directory root t))))
+
+(ert-deftest honey-substrate/p4-evidence-checker-rejects-ungated-promotion ()
+  "A tracker-side P4 claim should require the same gate as the wrapper."
+  (let ((result
+         (honey-substrate--run-p4-evidence-check
+          (concat "Honey P4 visual-first-frame evidence:\n\n"
+                  "- visual_observed: yes\n"
+                  "- visual_first_frame: P4_OBSERVED\n"
+                  "- classification: P4 pass: visible non-black first frame observed\n"))))
+    (should (= (car result) 64))
+    (should (string-match-p "visual_observer" (cdr result)))
+    (should (string-match-p "VISIBLE_NON_BLACK" (cdr result)))))
+
+(ert-deftest honey-substrate/p4-evidence-checker-accepts-complete-p4-packet ()
+  "Complete observed visual evidence should pass the strict P4 checker mode."
+  (let ((result
+         (honey-substrate--run-p4-evidence-check
+          (concat "Honey P4 visual-first-frame evidence:\n\n"
+                  "- `visual_observed` from wrapper: yes\n"
+                  "- `visual_observer` from wrapper: lab-jess\n"
+                  "- `visual_confirmation` from wrapper: VISIBLE_NON_BLACK\n"
+                  "- `visual_first_frame` from wrapper: P4_OBSERVED\n"
+                  "- classification: P4 pass: visible non-black first frame observed\n")
+          "--require-p4")))
+    (should (= (car result) 0))
+    (should (string-match-p "p4_evidence_check=passed" (cdr result)))))
+
+(ert-deftest honey-substrate/p4-evidence-checker-allows-p3-fail-packet ()
+  "P3 pass/P4 fail evidence should remain postable without P4 promotion."
+  (let ((result
+         (honey-substrate--run-p4-evidence-check
+          (concat "Honey P4 visual-first-frame evidence:\n\n"
+                  "- visual_observed: no\n"
+                  "- visual_first_frame: P4_UNOBSERVED\n"
+                  "- classification: P3 pass / P4 fail: focused OpenXR session, black headset\n"))))
+    (should (= (car result) 0))
+    (should (string-match-p "p4_evidence_check=no_p4_promotion_claim" (cdr result)))))
 
 (ert-deftest honey-substrate/connector-resolver-prefers-nondesktop-dp ()
   "The HMD resolver prefers a connected DP connector with non_desktop=1."
