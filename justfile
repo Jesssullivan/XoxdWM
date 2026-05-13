@@ -719,6 +719,14 @@ remote-runner-health:
     @echo "Triggered. Watch with: just remote-proof-runs"
 
 [group('ci')]
+runner-reachability-truth:
+    ./packaging/scripts/xoxdwm-runner-reachability-truth --live --repo "{{xoxdwm_repo}}"
+
+[group('ci')]
+runner-reachability-proof packet:
+    ./packaging/scripts/xoxdwm-runner-reachability-truth --require-proof "{{packet}}"
+
+[group('ci')]
 remote-cache-warm:
     gh workflow run cache-warm.yml -R "{{xoxdwm_repo}}"
     @echo "Triggered. Watch with: just remote-proof-runs"

@@ -1,0 +1,260 @@
+#!/usr/bin/env python3
+"""Classify XoxdWM shared tinyland-nix reachability evidence.
+
+This is a read-only tracker/proof helper for GitHub #11 / TIN-592.  It does
+not dispatch jobs, change repository variables, or touch runner infrastructure.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+import subprocess
+import sys
+from typing import Any
+
+
+TRUE_VALUES = {"1", "true", "yes", "on"}
+FALSE_VALUES = {"", "0", "false", "no", "off", "unset", "null", "none"}
+GOOD_VALUES = {"1", "true", "yes", "ok", "pass", "passed", "success", "succeeded"}
+REPO_SHAPED_PREFIXES = ("xoxdwm-", "xoxdwm_", "xoxd-")
+
+
+def normalize(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value).strip()
+
+
+def truthy(value: Any) -> bool:
+    return normalize(value).lower() in TRUE_VALUES
+
+
+def falsey(value: Any) -> bool:
+    return normalize(value).lower() in FALSE_VALUES
+
+
+def good(value: Any) -> bool:
+    return normalize(value).lower() in GOOD_VALUES
+
+
+def variables(packet: dict[str, Any]) -> dict[str, str]:
+    raw = packet.get("variables", {})
+    if isinstance(raw, dict):
+        return {str(key): normalize(value) for key, value in raw.items()}
+    if isinstance(raw, list):
+        result: dict[str, str] = {}
+        for item in raw:
+            if isinstance(item, dict) and item.get("name"):
+                result[str(item["name"])] = normalize(item.get("value"))
+        return result
+    return {}
+
+
+def packet_jobs(packet: dict[str, Any]) -> list[dict[str, Any]]:
+    raw = packet.get("jobs", [])
+    if isinstance(raw, list):
+        return [job for job in raw if isinstance(job, dict)]
+    return []
+
+
+def labels(job: dict[str, Any]) -> set[str]:
+    result: set[str] = set()
+    for key in ("requested_label", "requestedLabel", "runs_on", "runsOn"):
+        value = job.get(key)
+        if isinstance(value, str):
+            result.add(value)
+    for key in ("requested_labels", "runner_labels", "labels", "runs_on", "runsOn"):
+        value = job.get(key)
+        if isinstance(value, list):
+            result.update(normalize(item) for item in value)
+    return {label.strip() for label in result if label and label.strip()}
+
+
+def runner_name(job: dict[str, Any]) -> str:
+    for key in ("runner_name", "runnerName", "runner"):
+        value = normalize(job.get(key))
+        if value:
+            return value
+    return ""
+
+
+def repo_shaped_runner(name: str) -> bool:
+    lowered = name.lower()
+    return lowered.startswith(REPO_SHAPED_PREFIXES) or "xoxdwm-nix" in lowered
+
+
+def tinyland_nix_requested(job: dict[str, Any]) -> bool:
+    return "tinyland-nix" in labels(job)
+
+
+def assigned_tinyland_job(job: dict[str, Any]) -> bool:
+    name = runner_name(job)
+    return tinyland_nix_requested(job) and bool(name) and not repo_shaped_runner(name)
+
+
+def live_json(command: list[str]) -> Any:
+    try:
+        completed = subprocess.run(
+            command,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError("gh is required for --live mode") from exc
+    except subprocess.CalledProcessError as exc:
+        stderr = exc.stderr.strip()
+        raise RuntimeError(f"{' '.join(command)} failed: {stderr}") from exc
+    return json.loads(completed.stdout or "null")
+
+
+def collect_live(repo: str, run_limit: int) -> dict[str, Any]:
+    owner_repo = repo.split("/", 1)
+    if len(owner_repo) != 2:
+        raise RuntimeError("--repo must be OWNER/REPO")
+    owner, name = owner_repo
+
+    vars_json = live_json(
+        ["gh", "variable", "list", "--repo", repo, "--json", "name,value"]
+    )
+    runners_json = live_json(["gh", "api", f"repos/{owner}/{name}/actions/runners"])
+    runs_json = live_json(
+        [
+            "gh",
+            "run",
+            "list",
+            "--repo",
+            repo,
+            "--workflow",
+            "runner-health.yml",
+            "--limit",
+            str(run_limit),
+            "--json",
+            "databaseId,status,conclusion,url,headSha,event,createdAt",
+        ]
+    )
+
+    vars_map = variables({"variables": vars_json})
+    jobs: list[dict[str, Any]] = []
+    for run in runs_json:
+        run_id = run.get("databaseId")
+        if not run_id:
+            continue
+        run_jobs = live_json(["gh", "api", f"repos/{owner}/{name}/actions/runs/{run_id}/jobs"])
+        for job in run_jobs.get("jobs", []):
+            if not isinstance(job, dict):
+                continue
+            job["run_id"] = run_id
+            job["run_url"] = run.get("url")
+            jobs.append(job)
+
+    return {
+        "variables": vars_json,
+        "repo_runners": runners_json,
+        "jobs": jobs,
+        "source": "live",
+        "repo": repo,
+    }
+
+
+def validate(packet: dict[str, Any], require_proof: bool) -> tuple[str, list[str], list[str]]:
+    vars_map = variables(packet)
+    jobs = packet_jobs(packet)
+    errors: list[str] = []
+    notes: list[str] = []
+
+    use_selfhosted = truthy(vars_map.get("USE_SELFHOSTED"))
+    shared_flag = truthy(vars_map.get("GF_SHARED_RUNNERS_REACHABLE"))
+
+    if shared_flag and not use_selfhosted:
+        errors.append("GF_SHARED_RUNNERS_REACHABLE=true requires USE_SELFHOSTED=true")
+
+    for job in jobs:
+        name = runner_name(job)
+        if tinyland_nix_requested(job) and repo_shaped_runner(name):
+            errors.append("repo-shaped xoxdwm runner is not compliant tinyland-nix proof")
+        for key in ("nix_health", "nixHealth", "cache_check", "cacheCheck"):
+            if key in job and not good(job[key]):
+                errors.append(f"{key}={normalize(job[key])} is not successful proof")
+
+    proof_jobs = [job for job in jobs if assigned_tinyland_job(job)]
+    queued_tinyland = [
+        job
+        for job in jobs
+        if tinyland_nix_requested(job) and not runner_name(job)
+    ]
+
+    if proof_jobs:
+        return "proved", errors, notes
+
+    if shared_flag:
+        errors.append(
+            "GF_SHARED_RUNNERS_REACHABLE=true but no assigned tinyland-nix job proof was found"
+        )
+    elif require_proof:
+        errors.append("shared runner proof requires GF_SHARED_RUNNERS_REACHABLE=true")
+    else:
+        notes.append("GF_SHARED_RUNNERS_REACHABLE is not true; shared lane remains blocked")
+
+    if queued_tinyland:
+        notes.append("queued tinyland-nix job with runner_name=null is not proof")
+
+    return "blocked", errors, notes
+
+
+def read_packet(path: str) -> dict[str, Any]:
+    try:
+        text = sys.stdin.read() if path == "-" else Path(path).read_text(encoding="utf-8")
+        packet = json.loads(text)
+    except OSError as exc:
+        print(f"ERROR: cannot read runner packet {path}: {exc}", file=sys.stderr)
+        raise SystemExit(66) from exc
+    except json.JSONDecodeError as exc:
+        print(f"ERROR: runner packet is not valid JSON: {exc}", file=sys.stderr)
+        raise SystemExit(65) from exc
+    if not isinstance(packet, dict):
+        print("ERROR: runner packet must be a JSON object", file=sys.stderr)
+        raise SystemExit(65)
+    return packet
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        description="Classify XoxdWM shared tinyland-nix runner reachability evidence."
+    )
+    parser.add_argument("packet", nargs="?", default="-", help="JSON packet path or '-'")
+    parser.add_argument("--live", action="store_true", help="Read current GitHub metadata")
+    parser.add_argument("--repo", default="Jesssullivan/XoxdWM", help="GitHub repo for --live")
+    parser.add_argument("--run-limit", type=int, default=5, help="runner-health runs to inspect")
+    parser.add_argument(
+        "--require-proof",
+        action="store_true",
+        help="Fail unless an assigned tinyland-nix proof packet is present.",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        packet = collect_live(args.repo, args.run_limit) if args.live else read_packet(args.packet)
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 69
+
+    state, errors, notes = validate(packet, args.require_proof)
+    for note in notes:
+        print(f"NOTE: {note}")
+    if errors:
+        for error in errors:
+            print(f"ERROR: {error}", file=sys.stderr)
+        return 64
+
+    print(f"runner_reachability={state}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

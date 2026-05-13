@@ -177,6 +177,9 @@ Current truth from that repo:
 - `tinyland-inc/GloriousFlywheel#413` is the current tracker for proving
   `Jesssullivan/XoxdWM` can reach the shared `tinyland-nix` lane without
   recreating repo-shaped runner labels
+- `just runner-reachability-truth` is the repo-local read-only classifier for
+  this boundary; it should report blocked until an opt-in `tinyland-nix` job
+  has a non-empty `runner_name` on a compliant shared runner
 - Bazel remote cache and Attic live here as acceleration layers, not as
   publication truth by themselves
 
