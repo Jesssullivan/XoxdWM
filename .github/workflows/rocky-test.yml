@@ -27,7 +27,7 @@ jobs:
       CARGO_HOME: /root/.cargo
       PATH: /root/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install build dependencies
         run: |
@@ -73,7 +73,7 @@ jobs:
       PATH: /root/.nix-profile/bin:/nix/var/nix/profiles/default/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       NIX_SSL_CERT_FILE: /etc/pki/tls/certs/ca-bundle.crt
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Nix (single-user)
         run: |

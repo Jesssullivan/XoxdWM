@@ -1,6 +1,6 @@
 # XoxdWM Status
 
-Snapshot date: 2026-05-12
+Snapshot date: 2026-05-13
 
 ## Honest Assessment
 
@@ -52,10 +52,15 @@ Snapshot date: 2026-05-12
   - `nix flake check --no-build` passes locally
   - local byte-compile and headless Rust checks can pass, but they are auxiliary repo-maintenance checks rather than the default build authority path
   - this does not turn macOS into a supported runtime target; it only reduces local repo-management friction
-- Recent push CI failures were concentrated in three places:
-  - Rocky test: optional `sccache` setup step
-  - Nix cache workflow: attempting to install Nix on a pre-provisioned self-hosted runner
-  - self-hosted fast CI: heavy checks on all pushes, including non-code work
+- Current #11 CI hygiene separates build/product failures from runner and cache
+  substrate state:
+  - workflow checkout steps use the Node 24-compatible `actions/checkout@v6`
+    line instead of the deprecated Node 20-era `actions/checkout@v4` pin
+  - the optional `sccache` setup remains a soft accelerator; if the GHA cache
+    backend is unavailable, workflows continue without treating that cache miss
+    as product or runner failure evidence
+  - Nix cache and self-hosted fast lanes still only select shared
+    `tinyland-nix` after `GF_SHARED_RUNNERS_REACHABLE=true`
 - Shared self-hosted CI is being reconciled against the GloriousFlywheel runner
   contract:
   - `Jesssullivan/XoxdWM#29` removed the shared-path fork gate and passed on an ephemeral `xoxdwm-nix` runner; merged PR #34 migrated non-hardware self-hosted jobs to the shared `tinyland-nix` capability lane

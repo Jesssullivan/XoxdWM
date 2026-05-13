@@ -113,7 +113,7 @@ acquisition proof or promote product support.
 
 | Workflow Area | Status | Notes |
 | --- | --- | --- |
-| Lightweight CI on code changes | Smoke | Kept as primary CI surface. |
+| Lightweight CI on code changes | Smoke | Kept as primary CI surface. Workflow checkout pins track the Node 24-compatible `actions/checkout@v6` line, and optional cache accelerators such as `sccache` remain non-authority hints rather than product-failure evidence. |
 | Rocky Linux test | Smoke | Workflow exists and the current branch proof lane is green: run `24776895510` passed both `Rocky Linux 10 Build & Test` and `Rocky Linux 10 + Nix` on `2026-04-22`. |
 | Self-hosted fast CI | Smoke | The stale `xoxdwm-nix` repo-shaped lane is no longer treated as current authority. Self-hosted Nix workflows target the shared `tinyland-nix` GloriousFlywheel capability lane only when both `USE_SELFHOSTED` and `GF_SHARED_RUNNERS_REACHABLE` are true; otherwise they fall back to hosted Linux or skip self-hosted-only jobs while enrollment/scheduling is tracked separately from product proof. |
 | VR hardware-in-the-loop CI | Design | Honey-backed jobs now require explicit `USE_VR_HARDWARE=true` instead of a fork-shaped repo-name gate. The lane is not yet claimed as active on the canonical repo by default. |

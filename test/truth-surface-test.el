@@ -27,6 +27,14 @@
     (insert-file-contents (expand-file-name relative truth-surface-test--root))
     (buffer-string)))
 
+(defun truth-surface-test--github-yaml-files ()
+  "Return repo-relative GitHub workflow/action YAML files."
+  (mapcar
+   (lambda (file) (file-relative-name file truth-surface-test--root))
+   (directory-files-recursively
+    (expand-file-name ".github" truth-surface-test--root)
+    "\\.ya?ml\\'")))
+
 (defun truth-surface-test--dispatch-command-count ()
   "Count explicit IPC commands in the dispatcher."
   (let ((count 0))
@@ -116,6 +124,27 @@
     (should-not
      (string-match-p "magic-nix-cache-action"
                      (truth-surface-test--read-file relative)))))
+
+(ert-deftest truth-surface/ci-actions-avoid-node20-deprecated-pins ()
+  "GitHub Action pins should stay compatible with the Node 24 runtime floor."
+  (let ((saw-checkout nil))
+    (dolist (relative (truth-surface-test--github-yaml-files))
+      (let ((content (truth-surface-test--read-file relative)))
+        (should-not (string-match-p "actions/checkout@v4" content))
+        (when (string-match-p "actions/checkout@" content)
+          (setq saw-checkout t)
+          (should (string-match-p "actions/checkout@v6" content)))))
+    (should saw-checkout))
+  (let ((sccache (truth-surface-test--read-file
+                  ".github/actions/setup-sccache/action.yml")))
+    (should (string-match-p
+             "mozilla-actions/sccache-action@v0\\.0\\.10"
+             sccache))
+    (should (string-match-p "continue-on-error: true" sccache))
+    (should (string-match-p
+             "sccache cache backend unavailable; building without cache"
+             sccache))
+    (should-not (string-match-p "::warning::sccache" sccache))))
 
 (ert-deftest truth-surface/readme-links-remote-build-authority ()
   "README should link the explicit remote-build authority doc."
