@@ -33,7 +33,10 @@ it, and CLI smoke never substitutes for the human observation required at P4.
 
 Current `honey` classification: P3 pass / P4 fail. The May 2026 session reached
 `FOCUSED` with swapchains, but `visual_observed=no` because the goggles stayed
-black.
+black. Use
+[honey-p4-visual-first-frame-evidence-template.md](honey-p4-visual-first-frame-evidence-template.md)
+for any #49 promotion attempt; the fresh-boot template is the separate P5
+repeatability surface.
 
 ## Named Hosts
 
