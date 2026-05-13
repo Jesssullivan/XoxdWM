@@ -104,7 +104,10 @@ The repo now has a thin explicit remote-dev/operator lane for working from
   - print the remote repo path, runtime dir, key IPC sockets, and current
     user-service activity
 - `just honey-openxr-status`
-  - run the repo-owned OpenXR wrapper in status-only mode on `honey`
+  - run the repo-owned OpenXR wrapper in status-only mode on `honey` over a
+    plain SSH read path
+  - this intentionally avoids the remote `nix develop` lane so status capture
+    does not realize the full dev shell before printing runtime state
   - this does not start services or launch an OpenXR client
 - `just honey-openxr-smoke`
   - run the repo-owned OpenXR wrapper against the active Monado runtime
