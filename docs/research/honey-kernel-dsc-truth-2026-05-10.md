@@ -223,8 +223,10 @@ only gives the next test kernel a read-only way to prove the exact packed PPS
 bytes that AMD DC cached for the live stream.
 
 Post-merge, Determinate CI passed for `xr/main` in run `25710732827`. An
-artifact-only generic diagnostic RPM build for `6.19.5-xr12` was dispatched as
-run `25710987473`; this is not a release tag and does not mutate `honey`.
+artifact-only generic diagnostic RPM build was dispatched as run `25710987473`;
+the inspected artifact is `kernel-xr-rpms-generic` and contains
+`6.19.5-12.xr.el10` RPMs. This is not a release tag and does not mutate
+`honey`.
 
 The attended operator procedure for using that artifact is captured in
 [honey-pps-diagnostic-runbook-2026-05-12.md](../honey-pps-diagnostic-runbook-2026-05-12.md).
