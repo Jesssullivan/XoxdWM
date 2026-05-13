@@ -75,7 +75,7 @@ If the lab observer sees visible non-black headset output during the active
 session, rerun or launch the smoke with the explicit P4 confirmation gate:
 
 ```sh
-just honey-run honey -- 'EXWM_VR_VISUAL_OBSERVED=yes EXWM_VR_VISUAL_OBSERVER=lab-observer EXWM_VR_VISUAL_CONFIRMATION=VISIBLE_NON_BLACK ./packaging/scripts/exwm-vr-openxr-smoke --timeout 120'
+just honey-run honey -- 'EXWM_VR_VISUAL_OBSERVED=yes EXWM_VR_VISUAL_OBSERVER=<observer-id> EXWM_VR_VISUAL_CONFIRMATION=VISIBLE_NON_BLACK ./packaging/scripts/exwm-vr-openxr-smoke --timeout 120'
 ```
 
 Paste the selected output:
@@ -193,6 +193,19 @@ Honey P4 visual-first-frame evidence:
 
 Notes:
 ```
+
+Before posting a P4 pass tracker comment, save the filled packet or draft
+comment locally and run:
+
+```sh
+just honey-p4-evidence-check path/to/filled-p4-packet.md
+./packaging/scripts/exwm-vr-p4-evidence-check --require-p4 path/to/filled-p4-packet.md
+```
+
+The checker is local/tracker-side only. It does not touch `honey`, but it rejects
+P4 promotion claims unless `visual_observed=yes`, a non-placeholder
+`visual_observer`, `visual_confirmation=VISIBLE_NON_BLACK`, and
+`visual_first_frame=P4_OBSERVED` are all present.
 
 ## Promotion Decision
 

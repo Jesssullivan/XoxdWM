@@ -312,7 +312,9 @@
         (template (truth-surface-test--read-file "docs/honey-fresh-boot-evidence-template.md"))
         (p4-template (truth-surface-test--read-file
                       "docs/honey-p4-visual-first-frame-evidence-template.md"))
-        (smoke (truth-surface-test--read-file "packaging/scripts/exwm-vr-openxr-smoke")))
+        (smoke (truth-surface-test--read-file "packaging/scripts/exwm-vr-openxr-smoke"))
+        (p4-checker (truth-surface-test--read-file
+                     "packaging/scripts/exwm-vr-p4-evidence-check")))
     (dolist (level '("P0 Inventory"
                      "P1 Host Substrate"
                      "P2 Lease/Runtime"
@@ -340,12 +342,17 @@
     (should (string-match-p "EXWM_VR_VISUAL_CONFIRMATION=VISIBLE_NON_BLACK" p4-template))
     (should (string-match-p "visual_observer" p4-template))
     (should (string-match-p "visual_confirmation" p4-template))
+    (should (string-match-p "honey-p4-evidence-check" p4-template))
+    (should (string-match-p "--require-p4" p4-template))
     (should (string-match-p "P3 pass / P4 fail" p4-template))
     (should (string-match-p "P5" p4-template))
     (should (string-match-p "Do not stop, restart, drain, or otherwise touch `rke2`" p4-template))
     (should (string-match-p "not P4 unless a human records visible" p4-template))
     (should (string-match-p "proof_ladder=P3_OPENXR_SESSION" smoke))
     (should (string-match-p "openxr_smoke=p3_session_after_ready_timeout" smoke))
+    (should (string-match-p "visual_first_frame=P4_OBSERVED" p4-checker))
+    (should (string-match-p "visual_confirmation=VISIBLE_NON_BLACK" p4-checker))
+    (should (string-match-p "P4 pass classification conflicts" p4-checker))
     (should-not (string-match-p "passed_after_ready_timeout" smoke))
     (should-not (string-match-p "first frame confirmed" smoke))))
 
