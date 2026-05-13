@@ -27,7 +27,7 @@ it, and CLI smoke never substitutes for the human observation required at P4.
 | P1 | Host Substrate | Kernel, firmware, permissions, active runtime, and package paths are present without disturbing rke2 or display topology. |
 | P2 | Lease/Runtime | The compositor advertises the live headset connector for DRM lease and Monado selects the Bigscreen Beyond runtime path. |
 | P3 | OpenXR Session | An OpenXR client reaches the HMD, creates eye swapchains, and reaches `READY`/`VISIBLE`/`FOCUSED` or equivalent session markers. |
-| P4 | Visual First Frame | A human observer records visible non-black headset output. `visual_observed=yes` must be explicit. |
+| P4 | Visual First Frame | A human observer records visible non-black headset output. `visual_observed=yes` must be explicit and paired with `EXWM_VR_VISUAL_OBSERVER` plus `EXWM_VR_VISUAL_CONFIRMATION=VISIBLE_NON_BLACK`. |
 | P5 | Fresh-Boot Repeatability | P4 survives an attended fresh boot with changed `boot_id` and rke2 still active. |
 | P6 | Operator Stability | Repeated use is stable enough for an operator workflow, not only bounded smoke. |
 

@@ -82,6 +82,8 @@ Required fields:
 - `openxr_smoke`:
 - `proof_ladder`:
 - `visual_observed`:
+- `visual_observer`:
+- `visual_confirmation`:
 
 ## In-Goggles Observation
 
@@ -91,6 +93,7 @@ CLI smoke is not first-frame proof by itself.
   - yes / no / not observed
 - Observer:
 - Headset/display note:
+- Confirmation token if `visual_observed=yes`:
 - If no visible frame, record `visual_observed=no` and classify as P3 pass /
   P4 fail even if CLI smoke reached `FOCUSED`.
 
@@ -152,6 +155,8 @@ Fresh-boot evidence run:
 - openxr_smoke:
 - proof_ladder:
 - visual_observed:
+- visual_observer:
+- visual_confirmation:
 - in-goggles frame:
 - classification:
 
