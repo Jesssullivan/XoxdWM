@@ -132,6 +132,37 @@
                      nil t nil "--sysfs-root" root args)))
       (cons rc (string-trim (buffer-string))))))
 
+(defun honey-substrate--write-fake-openxr-runtime (path)
+  "Write a minimal fake OpenXR runtime JSON to PATH."
+  (write-region
+   (concat "{\n"
+           "  \"file_format_version\": \"1.0.0\",\n"
+           "  \"runtime\": {\n"
+           "    \"name\": \"Fake Monado\",\n"
+           "    \"library_path\": \"/tmp/libfake_openxr.so\"\n"
+           "  }\n"
+           "}\n")
+   nil path nil 'silent))
+
+(defun honey-substrate--write-fake-openxr-client (path)
+  "Write a minimal fake OpenXR client executable to PATH."
+  (write-region
+   (concat "#!/usr/bin/env bash\n"
+           "set -euo pipefail\n"
+           "echo READY\n"
+           "echo xrGetSystem\n"
+           "echo state=FOCUSED\n")
+   nil path nil 'silent)
+  (set-file-modes path #o755))
+
+(defun honey-substrate--run-openxr-smoke (env &rest args)
+  "Run the OpenXR smoke wrapper with ENV and ARGS, returning (RC . OUTPUT)."
+  (with-temp-buffer
+    (let ((process-environment (append env process-environment)))
+      (let ((rc (apply #'call-process honey-substrate--openxr-smoke-script
+                       nil (list t t) nil args)))
+        (cons rc (buffer-string))))))
+
 (ert-deftest honey-substrate/beyond-first-frame-sets-runtime-dir ()
   "beyond-first-frame uses a real runtime dir for remote OpenXR client tools."
   (with-temp-buffer
@@ -203,7 +234,51 @@
       (should (string-match-p (regexp-quote "openxr_smoke=p3_session_after_ready_timeout") script))
       (should (string-match-p (regexp-quote "proof_ladder=P3_OPENXR_SESSION") script))
       (should (string-match-p (regexp-quote "visual_observed=") script))
+      (should (string-match-p (regexp-quote "EXWM_VR_VISUAL_OBSERVED=yes|no|not_observed") script))
+      (should (string-match-p (regexp-quote "EXWM_VR_VISUAL_OBSERVER") script))
+      (should (string-match-p (regexp-quote "EXWM_VR_VISUAL_CONFIRMATION=VISIBLE_NON_BLACK") script))
+      (should (string-match-p (regexp-quote "EXWM_VR_VISUAL_OBSERVED=yes requires EXWM_VR_VISUAL_OBSERVER") script))
+      (should (string-match-p (regexp-quote "visual_first_frame=P4_OBSERVED") script))
+      (should (string-match-p (regexp-quote "visual_first_frame=P4_UNOBSERVED") script))
       (should-not (string-match-p (regexp-quote "first frame confirmed") script)))))
+
+(ert-deftest honey-substrate/openxr-smoke-requires-human-confirmation-for-p4 ()
+  "P4 observed output should require an explicit human confirmation token."
+  (let* ((root (make-temp-file "honey-openxr-smoke-" t))
+         (runtime-json (expand-file-name "active_runtime.json" root))
+         (runtime-dir (expand-file-name "runtime" root))
+         (client (expand-file-name "fake-openxr-client" root)))
+    (unwind-protect
+        (progn
+          (make-directory runtime-dir t)
+          (honey-substrate--write-fake-openxr-runtime runtime-json)
+          (honey-substrate--write-fake-openxr-client client)
+          (let ((missing-confirmation
+                 (honey-substrate--run-openxr-smoke
+                  (list (concat "XR_RUNTIME_JSON=" runtime-json)
+                        (concat "XDG_RUNTIME_DIR=" runtime-dir)
+                        (concat "EXWM_VR_OPENXR_CLIENT=" client)
+                        "EXWM_VR_VISUAL_OBSERVED=yes")
+                  "--timeout" "0")))
+            (should (= (car missing-confirmation) 64))
+            (should (string-match-p
+                     "EXWM_VR_VISUAL_OBSERVED=yes requires"
+                     (cdr missing-confirmation))))
+          (let ((observed
+                 (honey-substrate--run-openxr-smoke
+                  (list (concat "XR_RUNTIME_JSON=" runtime-json)
+                        (concat "XDG_RUNTIME_DIR=" runtime-dir)
+                        (concat "EXWM_VR_OPENXR_CLIENT=" client)
+                        "EXWM_VR_VISUAL_OBSERVED=yes"
+                        "EXWM_VR_VISUAL_OBSERVER=lab-observer"
+                        "EXWM_VR_VISUAL_CONFIRMATION=VISIBLE_NON_BLACK")
+                  "--timeout" "0")))
+            (should (= (car observed) 0))
+            (should (string-match-p "openxr_smoke=passed" (cdr observed)))
+            (should (string-match-p "visual_observer=lab-observer" (cdr observed)))
+            (should (string-match-p "visual_confirmation=VISIBLE_NON_BLACK" (cdr observed)))
+            (should (string-match-p "visual_first_frame=P4_OBSERVED" (cdr observed)))))
+      (delete-directory root t))))
 
 (ert-deftest honey-substrate/connector-resolver-prefers-nondesktop-dp ()
   "The HMD resolver prefers a connected DP connector with non_desktop=1."

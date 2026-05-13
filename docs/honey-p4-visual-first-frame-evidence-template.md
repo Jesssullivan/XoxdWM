@@ -71,6 +71,13 @@ Command:
 just honey-openxr-smoke honey -- --timeout 120
 ```
 
+If the lab observer sees visible non-black headset output during the active
+session, rerun or launch the smoke with the explicit P4 confirmation gate:
+
+```sh
+just honey-run honey -- 'EXWM_VR_VISUAL_OBSERVED=yes EXWM_VR_VISUAL_OBSERVER=lab-observer EXWM_VR_VISUAL_CONFIRMATION=VISIBLE_NON_BLACK ./packaging/scripts/exwm-vr-openxr-smoke --timeout 120'
+```
+
 Paste the selected output:
 
 ```text
@@ -86,6 +93,8 @@ Required fields:
 - `openxr_smoke`:
 - `proof_ladder`:
 - `visual_observed` from wrapper:
+- `visual_observer` from wrapper:
+- `visual_confirmation` from wrapper:
 - `visual_first_frame` from wrapper:
 
 ## Optional PPS / DSC Capture
@@ -121,6 +130,10 @@ Required fields:
 ## Human Visual Observation
 
 The lab observer must be watching the headset during the active OpenXR session.
+The wrapper rejects `visual_observed=yes` unless `EXWM_VR_VISUAL_OBSERVER` is
+non-empty and `EXWM_VR_VISUAL_CONFIRMATION=VISIBLE_NON_BLACK` is set before the
+client launches.
+
 Select exactly one:
 
 - `visual_observed=yes`: visible non-black headset output was observed.
@@ -171,6 +184,8 @@ Honey P4 visual-first-frame evidence:
 - openxr_smoke:
 - proof_ladder:
 - visual_observed:
+- visual_observer:
+- visual_confirmation:
 - visual_first_frame:
 - PPS available:
 - rke2-server:

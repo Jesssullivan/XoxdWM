@@ -125,7 +125,8 @@ Fresh-boot OpenXR smoke passes only if all of these are true:
 - The wrapper reports `openxr_smoke=passed`.
 - The wrapper reports `proof_ladder=P3_OPENXR_SESSION`.
 - The wrapper reports `visual_observed=yes` only when the lab operator actually
-  saw a visible headset frame.
+  saw a visible headset frame and supplied `EXWM_VR_VISUAL_OBSERVER` plus
+  `EXWM_VR_VISUAL_CONFIRMATION=VISIBLE_NON_BLACK`.
 - No stale IPC socket prevents service startup or client connection.
 
 In-goggles first-frame proof additionally requires a human note that a visible
