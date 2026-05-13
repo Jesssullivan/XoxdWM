@@ -62,6 +62,10 @@ Current status:
   on `seat0`; the refreshed packaged unit now carries the stop-path fix, so
   general session polish and repeatability are the remaining follow-on work
   after the base package lane.
+- The repeatable `yoga` operator path is tracked in
+  [yoga-local-session-runbook.md](yoga-local-session-runbook.md); use it for
+  fresh-login evidence instead of treating the earlier autologin harness as the
+  final operator path.
 - Full VR/OpenXR enablement on Rocky is still a separate follow-on step after the base compositor package path.
 - SELinux policy packaging and the BrainFlow BCI virtualenv are separate follow-on steps after the base compositor package path.
 
@@ -139,4 +143,6 @@ just remote-proof-runs
 ## Named-Host Guidance
 
 - `yoga`: Rocky 10 package install and a one-time SDDM greeter-path session proof are validated; repeatability and session ergonomics are the active follow-on.
+  Use [yoga-local-session-runbook.md](yoga-local-session-runbook.md) for the
+  manual/fresh-login packet needed to promote that lane.
 - `honey`: target VR smoke host, but not currently documented here as a proven XoxdWM deployment.

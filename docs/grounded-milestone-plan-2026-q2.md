@@ -76,8 +76,9 @@ Current state on `2026-04-22`:
   and no longer requires a host-only drop-in on `yoga`
 - `yoga` now has a one-time SDDM greeter-path proof via `sddm-autologin` on
   `seat0`, which closes the basic local-session viability question
-- the remaining gap is repeated operator evidence if we want it, not package or
-  greeter-path viability
+- the remaining gap is repeated operator evidence, not package or greeter-path
+  viability; [yoga-local-session-runbook.md](yoga-local-session-runbook.md)
+  defines the manual/fresh-login packet and rollback surface for that evidence
 
 ### Milestone 2: `honey` XR Substrate Proof
 

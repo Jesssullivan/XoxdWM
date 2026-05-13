@@ -261,7 +261,9 @@ available as the explicit `xoxdwm-emacs.service` app-layer client.
 On `yoga`, this greeter-driven session path has now been smoke-validated once
 through SDDM on `seat0` using the installed package surface, and the packaged
 `SuccessExitStatus=15` stop-path fix is now present on-host without a separate
-unit override.
+unit override. The repeatable operator path and the manual/fresh-login evidence
+packet are tracked in
+[yoga-local-session-runbook.md](yoga-local-session-runbook.md).
 
 On the packaged Rocky compatibility lane, the Emacs app-layer service starts
 through the dedicated `/usr/share/exwm-vr/exwm-vr-session-init.el` bootstrap.
