@@ -224,7 +224,6 @@ jobs:
         with:
           extra-conf: |
             system-features = kvm nixos-test
-      - uses: DeterminateSystems/magic-nix-cache-action@main
 
       - name: Build ewwm-elisp package
         run: nix build .#ewwm-elisp

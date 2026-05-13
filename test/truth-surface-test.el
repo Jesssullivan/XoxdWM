@@ -106,7 +106,16 @@
   "CI should notice doc and README drift."
   (let ((workflow (truth-surface-test--read-file ".github/workflows/ci.yml")))
     (should (string-match-p "README\\.md" workflow))
-    (should (string-match-p "docs/\\*\\*" workflow))))
+    (should (string-match-p "docs/\\*\\*" workflow))
+    (should (string-match-p "\\.github/workflows/\\*\\.yml" workflow))))
+
+(ert-deftest truth-surface/hosted-ci-avoids-magic-cache-post-step ()
+  "Hosted CI workflows should not depend on the magic cache post-step."
+  (dolist (relative '(".github/workflows/ci.yml"
+                      ".github/workflows/multi-arch.yml"))
+    (should-not
+     (string-match-p "magic-nix-cache-action"
+                     (truth-surface-test--read-file relative)))))
 
 (ert-deftest truth-surface/readme-links-remote-build-authority ()
   "README should link the explicit remote-build authority doc."
