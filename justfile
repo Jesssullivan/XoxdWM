@@ -853,7 +853,14 @@ honey-proof-env host="honey":
 
 [group('ci')]
 honey-openxr-status host="honey":
-    just honey-run {{host}} -- './packaging/scripts/exwm-vr-openxr-smoke --status-only'
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ssh jess@{{host}} bash -s <<'REMOTE'
+    set -euo pipefail
+    cd "{{remote_repo_path}}"
+    export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+    ./packaging/scripts/exwm-vr-openxr-smoke --status-only
+    REMOTE
 
 [group('ci')]
 honey-openxr-smoke host="honey" *args="":

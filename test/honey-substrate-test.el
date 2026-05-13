@@ -573,6 +573,20 @@
       (should-not (string-match-p (regexp-quote "cmd='{{args}}'") justfile))
       (should-not (string-match-p (regexp-quote "exec nix develop --command \"$@\"") justfile)))))
 
+(ert-deftest honey-substrate/honey-openxr-status-uses-plain-read-only-ssh ()
+  "The status-only OpenXR lane should not enter the full remote dev shell."
+  (with-temp-buffer
+    (insert-file-contents honey-substrate--justfile)
+    (let* ((justfile (buffer-string))
+           (start (string-match "^honey-openxr-status host=\"honey\":" justfile))
+           (end (and start (string-match "^\\[group" justfile (1+ start))))
+           (stanza (and start end (substring justfile start end))))
+      (should stanza)
+      (should (string-match-p (regexp-quote "ssh jess@{{host}} bash -s") stanza))
+      (should (string-match-p (regexp-quote "./packaging/scripts/exwm-vr-openxr-smoke --status-only") stanza))
+      (should-not (string-match-p (regexp-quote "just honey-run") stanza))
+      (should-not (string-match-p (regexp-quote "nix develop") stanza)))))
+
 (ert-deftest honey-substrate/remote-authority-doc-separates-direnv-honey-and-bazel ()
   "Remote authority docs should keep local direnv, `honey` devshells, and `rockies` Bazel distinct."
   (with-temp-buffer
