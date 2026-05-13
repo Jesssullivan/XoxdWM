@@ -40,6 +40,7 @@ Snapshot date: 2026-05-13
 - The exact evidence and boundary for that staged proof live in [yoga-session-proof-2026-04-22.md](yoga-session-proof-2026-04-22.md).
 - `yoga` now has a one-time greeter-path local session proof. A controlled SDDM autologin run created a real `wayland` user session on `seat0` with `Service=sddm-autologin`, launched `/usr/share/exwm-vr/exwm-vr-session`, and kept `exwm-vr.target`, `exwm-vr-compositor.service`, and `exwm-vr-emacs.service` active with the same bounded proof markers seen over SSH.
 - GitHub Actions packaging run `24771056471` produced a refreshed branch-scoped `0.5.4-1.el10` RPM payload, that payload was reinstalled on `yoga`, the packaged `SuccessExitStatus=15` stop-path fix is now present in `/usr/lib/systemd/user/exwm-vr-emacs.service`, and the temporary `/etc/systemd/user/exwm-vr-emacs.service.d/10-success-exit.conf` host drop-in has been removed.
+- The supported repeatability lane for `yoga` is now documented in [yoga-local-session-runbook.md](yoga-local-session-runbook.md). That runbook is an operator surface, not new proof; #22 still needs a real manual/fresh-login packet before the lane is promoted beyond Smoke.
 - `neo` is useful as an orchestration and documentation machine, but it is not a product target.
   - XoxdWM is not expected to run as a macOS desktop or VR environment.
   - this repo does not vendor the external Bazel or remote-build definitions for the Rocky build authority
@@ -89,7 +90,9 @@ Snapshot date: 2026-05-13
 
 - daily-driver VR on `honey`
 - a complete turnkey Rocky 10 VR deployment
-- a polished, repeatedly exercised local login/session lane on `yoga`
+- a polished, repeatedly exercised local login/session lane on `yoga`; the
+  current operator checklist lives in
+  [yoga-local-session-runbook.md](yoga-local-session-runbook.md)
 - a repeatable installed named-host VR session on `honey`
 - proven eye tracking, hand tracking, or BCI support on current named lab hosts
 - macOS as a real runtime target for XoxdWM

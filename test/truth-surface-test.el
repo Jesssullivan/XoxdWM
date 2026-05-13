@@ -297,6 +297,35 @@
      (string-match-p "yoga-session-proof-2026-04-22\\.md"
                      (truth-surface-test--read-file relative)))))
 
+(ert-deftest truth-surface/core-docs-link-yoga-local-session-runbook ()
+  "Core truth docs should link the `yoga` operator runbook."
+  (let ((runbook "docs/yoga-local-session-runbook.md"))
+    (should (file-exists-p (expand-file-name runbook truth-surface-test--root)))
+    (dolist (relative '("README.md"
+                        "docs/status.md"
+                        "docs/support-matrix.md"
+                        "docs/grounded-milestone-plan-2026-q2.md"
+                        "docs/installation-quickstart.md"
+                        "docs/user-guide.md"))
+      (should
+       (string-match-p "yoga-local-session-runbook\\.md"
+                       (truth-surface-test--read-file relative))))))
+
+(ert-deftest truth-surface/yoga-local-session-runbook-keeps-proof-boundary ()
+  "The `yoga` runbook should not promote autologin smoke to repeatable proof."
+  (let ((doc (truth-surface-test--read-file
+              "docs/yoga-local-session-runbook.md")))
+    (dolist (pattern '("does not add new host evidence"
+                       "Autologin is not the acceptance path"
+                       "manual/fresh-login"
+                       "seatd"
+                       "sddm"
+                       "display-manager\\.service"
+                       "xorg-x11-server-Xwayland"
+                       "rollback"
+                       "VR/OpenXR claims remain out of scope"))
+      (should (string-match-p pattern doc)))))
+
 (ert-deftest truth-surface/core-docs-link-honey-substrate-note ()
   "Core truth docs should link the named-host `honey` substrate note."
   (should (file-exists-p
