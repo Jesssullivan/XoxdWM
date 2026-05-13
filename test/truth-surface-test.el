@@ -310,6 +310,8 @@
   (let ((matrix (truth-surface-test--read-file "docs/support-matrix.md"))
         (runbook (truth-surface-test--read-file "docs/honey-fresh-boot-runbook-2026-04-26.md"))
         (template (truth-surface-test--read-file "docs/honey-fresh-boot-evidence-template.md"))
+        (p4-template (truth-surface-test--read-file
+                      "docs/honey-p4-visual-first-frame-evidence-template.md"))
         (smoke (truth-surface-test--read-file "packaging/scripts/exwm-vr-openxr-smoke")))
     (dolist (level '("P0 Inventory"
                      "P1 Host Substrate"
@@ -328,8 +330,15 @@
                  matrix))))
     (should (string-match-p "P3 pass / P4 fail" matrix))
     (should (string-match-p "visual_observed=no" matrix))
+    (should (string-match-p "honey-p4-visual-first-frame-evidence-template" matrix))
     (should (string-match-p "visual_observed" runbook))
     (should (string-match-p "visual_observed" template))
+    (should (string-match-p "GitHub issue `#49`" p4-template))
+    (should (string-match-p "visual_observed=yes" p4-template))
+    (should (string-match-p "P3 pass / P4 fail" p4-template))
+    (should (string-match-p "P5" p4-template))
+    (should (string-match-p "Do not stop, restart, drain, or otherwise touch `rke2`" p4-template))
+    (should (string-match-p "not P4 unless a human records visible" p4-template))
     (should (string-match-p "proof_ladder=P3_OPENXR_SESSION" smoke))
     (should (string-match-p "openxr_smoke=p3_session_after_ready_timeout" smoke))
     (should-not (string-match-p "passed_after_ready_timeout" smoke))
