@@ -103,9 +103,11 @@ just runner-reachability-proof path/to/runner-proof.json
 ```
 
 Proof requires an opt-in job that requested `tinyland-nix` and received a
-non-empty `runner_name` on a compliant shared runner. A hosted fallback success,
-`runner_name=null`, setting `GF_SHARED_RUNNERS_REACHABLE=true` before proof, or
-recreating `xoxdwm-nix` is not proof.
+non-empty `runner_name` on a compliant shared runner, with the job either still
+running after assignment or completed successfully. A hosted fallback success,
+`runner_name=null`, a failed/cancelled assigned job, setting
+`GF_SHARED_RUNNERS_REACHABLE=true` before proof, or recreating `xoxdwm-nix` is
+not proof.
 
 ## `neo` To `honey` Operator Lane
 

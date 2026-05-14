@@ -19,6 +19,9 @@ TRUE_VALUES = {"1", "true", "yes", "on"}
 FALSE_VALUES = {"", "0", "false", "no", "off", "unset", "null", "none"}
 GOOD_VALUES = {"1", "true", "yes", "ok", "pass", "passed", "success", "succeeded"}
 REPO_SHAPED_PREFIXES = ("xoxdwm-", "xoxdwm_", "xoxd-")
+RUNNING_STATUSES = {"in_progress", "running"}
+SUCCESSFUL_COMPLETED_STATUSES = {"completed"}
+SUCCESSFUL_CONCLUSIONS = {"success"}
 
 
 def normalize(value: Any) -> str:
@@ -82,6 +85,14 @@ def runner_name(job: dict[str, Any]) -> str:
     return ""
 
 
+def job_status(job: dict[str, Any]) -> str:
+    return normalize(job.get("status")).lower()
+
+
+def job_conclusion(job: dict[str, Any]) -> str:
+    return normalize(job.get("conclusion")).lower()
+
+
 def repo_shaped_runner(name: str) -> bool:
     lowered = name.lower()
     return lowered.startswith(REPO_SHAPED_PREFIXES) or "xoxdwm-nix" in lowered
@@ -91,9 +102,25 @@ def tinyland_nix_requested(job: dict[str, Any]) -> bool:
     return "tinyland-nix" in labels(job)
 
 
-def assigned_tinyland_job(job: dict[str, Any]) -> bool:
+def assigned_tinyland_candidate(job: dict[str, Any]) -> bool:
     name = runner_name(job)
     return tinyland_nix_requested(job) and bool(name) and not repo_shaped_runner(name)
+
+
+def assigned_tinyland_job(job: dict[str, Any]) -> bool:
+    if not assigned_tinyland_candidate(job):
+        return False
+
+    status = job_status(job)
+    conclusion = job_conclusion(job)
+    if status in RUNNING_STATUSES and not conclusion:
+        return True
+    if (
+        status in SUCCESSFUL_COMPLETED_STATUSES
+        and conclusion in SUCCESSFUL_CONCLUSIONS
+    ):
+        return True
+    return False
 
 
 def live_json(command: list[str]) -> Any:
@@ -178,6 +205,13 @@ def validate(packet: dict[str, Any], require_proof: bool) -> tuple[str, list[str
         name = runner_name(job)
         if tinyland_nix_requested(job) and repo_shaped_runner(name):
             errors.append("repo-shaped xoxdwm runner is not compliant tinyland-nix proof")
+        if assigned_tinyland_candidate(job) and not assigned_tinyland_job(job):
+            status = job_status(job) or "missing"
+            conclusion = job_conclusion(job) or "missing"
+            errors.append(
+                "assigned tinyland-nix job proof requires status=in_progress "
+                f"or completed/success; observed status={status} conclusion={conclusion}"
+            )
         for key in ("nix_health", "nixHealth", "cache_check", "cacheCheck"):
             if key in job and not good(job[key]):
                 errors.append(f"{key}={normalize(job[key])} is not successful proof")
