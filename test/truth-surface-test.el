@@ -314,7 +314,10 @@
 (ert-deftest truth-surface/yoga-local-session-runbook-keeps-proof-boundary ()
   "The `yoga` runbook should not promote autologin smoke to repeatable proof."
   (let ((doc (truth-surface-test--read-file
-              "docs/yoga-local-session-runbook.md")))
+              "docs/yoga-local-session-runbook.md"))
+        (justfile (truth-surface-test--read-file "justfile"))
+        (checker (truth-surface-test--read-file
+                  "packaging/scripts/xoxdwm-yoga-local-session-evidence-check")))
     (dolist (pattern '("does not add new host evidence"
                        "Autologin is not the acceptance path"
                        "manual/fresh-login"
@@ -322,9 +325,15 @@
                        "sddm"
                        "display-manager\\.service"
                        "xorg-x11-server-Xwayland"
+                       "yoga-local-session-evidence-check"
+                       "yoga-local-session-proof"
                        "rollback"
                        "VR/OpenXR claims remain out of scope"))
-      (should (string-match-p pattern doc)))))
+      (should (string-match-p pattern doc)))
+    (should (string-match-p "^yoga-local-session-evidence-check\\b" justfile))
+    (should (string-match-p "^yoga-local-session-proof\\b" justfile))
+    (should (string-match-p "manual/fresh-login evidence cannot use autologin" checker))
+    (should (string-match-p "cannot include VR/OpenXR promotion claims" checker))))
 
 (ert-deftest truth-surface/core-docs-link-honey-substrate-note ()
   "Core truth docs should link the named-host `honey` substrate note."

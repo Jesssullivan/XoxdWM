@@ -184,13 +184,32 @@ rpm_versions:
 display_manager:
 session_entry:
 login_method: manual SDDM selection | fresh greeter login
+autologin_used: no
 loginctl_session:
+loginctl_class: user
+loginctl_type: wayland
+loginctl_seat: seat0
+loginctl_state: active
+loginctl_remote: no
 user_units:
 runtime_sockets:
 journal_markers:
 rollback_tested:
+vr_openxr_claims: no
+promotion_decision:
 remaining_gaps:
 ```
+
+Before posting a pass packet, run the local evidence checker:
+
+```bash
+just yoga-local-session-evidence-check path/to/filled-yoga-packet.md
+just yoga-local-session-proof path/to/filled-yoga-packet.md
+```
+
+The checker is local/tracker-side only. It reads a saved packet, rejects
+autologin-based promotion, rejects VR/OpenXR promotion claims in this lane, and
+does not connect to `yoga` or touch the live display manager.
 
 Promotion criteria:
 

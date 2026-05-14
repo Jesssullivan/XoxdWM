@@ -1,0 +1,360 @@
+#!/usr/bin/env python3
+"""Validate filled yoga local-session evidence packets.
+
+This is a local/tracker-side guard. It does not SSH to yoga, restart the
+display manager, touch a login session, or inspect live hardware. It rejects
+local-session promotion claims unless the packet proves a manual/fresh SDDM
+Wayland login with packaged XoxdWM/EXWM-VR session state.
+"""
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+import re
+import sys
+
+
+FIELD_RE = re.compile(r"^\s*(?:[-*]\s*)?(.+?)\s*(?::|=)\s*(.*?)\s*$")
+PLACEHOLDERS = {
+    "",
+    "-",
+    "unset",
+    "unknown",
+    "todo",
+    "tbd",
+    "n/a",
+    "na",
+    "none",
+    "manual sddm selection | fresh greeter login",
+    "yes / no",
+}
+
+ALIASES = {
+    "hostname": "host",
+    "display_manager_service": "display_manager",
+    "dm": "display_manager",
+    "session": "loginctl_session",
+    "loginctl": "loginctl_session",
+    "desktop": "loginctl_desktop",
+    "service": "loginctl_service",
+    "class": "loginctl_class",
+    "type": "loginctl_type",
+    "seat": "loginctl_seat",
+    "state": "loginctl_state",
+    "remote": "loginctl_remote",
+    "recovery_tested": "rollback_tested",
+    "rollback": "rollback_tested",
+    "promotion": "promotion_decision",
+    "promotion_status": "promotion_decision",
+    "local_session_proof": "yoga_local_session",
+}
+
+PASS_WORDS = (
+    "pass",
+    "passed",
+    "promote",
+    "promoted",
+    "ready",
+    "complete",
+    "accepted",
+    "repeatable",
+)
+TRUE_WORDS = {"yes", "y", "true", "1", "passed", "pass", "ok", "active"}
+FALSE_WORDS = {"no", "n", "false", "0", "not observed", "out of scope"}
+VR_POSITIVE_WORDS = ("yes", "p4", "observed", "pass", "passed", "openxr", "honey")
+
+
+def normalize_key(raw: str) -> str:
+    key = raw.replace("`", "").strip().lower()
+    key = re.sub(r"\s+from wrapper$", "", key)
+    key = re.sub(r"[^a-z0-9]+", "_", key).strip("_")
+    return ALIASES.get(key, key)
+
+
+def clean_value(raw: str) -> str:
+    return raw.strip().strip("`").strip()
+
+
+def parse_fields(text: str) -> dict[str, list[str]]:
+    fields: dict[str, list[str]] = {}
+    for line in text.splitlines():
+        match = FIELD_RE.match(line)
+        if not match:
+            continue
+        key = normalize_key(match.group(1))
+        value = clean_value(match.group(2))
+        fields.setdefault(key, []).append(value)
+    return fields
+
+
+def values(fields: dict[str, list[str]], key: str) -> list[str]:
+    return fields.get(key, [])
+
+
+def normalized_values(fields: dict[str, list[str]], key: str) -> list[str]:
+    return [value.strip().lower() for value in values(fields, key)]
+
+
+def has_non_placeholder(fields: dict[str, list[str]], key: str) -> bool:
+    return any(value not in PLACEHOLDERS for value in normalized_values(fields, key))
+
+
+def contains_value(fields: dict[str, list[str]], key: str, needle: str) -> bool:
+    needle_lower = needle.lower()
+    return any(needle_lower in value.lower() for value in values(fields, key))
+
+
+def contains_any(fields: dict[str, list[str]], key: str, needles: tuple[str, ...]) -> bool:
+    return any(contains_value(fields, key, needle) for needle in needles)
+
+
+def any_truthy(fields: dict[str, list[str]], key: str) -> bool:
+    return any(value in TRUE_WORDS for value in normalized_values(fields, key))
+
+
+def any_falsey(fields: dict[str, list[str]], key: str) -> bool:
+    return any(value in FALSE_WORDS for value in normalized_values(fields, key))
+
+
+def combined_text(fields: dict[str, list[str]], text: str, keys: tuple[str, ...]) -> str:
+    pieces = [text]
+    for key in keys:
+        pieces.extend(values(fields, key))
+    return "\n".join(pieces).lower()
+
+
+def promotion_claimed(fields: dict[str, list[str]]) -> bool:
+    claim_keys = (
+        "promotion_decision",
+        "classification",
+        "result",
+        "yoga_local_session",
+        "local_session",
+    )
+    return any(contains_any(fields, key, PASS_WORDS) for key in claim_keys)
+
+
+def autologin_used(fields: dict[str, list[str]], text: str) -> bool:
+    if any_truthy(fields, "autologin_used"):
+        return True
+    if contains_value(fields, "loginctl_service", "sddm-autologin"):
+        return True
+    login_method = " ".join(values(fields, "login_method")).lower()
+    return "autologin" in login_method and "no autologin" not in login_method
+
+
+def manual_or_fresh_login(fields: dict[str, list[str]]) -> bool:
+    login_method = " ".join(values(fields, "login_method")).lower()
+    if "autologin" in login_method:
+        return False
+    return any(token in login_method for token in ("manual", "fresh", "greeter"))
+
+
+def session_field_has(
+    fields: dict[str, list[str]], text: str, field: str, expected: tuple[str, ...]
+) -> bool:
+    direct_key = f"loginctl_{field}"
+    if any(value in expected for value in normalized_values(fields, direct_key)):
+        return True
+    session_text = combined_text(fields, text, ("loginctl_session",))
+    for token in expected:
+        token_re = re.escape(token)
+        if re.search(rf"\b{field}\s*=\s*{token_re}\b", session_text):
+            return True
+        if re.search(rf"\b{field}\s+{token_re}\b", session_text):
+            return True
+    return False
+
+
+def unit_active(text: str, candidates: tuple[str, ...]) -> bool:
+    lowered = text.lower()
+    for unit in candidates:
+        unit_re = re.escape(unit.lower())
+        if re.search(rf"{unit_re}[^\n]{{0,120}}\bactive\b", lowered):
+            return True
+        if re.search(rf"\bactive\b[^\n]{{0,120}}{unit_re}", lowered):
+            return True
+    return False
+
+
+def has_packaged_session(fields: dict[str, list[str]], text: str) -> bool:
+    _ = text
+    session_text = "\n".join(
+        values(fields, "session_entry")
+        + values(fields, "loginctl_desktop")
+        + values(fields, "loginctl_session")
+    ).lower()
+    return any(
+        token in session_text
+        for token in (
+            "xoxdwm",
+            "exwm-vr",
+            "exwm_vr",
+            "xoxdwm.desktop",
+            "exwm-vr.desktop",
+            "exwm-vr-session",
+        )
+    )
+
+
+def positive_vr_claim_value(value: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in PLACEHOLDERS or normalized in FALSE_WORDS:
+        return False
+    if normalized.startswith(("no", "none", "not ", "out of scope")):
+        return False
+    return any(token in normalized for token in VR_POSITIVE_WORDS)
+
+
+def has_runtime_socket(fields: dict[str, list[str]], text: str, socket: str) -> bool:
+    runtime_text = combined_text(fields, text, ("runtime_sockets",))
+    return socket.lower() in runtime_text
+
+
+def vr_or_openxr_claimed(fields: dict[str, list[str]], text: str) -> bool:
+    _ = text
+    if any(positive_vr_claim_value(value) for value in values(fields, "vr_openxr_claims")):
+        return True
+    if contains_value(fields, "visual_observed", "yes"):
+        return True
+    if contains_value(fields, "visual_first_frame", "P4_OBSERVED"):
+        return True
+    for key in ("classification", "promotion_decision"):
+        for value in values(fields, key):
+            lower = value.lower()
+            if positive_vr_claim_value(lower) and any(
+                token in lower for token in ("p4", "openxr", "visual first frame", "honey")
+            ):
+                return True
+    return False
+
+
+def validate(fields: dict[str, list[str]], text: str, require_pass: bool) -> list[str]:
+    errors: list[str] = []
+    explicit_claim = promotion_claimed(fields)
+    claimed = explicit_claim or require_pass
+
+    if require_pass and not explicit_claim:
+        errors.append("strict yoga local-session proof requires a pass promotion_decision/result")
+
+    if not claimed:
+        return errors
+
+    if not has_non_placeholder(fields, "host") or not any(
+        value == "yoga" for value in normalized_values(fields, "host")
+    ):
+        errors.append("yoga local-session proof requires host=yoga")
+
+    if autologin_used(fields, text):
+        errors.append("manual/fresh-login evidence cannot use autologin")
+
+    if not manual_or_fresh_login(fields):
+        errors.append("yoga local-session proof requires login_method=manual or fresh greeter")
+
+    display_text = combined_text(fields, text, ("display_manager", "loginctl_service"))
+    if "sddm" not in display_text and "display-manager" not in display_text:
+        errors.append("yoga local-session proof requires SDDM/display-manager evidence")
+
+    if not session_field_has(fields, text, "class", ("user",)):
+        errors.append("yoga local-session proof requires Class=user")
+    if not session_field_has(fields, text, "type", ("wayland",)):
+        errors.append("yoga local-session proof requires Type=wayland")
+    if not session_field_has(fields, text, "seat", ("seat0",)):
+        errors.append("yoga local-session proof requires Seat=seat0")
+    if not session_field_has(fields, text, "state", ("active",)):
+        errors.append("yoga local-session proof requires State=active")
+    if not session_field_has(fields, text, "remote", ("no", "false")):
+        errors.append("yoga local-session proof requires Remote=no")
+
+    if not has_packaged_session(fields, text):
+        errors.append("yoga local-session proof requires packaged XoxdWM/EXWM-VR session entry")
+
+    user_unit_text = combined_text(fields, text, ("user_units",))
+    if not unit_active(user_unit_text, ("exwm-vr.target", "xoxdwm.target")):
+        errors.append("yoga local-session proof requires active exwm-vr/xoxdwm target")
+    if not unit_active(
+        user_unit_text,
+        ("exwm-vr-compositor.service", "xoxdwm-compositor.service"),
+    ):
+        errors.append("yoga local-session proof requires active compositor user unit")
+    if not unit_active(
+        user_unit_text,
+        ("exwm-vr-emacs.service", "xoxdwm-emacs.service"),
+    ):
+        errors.append("yoga local-session proof requires active Emacs user unit")
+
+    if not has_runtime_socket(fields, text, "wayland-0"):
+        errors.append("yoga local-session proof requires wayland-0 runtime socket")
+    if not has_runtime_socket(fields, text, "ewwm-ipc.sock"):
+        errors.append("yoga local-session proof requires ewwm-ipc.sock runtime socket")
+
+    marker_text = combined_text(fields, text, ("journal_markers",))
+    if "ewwm: initialized" not in marker_text:
+        errors.append("yoga local-session proof requires ewwm: initialized journal marker")
+    if "drm" not in marker_text:
+        errors.append("yoga local-session proof requires explicit drm backend marker")
+    if not any(
+        marker in marker_text
+        for marker in (
+            "packaged session bootstrap",
+            "exwm-vr-session-init",
+            "/usr/share/exwm-vr",
+            "exwm-vr-session",
+        )
+    ):
+        errors.append("yoga local-session proof requires packaged session bootstrap marker")
+
+    if not any_truthy(fields, "rollback_tested"):
+        errors.append("yoga local-session proof requires rollback_tested=yes")
+
+    if vr_or_openxr_claimed(fields, text):
+        errors.append("yoga local-session proof cannot include VR/OpenXR promotion claims")
+
+    return errors
+
+
+def read_input(path: str) -> str:
+    if path == "-":
+        return sys.stdin.read()
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
+        print(f"ERROR: cannot read evidence packet {path}: {exc}", file=sys.stderr)
+        raise SystemExit(66) from exc
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        description="Validate yoga local-session evidence packets."
+    )
+    parser.add_argument(
+        "--require-pass",
+        action="store_true",
+        help="Require a complete manual/fresh-login pass packet.",
+    )
+    parser.add_argument(
+        "packet",
+        nargs="?",
+        default="-",
+        help="Evidence packet path, tracker draft path, or '-' for stdin.",
+    )
+    args = parser.parse_args(argv)
+
+    text = read_input(args.packet)
+    fields = parse_fields(text)
+    errors = validate(fields, text, args.require_pass)
+    if errors:
+        for error in errors:
+            print(f"ERROR: {error}", file=sys.stderr)
+        return 64
+
+    if args.require_pass or promotion_claimed(fields):
+        print("yoga_local_session_evidence_check=passed")
+    else:
+        print("yoga_local_session_evidence_check=no_promotion_claim")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))
