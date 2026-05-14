@@ -32,7 +32,9 @@ runs:
 
     - name: Install Nix on self-hosted runners
       if: ${{ inputs.self_hosted == 'true' }}
-      uses: DeterminateSystems/nix-installer-action@main
+      uses: DeterminateSystems/nix-installer-action@v22
+      with:
+        determinate: false
 
     - name: Setup cache hints
       shell: bash

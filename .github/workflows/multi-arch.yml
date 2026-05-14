@@ -11,6 +11,7 @@ on:
       - 'nix/**'
       - 'flake.nix'
       - 'flake.lock'
+      - '.github/actions/**'
       - '.github/workflows/multi-arch.yml'
   pull_request:
     branches: [main, dev]
@@ -21,6 +22,7 @@ on:
       - 'nix/**'
       - 'flake.nix'
       - 'flake.lock'
+      - '.github/actions/**'
       - '.github/workflows/multi-arch.yml'
 
 concurrency:
@@ -220,8 +222,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: DeterminateSystems/nix-installer-action@v22
         with:
+          determinate: false
           extra-conf: |
             system-features = kvm nixos-test
 

@@ -57,6 +57,12 @@ Snapshot date: 2026-05-13
   substrate state:
   - workflow checkout steps use the Node 24-compatible `actions/checkout@v6`
     line instead of the deprecated Node 20-era `actions/checkout@v4` pin
+  - Determinate Nix installer steps use the Node 24-compatible
+    `DeterminateSystems/nix-installer-action@v22` pin with
+    `determinate: false` set explicitly, so the runtime upgrade does not
+    silently change installer flavor
+  - the Multi-Architecture workflow reruns when shared `.github/actions/**`
+    helpers change, not only when the workflow YAML itself changes
   - the optional `sccache` setup remains a soft accelerator; if the GHA cache
     backend is unavailable, workflows continue without treating that cache miss
     as product or runner failure evidence

@@ -127,14 +127,30 @@
 
 (ert-deftest truth-surface/ci-actions-avoid-node20-deprecated-pins ()
   "GitHub Action pins should stay compatible with the Node 24 runtime floor."
-  (let ((saw-checkout nil))
+  (let ((saw-checkout nil)
+        (saw-determinate-nix nil))
     (dolist (relative (truth-surface-test--github-yaml-files))
       (let ((content (truth-surface-test--read-file relative)))
         (should-not (string-match-p "actions/checkout@v4" content))
         (when (string-match-p "actions/checkout@" content)
           (setq saw-checkout t)
-          (should (string-match-p "actions/checkout@v6" content)))))
-    (should saw-checkout))
+          (should (string-match-p "actions/checkout@v6" content)))
+        (should-not
+         (string-match-p "DeterminateSystems/nix-installer-action@v16" content))
+        (should-not
+         (string-match-p "DeterminateSystems/nix-installer-action@main" content))
+        (when (string-match-p "DeterminateSystems/nix-installer-action@"
+                              content)
+          (setq saw-determinate-nix t)
+          (should
+           (string-match-p "DeterminateSystems/nix-installer-action@v22"
+                           content))
+          (should (string-match-p "determinate: false" content)))))
+    (should saw-checkout)
+    (should saw-determinate-nix))
+  (let ((multi-arch (truth-surface-test--read-file
+                     ".github/workflows/multi-arch.yml")))
+    (should (string-match-p "\\.github/actions/\\*\\*" multi-arch)))
   (let ((sccache (truth-surface-test--read-file
                   ".github/actions/setup-sccache/action.yml")))
     (should (string-match-p
