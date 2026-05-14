@@ -974,6 +974,14 @@ honey-openxr-fresh-boot-check host="honey" cycles="1" timeout="20":
 honey-p4-evidence-check evidence="-":
     ./packaging/scripts/exwm-vr-p4-evidence-check "{{evidence}}"
 
+[group('ci')]
+yoga-local-session-evidence-check evidence="-":
+    ./packaging/scripts/xoxdwm-yoga-local-session-evidence-check "{{evidence}}"
+
+[group('ci')]
+yoga-local-session-proof packet:
+    ./packaging/scripts/xoxdwm-yoga-local-session-evidence-check --require-pass "{{packet}}"
+
 # ── nix ────────────────────────────────────────────────
 
 [group('nix')]
