@@ -76,8 +76,9 @@ Snapshot date: 2026-05-13
   - fresh workflow selection now requires `GF_SHARED_RUNNERS_REACHABLE=true` before choosing `tinyland-nix`; until that proof variable is set, PR checks fall back to hosted Linux or skip self-hosted-only jobs instead of creating known-unreachable queues
   - `just runner-reachability-truth` now classifies the current repo boundary
     as blocked/proved/misconfigured and rejects hosted fallback success,
-    `runner_name=null`, premature `GF_SHARED_RUNNERS_REACHABLE=true`, or
-    recreated `xoxdwm-*` runners as closure proof
+    `runner_name=null`, failed assigned jobs, premature
+    `GF_SHARED_RUNNERS_REACHABLE=true`, or recreated `xoxdwm-*` runners as
+    closure proof
   - `Cross-compile aarch64` and `Cross-compile s390x` are classified as secondary-target informational lanes while the hosted/shared cache path is too slow; x86_64 Rocky/runtime proof remains the release-critical lane
   - the remaining Honey / VR hardware lanes now key off explicit `USE_VR_HARDWARE` opt-in instead of `github.repository == 'tinyland-inc/XoxdWM'`
   - runner inventory and repo enrollment are still separate infrastructure facts, not XoxdWM runtime support claims

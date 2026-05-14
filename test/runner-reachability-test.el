@@ -75,6 +75,24 @@
     (should (= 0 status))
     (should (string-match-p "runner_reachability=proved" output))))
 
+(ert-deftest runner-reachability/accepts-completed-tinyland-nix-proof ()
+  "A completed successful tinyland-nix job packet should count as proof."
+  (pcase-let ((`(,status ,output)
+               (runner-reachability-test--run
+                "{\"variables\":{\"USE_SELFHOSTED\":\"true\",\"GF_SHARED_RUNNERS_REACHABLE\":\"true\"},\"jobs\":[{\"name\":\"Nix Runner Health\",\"requested_label\":\"tinyland-nix\",\"runner_name\":\"tinyland-nix-runner-abc\",\"status\":\"completed\",\"conclusion\":\"success\",\"nix_health\":\"success\",\"cache_check\":\"success\"}]}")))
+    (should (= 0 status))
+    (should (string-match-p "runner_reachability=proved" output))))
+
+(ert-deftest runner-reachability/rejects-failed-assigned-tinyland-nix-proof ()
+  "An assigned but failed tinyland-nix job packet should not count as proof."
+  (pcase-let ((`(,status ,output)
+               (runner-reachability-test--run
+                "{\"variables\":{\"USE_SELFHOSTED\":\"true\",\"GF_SHARED_RUNNERS_REACHABLE\":\"true\"},\"jobs\":[{\"name\":\"Nix Runner Health\",\"requested_label\":\"tinyland-nix\",\"runner_name\":\"tinyland-nix-runner-abc\",\"status\":\"completed\",\"conclusion\":\"failure\"}]}")))
+    (should (= 64 status))
+    (should (string-match-p
+             "assigned tinyland-nix job proof requires status=in_progress or completed/success"
+             output))))
+
 (ert-deftest runner-reachability/rejects-repo-shaped-runner-proof ()
   "Repo-shaped xoxdwm runners should not satisfy the shared lane contract."
   (pcase-let ((`(,status ,output)

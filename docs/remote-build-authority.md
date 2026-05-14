@@ -179,7 +179,8 @@ Current truth from that repo:
   recreating repo-shaped runner labels
 - `just runner-reachability-truth` is the repo-local read-only classifier for
   this boundary; it should report blocked until an opt-in `tinyland-nix` job
-  has a non-empty `runner_name` on a compliant shared runner
+  has a non-empty `runner_name` on a compliant shared runner and is either
+  running after assignment or completed successfully
 - Bazel remote cache and Attic live here as acceleration layers, not as
   publication truth by themselves
 
