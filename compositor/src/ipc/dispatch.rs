@@ -1,7 +1,7 @@
 //! IPC message dispatch — parse s-expressions and route to handlers.
 
 use super::server::IpcServer;
-use crate::state::EwwmState;
+use crate::state::{EwwmState, SurfaceData};
 use lexpr::Value;
 use tracing::{debug, warn};
 
@@ -340,13 +340,7 @@ fn handle_surface_list(state: &mut EwwmState, msg_id: i64) -> Option<String> {
         let x11_flag = if data.is_x11 { "t" } else { "nil" };
         let x11_class = data.x11_class.as_deref().unwrap_or("");
         let x11_instance = data.x11_instance.as_deref().unwrap_or("");
-        // Get geometry for this specific surface's Window
-        let geo = state
-            .surface_to_window
-            .get(id)
-            .and_then(|w| state.space.element_geometry(w))
-            .map(|g| (g.loc.x, g.loc.y, g.size.w, g.size.h))
-            .unwrap_or((0, 0, 0, 0));
+        let geo = surface_geometry_for_ipc(state, *id, data);
 
         let focused = state.focused_surface == Some(*id);
         surfaces_sexp.push_str(&format!(
@@ -414,12 +408,7 @@ fn handle_surface_info(state: &mut EwwmState, msg_id: i64, value: &Value) -> Opt
     let x11_instance = data.x11_instance.as_deref().unwrap_or("");
     let focused = state.focused_surface == Some(surface_id);
 
-    let geo = state
-        .surface_to_window
-        .get(&surface_id)
-        .and_then(|w| state.space.element_geometry(w))
-        .map(|g| (g.loc.x, g.loc.y, g.size.w, g.size.h))
-        .unwrap_or((0, 0, 0, 0));
+    let geo = surface_geometry_for_ipc(state, surface_id, data);
 
     Some(format!(
         "(:type :response :id {} :status :ok :surface-id {} :app-id \"{}\" :title \"{}\" :protocol \"{}\" :x11 {} :x11-class \"{}\" :x11-instance \"{}\" :geometry (:x {} :y {} :w {} :h {}) :workspace {} :floating {} :focused {})",
@@ -436,6 +425,27 @@ fn handle_surface_info(state: &mut EwwmState, msg_id: i64, value: &Value) -> Opt
         if data.floating { "t" } else { "nil" },
         if focused { "t" } else { "nil" },
     ))
+}
+
+fn surface_geometry_for_ipc(
+    state: &EwwmState,
+    surface_id: u64,
+    data: &SurfaceData,
+) -> (i32, i32, i32, i32) {
+    let configured = (
+        data.geometry.loc.x,
+        data.geometry.loc.y,
+        data.geometry.size.w,
+        data.geometry.size.h,
+    );
+
+    state
+        .surface_to_window
+        .get(&surface_id)
+        .and_then(|w| state.space.element_geometry(w))
+        .map(|g| (g.loc.x, g.loc.y, g.size.w, g.size.h))
+        .filter(|(_, _, w, h)| *w > 0 && *h > 0)
+        .unwrap_or(configured)
 }
 
 fn handle_surface_focus(state: &mut EwwmState, msg_id: i64, value: &Value) -> Option<String> {

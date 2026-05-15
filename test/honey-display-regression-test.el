@@ -39,6 +39,13 @@
     (should (string-match-p "State::Activated" content))
     (should (string-match-p "surface.send_configure()" content))))
 
+(ert-deftest honey-display-regression/xdg-destroy-removes-matching-surface-id ()
+  "Destroyed XDG windows should remove the surface ID that owns the wl_surface."
+  (let ((content (honey-display-regression--read-file
+                  "compositor/src/handlers/xdg_shell.rs")))
+    (should (string-match-p "surface_to_window.iter().find_map" content))
+    (should (string-match-p "then_some(\\*id)" content))))
+
 (ert-deftest honey-display-regression/xwayland-maps-with-visible-initial-geometry ()
   "XWayland windows should not use a zero bbox as first configure geometry."
   (let ((content (honey-display-regression--read-file
@@ -70,6 +77,17 @@
     (should (string-match-p "remove_detected_output" output-management))
     (dolist (content (list drm headless winit))
       (should (string-match-p "upsert_detected_output" content)))))
+
+(ert-deftest honey-display-regression/surface-list-falls-back-to-configured-geometry ()
+  "IPC surface geometry should not collapse to 0x0 when Smithay lookup is empty."
+  (let ((content (honey-display-regression--read-file
+                  "compositor/src/ipc/dispatch.rs")))
+    (should (string-match-p "surface_geometry_for_ipc" content))
+    (should (string-match-p "data.geometry.loc.x" content))
+    (should (string-match-p
+             (regexp-quote ".filter(|(_, _, w, h)| *w > 0 && *h > 0)")
+             content))
+    (should (string-match-p "unwrap_or(configured)" content))))
 
 (ert-deftest honey-display-regression/drm-has-operator-visible-test-pattern ()
   "DRM lab mode should support an explicit visible framebuffer pattern."

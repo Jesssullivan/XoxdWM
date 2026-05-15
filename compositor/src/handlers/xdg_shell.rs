@@ -131,17 +131,12 @@ impl XdgShellHandler for EwwmState {
     }
 
     fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {
-        // Find surface_id by matching the WlSurface
         let wl_surface = surface.wl_surface().clone();
-        let surface_id = self.surfaces.iter().find_map(|(id, _data)| {
-            // Match by checking space elements
-            self.space
-                .elements()
-                .any(|w| {
-                    w.toplevel()
-                        .map(|t| *t.wl_surface() == wl_surface)
-                        .unwrap_or(false)
-                })
+        let surface_id = self.surface_to_window.iter().find_map(|(id, window)| {
+            window
+                .toplevel()
+                .map(|t| *t.wl_surface() == wl_surface)
+                .unwrap_or(false)
                 .then_some(*id)
         });
 
