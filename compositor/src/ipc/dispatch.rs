@@ -3295,19 +3295,23 @@ fn handle_beyond_status(state: &mut EwwmState, msg_id: i64) -> Option<String> {
 }
 
 fn handle_beyond_detect(state: &mut EwwmState, msg_id: i64) -> Option<String> {
-    // Scan for connected Beyond headset. In a full implementation this
-    // would enumerate /dev/hidraw* for BEYOND_VENDOR_ID:BEYOND_PRODUCT_ID_HMD.
-    // For now, assume connected if we get this far (user explicitly asking).
-    state.vr_state.beyond_hid.detect(true, None);
-    let sexp = state.vr_state.beyond_hid.status_sexp();
-    Some(format!(
-        "(:type :response :id {} :status :ok :beyond {})",
-        msg_id, sexp
-    ))
+    match beyond_detect_hidraw(state) {
+        Ok(()) => {
+            let sexp = state.vr_state.beyond_hid.status_sexp();
+            Some(format!(
+                "(:type :response :id {} :status :ok :beyond {})",
+                msg_id, sexp
+            ))
+        }
+        Err(e) => Some(error_response(msg_id, &e)),
+    }
 }
 
 fn handle_beyond_power_on(state: &mut EwwmState, msg_id: i64) -> Option<String> {
-    match state.vr_state.beyond_hid.power_on_display() {
+    match beyond_detect_hidraw(state)
+        .and_then(|_| state.vr_state.beyond_hid.power_on_display())
+        .and_then(|_| beyond_process_pending(state))
+    {
         Ok(()) => Some(ok_response(msg_id)),
         Err(e) => Some(error_response(msg_id, &e)),
     }
@@ -3322,7 +3326,10 @@ fn handle_beyond_set_brightness(
         Some(v) => v as u8,
         None => return Some(error_response(msg_id, "missing :value (0-100)")),
     };
-    match state.vr_state.beyond_hid.set_brightness(pct) {
+    match beyond_detect_hidraw(state)
+        .and_then(|_| state.vr_state.beyond_hid.set_brightness(pct))
+        .and_then(|_| beyond_process_pending(state))
+    {
         Ok(()) => Some(ok_response(msg_id)),
         Err(e) => Some(error_response(msg_id, &e)),
     }
@@ -3337,7 +3344,10 @@ fn handle_beyond_set_fan_speed(
         Some(v) => v as u8,
         None => return Some(error_response(msg_id, "missing :value (40-100)")),
     };
-    match state.vr_state.beyond_hid.set_fan_speed(pct) {
+    match beyond_detect_hidraw(state)
+        .and_then(|_| state.vr_state.beyond_hid.set_fan_speed(pct))
+        .and_then(|_| beyond_process_pending(state))
+    {
         Ok(()) => Some(ok_response(msg_id)),
         Err(e) => Some(error_response(msg_id, &e)),
     }
@@ -3360,10 +3370,54 @@ fn handle_beyond_set_led_color(
         Some(v) => v as u8,
         None => return Some(error_response(msg_id, "missing :b (0-255)")),
     };
-    match state.vr_state.beyond_hid.set_led_color(r, g, b) {
+    match beyond_detect_hidraw(state)
+        .and_then(|_| state.vr_state.beyond_hid.set_led_color(r, g, b))
+        .and_then(|_| beyond_process_pending(state))
+    {
         Ok(()) => Some(ok_response(msg_id)),
         Err(e) => Some(error_response(msg_id, &e)),
     }
+}
+
+#[cfg(target_os = "linux")]
+fn beyond_detect_hidraw(state: &mut EwwmState) -> Result<(), String> {
+    let (dev_path, _name, serial) = crate::vr::beyond_hid::LinuxHidTransport::find_beyond()?;
+    state
+        .vr_state
+        .beyond_hid
+        .detect(true, (!serial.is_empty()).then_some(serial));
+    state
+        .vr_state
+        .beyond_hid
+        .set_discovered_hidraw_path(Some(dev_path));
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn beyond_detect_hidraw(state: &mut EwwmState) -> Result<(), String> {
+    state.vr_state.beyond_hid.detect(true, None);
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn beyond_process_pending(state: &mut EwwmState) -> Result<(), String> {
+    let path = state
+        .vr_state
+        .beyond_hid
+        .discovered_hidraw_path
+        .clone()
+        .ok_or_else(|| "no Bigscreen Beyond hidraw path discovered".to_string())?;
+    let mut transport = crate::vr::beyond_hid::LinuxHidTransport::open(&path)?;
+    state
+        .vr_state
+        .beyond_hid
+        .process_pending(&mut transport)
+        .map(|_| ())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn beyond_process_pending(_state: &mut EwwmState) -> Result<(), String> {
+    Err("Bigscreen Beyond hidraw transport is only available on Linux".to_string())
 }
 
 fn handle_beyond_firmware_version(state: &mut EwwmState, msg_id: i64) -> Option<String> {
