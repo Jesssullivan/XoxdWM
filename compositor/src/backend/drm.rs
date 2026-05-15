@@ -204,6 +204,28 @@ fn device_added(
         .map_err(|e| anyhow::anyhow!("DrmDevice::new failed: {}", e))?;
     let drm = Rc::new(RefCell::new(drm));
 
+    // Hybrid laptops can expose render/offload GPUs with no scanout connectors.
+    // Avoid initializing GBM/EGL on those devices before the real display GPU.
+    let connector_count = match drm.borrow().resource_handles() {
+        Ok(resources) => resources.connectors().len(),
+        Err(e) => {
+            warn!(
+                ?path,
+                ?node,
+                "failed to read DRM connectors before renderer init: {}", e
+            );
+            0
+        }
+    };
+    if connector_count == 0 {
+        info!(
+            ?path,
+            ?node,
+            "DRM device has no connectors, skipping renderer initialization"
+        );
+        return Ok(());
+    }
+
     // Create GBM device on the same fd.
     let gbm = GbmDevice::new(drm_fd.clone())
         .map_err(|e| anyhow::anyhow!("GbmDevice::new failed: {}", e))?;
