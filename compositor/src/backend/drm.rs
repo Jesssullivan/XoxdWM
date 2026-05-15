@@ -764,6 +764,19 @@ fn render_output(gpu: &mut GpuDevice, crtc: crtc::Handle, state: &mut EwwmState)
     }
 }
 
+/// Render every configured DRM output.
+fn render_all_outputs(backend: &mut DrmBackendData, state: &mut EwwmState) {
+    let nodes: Vec<DrmNode> = backend.devices.keys().copied().collect();
+    for node in nodes {
+        if let Some(gpu) = backend.devices.get_mut(&node) {
+            let crtcs: Vec<crtc::Handle> = gpu.outputs.keys().copied().collect();
+            for crtc in crtcs {
+                render_output(gpu, crtc, state);
+            }
+        }
+    }
+}
+
 /// Handle a vblank event from a calloop DRM source callback.
 ///
 /// Since the calloop callback only receives `&mut EwwmState` (not the
@@ -1206,12 +1219,7 @@ pub fn run(
     // ── 12. Initial render for all outputs ────────────────────────────
 
     // Kick off the first frame on every output.
-    for (_node, gpu) in backend_data.devices.iter_mut() {
-        let crtcs: Vec<crtc::Handle> = gpu.outputs.keys().copied().collect();
-        for crtc in crtcs {
-            render_output(gpu, crtc, &mut state);
-        }
-    }
+    render_all_outputs(&mut backend_data, &mut state);
 
     info!("DRM backend initialized, entering event loop");
 
@@ -1278,6 +1286,10 @@ pub fn run(
         // Dispatch and flush pending Wayland client events.
         display.dispatch_clients(&mut state)?;
         display.flush_clients()?;
+
+        if state.take_render_request() {
+            render_all_outputs(&mut backend_data, &mut state);
+        }
     }
 
     // ── 14. Cleanup ───────────────────────────────────────────────────

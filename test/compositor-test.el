@@ -44,6 +44,31 @@
   (should (file-exists-p
            (expand-file-name "compositor/src/render.rs" compositor-test--root))))
 
+(ert-deftest compositor-test/drm-repaints-after-surface-changes ()
+  "DRM backend drains render requests raised by surface changes."
+  (let ((state-rs (expand-file-name "compositor/src/state.rs" compositor-test--root))
+        (compositor-rs
+         (expand-file-name "compositor/src/handlers/compositor.rs"
+                           compositor-test--root))
+        (drm-rs (expand-file-name "compositor/src/backend/drm.rs"
+                                   compositor-test--root)))
+    (dolist (file (list state-rs compositor-rs drm-rs))
+      (should (file-exists-p file)))
+    (with-temp-buffer
+      (insert-file-contents state-rs)
+      (let ((source (buffer-string)))
+        (should (string-match-p "render_requested: bool" source))
+        (should (string-match-p "pub fn request_render" source))
+        (should (string-match-p "pub fn take_render_request" source))))
+    (with-temp-buffer
+      (insert-file-contents compositor-rs)
+      (should (string-match-p "self\\.request_render();" (buffer-string))))
+    (with-temp-buffer
+      (insert-file-contents drm-rs)
+      (let ((source (buffer-string)))
+        (should (string-match-p "fn render_all_outputs" source))
+        (should (string-match-p "state\\.take_render_request()" source))))))
+
 (ert-deftest compositor-test/rust-toolchain-exists ()
   (should (file-exists-p
            (expand-file-name "compositor/rust-toolchain.toml" compositor-test--root))))

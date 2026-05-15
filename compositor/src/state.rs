@@ -263,6 +263,7 @@ pub struct EwwmState {
 
     // Shutdown flag
     pub running: bool,
+    render_requested: bool,
 
     // Clock (real or test)
     pub clock: Arc<dyn Clock>,
@@ -416,6 +417,7 @@ impl EwwmState {
             focused_surface: None,
             cursor_status: CursorImageStatus::Default,
             running: true,
+            render_requested: false,
             clock: Arc::new(SystemClock),
         }
     }
@@ -464,6 +466,16 @@ impl EwwmState {
         self.surface_to_window.get(&surface_id)
     }
 
+    pub fn request_render(&mut self) {
+        self.render_requested = true;
+    }
+
+    pub fn take_render_request(&mut self) -> bool {
+        let requested = self.render_requested;
+        self.render_requested = false;
+        requested
+    }
+
     /// Initial visible rectangle for newly mapped application windows.
     pub fn initial_window_geometry(&self) -> Rectangle<i32, Logical> {
         let area = self.usable_area;
@@ -491,6 +503,7 @@ impl EwwmState {
                 let _ = x11.configure(Some(geometry));
             }
         }
+        self.request_render();
     }
 
     pub fn apply_workspace_visibility(&mut self) {
@@ -538,6 +551,7 @@ impl EwwmState {
             .collect();
         tiled.sort_unstable();
         if tiled.is_empty() {
+            self.request_render();
             return;
         }
 
@@ -545,6 +559,7 @@ impl EwwmState {
         for (surface_id, geometry) in tiled.into_iter().zip(rects) {
             self.set_surface_geometry(surface_id, geometry);
         }
+        self.request_render();
     }
 
     fn layout_rects(&self, count: usize) -> Vec<Rectangle<i32, Logical>> {
@@ -812,6 +827,7 @@ impl EwwmState {
                     keyboard.set_focus(self, Some(surface), serial);
                 }
             }
+            self.request_render();
         }
     }
 
@@ -850,4 +866,24 @@ pub struct ClientState {
 impl ClientData for ClientState {
     fn initialized(&self, _client_id: ClientId) {}
     fn disconnected(&self, _client_id: ClientId, _reason: DisconnectReason) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use smithay::reexports::calloop::EventLoop;
+
+    #[test]
+    fn render_request_latches_until_taken() {
+        let event_loop = EventLoop::<EwwmState>::try_new().unwrap();
+        let mut display = Display::<EwwmState>::new().unwrap();
+        let mut state = EwwmState::new(&mut display, event_loop.handle());
+
+        assert!(!state.take_render_request());
+
+        state.request_render();
+
+        assert!(state.take_render_request());
+        assert!(!state.take_render_request());
+    }
 }
