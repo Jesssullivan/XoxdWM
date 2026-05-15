@@ -88,5 +88,22 @@
     (should (string-match-p "drm framebuffer readback" content))
     (should (string-match-p "center_pixel" content))))
 
+(ert-deftest honey-display-regression/beyond-ipc-flushes-hid-queue ()
+  "Beyond IPC commands should not report success while HID reports remain queued."
+  (let ((dispatch (honey-display-regression--read-file
+                   "compositor/src/ipc/dispatch.rs")))
+    (dolist (handler '("handle_beyond_power_on"
+                       "handle_beyond_set_brightness"
+                       "handle_beyond_set_fan_speed"
+                       "handle_beyond_set_led_color"))
+      (should (string-match-p handler dispatch)))
+    (should (string-match-p "fn beyond_detect_hidraw" dispatch))
+    (should (string-match-p "LinuxHidTransport::find_beyond" dispatch))
+    (should (string-match-p "fn beyond_process_pending" dispatch))
+    (should (string-match-p "process_pending(&mut transport)" dispatch))
+    (should (string-match-p
+             "and_then(|_| beyond_process_pending(state))"
+             dispatch))))
+
 (provide 'honey-display-regression-test)
 ;;; honey-display-regression-test.el ends here

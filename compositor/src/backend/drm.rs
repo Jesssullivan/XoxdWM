@@ -212,7 +212,8 @@ fn device_added(
             warn!(
                 ?path,
                 ?node,
-                "failed to read DRM connectors before renderer init: {}", e
+                "failed to read DRM connectors before renderer init: {}",
+                e
             );
             0
         }
