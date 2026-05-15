@@ -159,6 +159,21 @@
    nil path nil 'silent)
   (set-file-modes path #o755))
 
+(defun honey-substrate--write-stdin-sensitive-openxr-client (path)
+  "Write a fake OpenXR client that fails if stdin is already closed."
+  (write-region
+   (concat "#!/usr/bin/env bash\n"
+           "set -euo pipefail\n"
+           "echo READY\n"
+           "echo xrGetSystem\n"
+           "if read -r _line; then\n"
+           "  exit 0\n"
+           "fi\n"
+           "echo stdin_eof\n"
+           "exit 42\n")
+   nil path nil 'silent)
+  (set-file-modes path #o755))
+
 (defun honey-substrate--run-openxr-smoke (env &rest args)
   "Run the OpenXR smoke wrapper with ENV and ARGS, returning (RC . OUTPUT)."
   (with-temp-buffer
@@ -246,6 +261,8 @@
       (should (string-match-p (regexp-quote "/usr/libexec/exwm-vr/hello_xr") script))
       (should (string-match-p (regexp-quote "exwm-vr-hello-xr") script))
       (should (string-match-p (regexp-quote "/usr/local/bin/hello_xr") script))
+      (should (string-match-p (regexp-quote "EXWM_VR_OPENXR_HOLD_STDIN") script))
+      (should (string-match-p (regexp-quote "tail -f /dev/null | timeout") script))
       (should (string-match-p (regexp-quote "timeout \"$timeout_seconds\"") script))
       (should (string-match-p (regexp-quote "monado_comp_ipc") script))
       (should (string-match-p (regexp-quote "openxr_smoke=p3_session_after_ready_timeout") script))
@@ -259,6 +276,31 @@
       (should (string-match-p (regexp-quote "P4_FAILED") script))
       (should (string-match-p (regexp-quote "P4_UNOBSERVED") script))
       (should-not (string-match-p (regexp-quote "first frame confirmed") script)))))
+
+(ert-deftest honey-substrate/openxr-smoke-holds-stdin-for-bounded-visual-window ()
+  "Bounded smoke should keep stdin open so hello_xr-style clients do not exit."
+  (let* ((root (make-temp-file "honey-openxr-smoke-stdin-" t))
+         (runtime-json (expand-file-name "active_runtime.json" root))
+         (runtime-dir (expand-file-name "runtime" root))
+         (client (expand-file-name "fake-openxr-client" root)))
+    (unwind-protect
+        (progn
+          (make-directory runtime-dir t)
+          (honey-substrate--write-fake-openxr-runtime runtime-json)
+          (honey-substrate--write-stdin-sensitive-openxr-client client)
+          (let ((held
+                 (honey-substrate--run-openxr-smoke
+                  (list (concat "XR_RUNTIME_JSON=" runtime-json)
+                        (concat "XDG_RUNTIME_DIR=" runtime-dir)
+                        (concat "EXWM_VR_OPENXR_CLIENT=" client)
+                        "EXWM_VR_OPENXR_ACCEPT_TIMEOUT_AFTER_READY=1")
+                  "--timeout" "1")))
+            (should (= (car held) 0))
+            (should (string-match-p
+                     "openxr_smoke=p3_session_after_ready_timeout"
+                     (cdr held)))
+            (should-not (string-match-p "stdin_eof" (cdr held)))))
+      (delete-directory root t))))
 
 (ert-deftest honey-substrate/openxr-smoke-requires-human-confirmation-for-p4 ()
   "P4 observed output should require an explicit human confirmation token."

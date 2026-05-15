@@ -21,6 +21,8 @@ Environment:
   EXWM_VR_OPENXR_ACCEPT_TIMEOUT_AFTER_READY=1
                             Classify a timeout as P3 OpenXR session evidence
                             if READY/client markers are present.
+  EXWM_VR_OPENXR_HOLD_STDIN=0|1
+                            Keep client stdin open during bounded runs. Default: 1.
   EXWM_VR_VISUAL_OBSERVED=yes|no|not_observed
                             Human-visible headset result. Default: no.
   EXWM_VR_VISUAL_OBSERVER  Required when EXWM_VR_VISUAL_OBSERVED=yes.
@@ -33,6 +35,7 @@ status_only=0
 client_override="${EXWM_VR_OPENXR_CLIENT:-}"
 timeout_seconds="${EXWM_VR_OPENXR_TIMEOUT:-20}"
 accept_timeout_after_ready="${EXWM_VR_OPENXR_ACCEPT_TIMEOUT_AFTER_READY:-0}"
+hold_stdin="${EXWM_VR_OPENXR_HOLD_STDIN:-1}"
 visual_observed="${EXWM_VR_VISUAL_OBSERVED:-no}"
 visual_observer="${EXWM_VR_VISUAL_OBSERVER:-}"
 visual_confirmation="${EXWM_VR_VISUAL_CONFIRMATION:-}"
@@ -105,6 +108,13 @@ visual_first_frame_status() {
         yes) echo "P4_OBSERVED" ;;
         no) echo "P4_FAILED" ;;
         not_observed) echo "P4_UNOBSERVED" ;;
+    esac
+}
+
+hold_stdin_enabled() {
+    case "$hold_stdin" in
+        ""|0|false|FALSE|no|NO) return 1 ;;
+        *) return 0 ;;
     esac
 }
 
@@ -267,8 +277,13 @@ else
         echo "ERROR: timeout command not found; set EXWM_VR_OPENXR_TIMEOUT=0 to run unbounded." >&2
         exit 127
     fi
-    timeout "$timeout_seconds" "$client_path" "${client_args[@]}" 2>&1 | tee "$run_log"
-    rc=${PIPESTATUS[0]}
+    if hold_stdin_enabled; then
+        tail -f /dev/null | timeout "$timeout_seconds" "$client_path" "${client_args[@]}" 2>&1 | tee "$run_log"
+        rc=${PIPESTATUS[1]}
+    else
+        timeout "$timeout_seconds" "$client_path" "${client_args[@]}" 2>&1 | tee "$run_log"
+        rc=${PIPESTATUS[0]}
+    fi
 fi
 set -e
 

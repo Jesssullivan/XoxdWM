@@ -71,6 +71,10 @@ Command:
 just honey-openxr-smoke honey -- --timeout 120
 ```
 
+The streamed wrapper keeps the OpenXR client's stdin open during bounded runs
+so `hello_xr` stays alive for the observation window instead of exiting as soon
+as the SSH script input reaches EOF.
+
 If the lab observer sees visible non-black headset output during the active
 session, rerun or launch the smoke with the explicit P4 confirmation gate:
 
