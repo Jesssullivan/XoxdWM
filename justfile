@@ -863,12 +863,23 @@ honey-proof-env host="honey":
 honey-openxr-status host="honey":
     #!/usr/bin/env bash
     set -euo pipefail
-    ssh jess@{{host}} bash -s <<'REMOTE'
-    set -euo pipefail
-    cd "{{remote_repo_path}}"
-    export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-    ./packaging/scripts/exwm-vr-openxr-smoke --status-only
-    REMOTE
+    remote_env=""
+    for name in \
+        EXWM_VR_OPENXR_CLIENT \
+        EXWM_VR_OPENXR_TIMEOUT \
+        EXWM_VR_OPENXR_ACCEPT_TIMEOUT_AFTER_READY \
+        EXWM_VR_VISUAL_OBSERVED \
+        EXWM_VR_VISUAL_OBSERVER \
+        EXWM_VR_VISUAL_CONFIRMATION \
+        XR_RUNTIME_JSON
+    do
+        if [[ -v "${name}" ]]; then
+            printf -v quoted '%q' "${!name}"
+            remote_env+="export ${name}=${quoted}; "
+        fi
+    done
+    ssh jess@{{host}} "${remote_env}"'export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"; export XR_RUNTIME_JSON="${XR_RUNTIME_JSON:-/etc/xdg/openxr/1/active_runtime.json}"; bash -s -- --status-only' \
+        < "{{project_root}}/packaging/scripts/exwm-vr-openxr-smoke"
 
 [group('ci')]
 honey-openxr-smoke host="honey" *args="":
@@ -879,11 +890,27 @@ honey-openxr-smoke host="honey" *args="":
     EOF
     )"
     extra="${extra#-- }"
-    cmd="./packaging/scripts/exwm-vr-openxr-smoke"
+    remote_env=""
+    for name in \
+        EXWM_VR_OPENXR_CLIENT \
+        EXWM_VR_OPENXR_TIMEOUT \
+        EXWM_VR_OPENXR_ACCEPT_TIMEOUT_AFTER_READY \
+        EXWM_VR_VISUAL_OBSERVED \
+        EXWM_VR_VISUAL_OBSERVER \
+        EXWM_VR_VISUAL_CONFIRMATION \
+        XR_RUNTIME_JSON
+    do
+        if [[ -v "${name}" ]]; then
+            printf -v quoted '%q' "${!name}"
+            remote_env+="export ${name}=${quoted}; "
+        fi
+    done
+    remote_cmd="${remote_env}"'export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"; export XR_RUNTIME_JSON="${XR_RUNTIME_JSON:-/etc/xdg/openxr/1/active_runtime.json}"; bash -s --'
     if [[ -n "${extra}" ]]; then
-        cmd="${cmd} ${extra}"
+        remote_cmd="${remote_cmd} ${extra}"
     fi
-    just honey-run "{{host}}" -- "${cmd}"
+    ssh jess@{{host}} "${remote_cmd}" \
+        < "{{project_root}}/packaging/scripts/exwm-vr-openxr-smoke"
 
 [group('ci')]
 honey-openxr-clean-cycle host="honey" cycles="1" timeout="20":
