@@ -256,7 +256,8 @@
       (should (string-match-p (regexp-quote "EXWM_VR_VISUAL_CONFIRMATION=VISIBLE_NON_BLACK") script))
       (should (string-match-p (regexp-quote "EXWM_VR_VISUAL_OBSERVED=yes requires EXWM_VR_VISUAL_OBSERVER") script))
       (should (string-match-p (regexp-quote "visual_first_frame=P4_OBSERVED") script))
-      (should (string-match-p (regexp-quote "visual_first_frame=P4_UNOBSERVED") script))
+      (should (string-match-p (regexp-quote "P4_FAILED") script))
+      (should (string-match-p (regexp-quote "P4_UNOBSERVED") script))
       (should-not (string-match-p (regexp-quote "first frame confirmed") script)))))
 
 (ert-deftest honey-substrate/openxr-smoke-requires-human-confirmation-for-p4 ()
@@ -329,7 +330,7 @@
          (honey-substrate--run-p4-evidence-check
           (concat "Honey P4 visual-first-frame evidence:\n\n"
                   "- visual_observed: no\n"
-                  "- visual_first_frame: P4_UNOBSERVED\n"
+                  "- visual_first_frame: P4_FAILED\n"
                   "- classification: P3 pass / P4 fail: focused OpenXR session, black headset\n"))))
     (should (= (car result) 0))
     (should (string-match-p "p4_evidence_check=no_p4_promotion_claim" (cdr result)))))

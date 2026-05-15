@@ -51,6 +51,8 @@ impl CompositorHandler for EwwmState {
                 }
             }
         }
+
+        self.request_render();
     }
 }
 

@@ -138,8 +138,9 @@ Select exactly one:
 
 - `visual_observed=yes`: visible non-black headset output was observed.
 - `visual_observed=no`: OpenXR/Monado reached session proof, but the goggles
-  stayed black.
+  stayed black. The wrapper should report `visual_first_frame=P4_FAILED`.
 - `visual_observed=not_observed`: no person was watching the headset.
+  The wrapper should report `visual_first_frame=P4_UNOBSERVED`.
 
 Required fields:
 

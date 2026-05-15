@@ -100,6 +100,14 @@ validate_visual_observation() {
 
 validate_visual_observation
 
+visual_first_frame_status() {
+    case "$visual_observed" in
+        yes) echo "P4_OBSERVED" ;;
+        no) echo "P4_FAILED" ;;
+        not_observed) echo "P4_UNOBSERVED" ;;
+    esac
+}
+
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 export XR_RUNTIME_JSON="${XR_RUNTIME_JSON:-/etc/xdg/openxr/1/active_runtime.json}"
 
@@ -273,7 +281,7 @@ if ((rc == 0)); then
         echo "visual_confirmation=${visual_confirmation}"
         echo "visual_first_frame=P4_OBSERVED"
     else
-        echo "visual_first_frame=P4_UNOBSERVED"
+        echo "visual_first_frame=$(visual_first_frame_status)"
     fi
     exit 0
 fi
@@ -283,7 +291,7 @@ if ((rc == 124)) && [[ "$accept_timeout_after_ready" = "1" ]]; then
         echo "openxr_smoke=p3_session_after_ready_timeout"
         echo "proof_ladder=P3_OPENXR_SESSION"
         echo "visual_observed=${visual_observed}"
-        echo "visual_first_frame=P4_UNOBSERVED"
+        echo "visual_first_frame=$(visual_first_frame_status)"
         exit 0
     fi
 fi
