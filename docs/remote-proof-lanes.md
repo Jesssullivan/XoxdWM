@@ -135,6 +135,8 @@ The repo now has a thin explicit remote-dev/operator lane for working from
 - `just honey-openxr-smoke`
   - stream the current local repo-owned OpenXR wrapper to `honey` and run it
     against the active Monado runtime
+  - bounded runs keep the client stdin open so `hello_xr` remains alive for
+    the requested observation window rather than exiting on streamed-script EOF
   - this can launch `hello_xr` or another OpenXR client, so use it only when
     the compositor/Monado path is intentionally active
 - `just honey-openxr-clean-cycle`
