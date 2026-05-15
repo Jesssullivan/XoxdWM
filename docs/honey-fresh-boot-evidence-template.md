@@ -95,7 +95,8 @@ CLI smoke is not first-frame proof by itself.
 - Headset/display note:
 - Confirmation token if `visual_observed=yes`:
 - If no visible frame, record `visual_observed=no` and classify as P3 pass /
-  P4 fail even if CLI smoke reached `FOCUSED`.
+  P4 fail with `visual_first_frame=P4_FAILED` even if CLI smoke reached
+  `FOCUSED`.
 
 ## Kernel / DSC PPS Evidence
 

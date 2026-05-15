@@ -332,7 +332,10 @@ impl EwwmState {
         // Pointer constraints (pointer-constraints-unstable-v1)
         let pointer_constraints_state = PointerConstraintsState::new::<Self>(&display_handle);
 
-        let seat = seat_state.new_wl_seat(&display_handle, "ewwm-seat");
+        let mut seat = seat_state.new_wl_seat(&display_handle, "ewwm-seat");
+        seat.add_keyboard(Default::default(), 200, 25)
+            .expect("failed to initialize keyboard capability");
+        seat.add_pointer();
 
         info!(
             "EwwmState initialized (layer-shell, foreign-toplevel, session-lock, \

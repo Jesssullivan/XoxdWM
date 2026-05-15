@@ -14,7 +14,7 @@ use smithay::{
     },
     utils::SERIAL_COUNTER,
 };
-use tracing::{debug, trace};
+use tracing::{debug, trace, warn};
 
 /// Handle an input event from any backend.
 pub fn handle_input<B: InputBackend>(state: &mut EwwmState, event: InputEvent<B>) {
@@ -69,7 +69,10 @@ fn handle_keyboard<B: InputBackend>(state: &mut EwwmState, event: B::KeyboardKey
     let keycode = event.key_code();
     let key_state = event.state();
 
-    let keyboard = state.seat.get_keyboard().unwrap();
+    let Some(keyboard) = state.seat.get_keyboard() else {
+        warn!("keyboard input received before keyboard capability was initialized");
+        return;
+    };
 
     // Check for grabbed keys
     let _grab_result = keyboard.input::<bool, _>(
@@ -122,11 +125,17 @@ fn handle_pointer_motion_absolute<B: InputBackend>(
 ) {
     let output = state.space.outputs().next().cloned();
     if let Some(output) = output {
-        let output_geo = state.space.output_geometry(&output).unwrap();
+        let Some(output_geo) = state.space.output_geometry(&output) else {
+            warn!("pointer motion received for output without geometry");
+            return;
+        };
         let pos = event.position_transformed(output_geo.size);
 
         let serial = SERIAL_COUNTER.next_serial();
-        let pointer = state.seat.get_pointer().unwrap();
+        let Some(pointer) = state.seat.get_pointer() else {
+            warn!("pointer motion received before pointer capability was initialized");
+            return;
+        };
 
         // Find surface under pointer for focus
         let surface_under = state.space.element_under(pos).map(|(w, loc)| {
@@ -155,7 +164,10 @@ fn handle_pointer_button<B: InputBackend>(state: &mut EwwmState, event: B::Point
     let button = event.button_code();
     let button_state = event.state();
 
-    let pointer = state.seat.get_pointer().unwrap();
+    let Some(pointer) = state.seat.get_pointer() else {
+        warn!("pointer button received before pointer capability was initialized");
+        return;
+    };
     pointer.button(
         state,
         &ButtonEvent {
@@ -182,7 +194,10 @@ fn handle_pointer_axis<B: InputBackend>(state: &mut EwwmState, event: B::Pointer
     let horizontal = event.amount(Axis::Horizontal).unwrap_or(0.0);
     let vertical = event.amount(Axis::Vertical).unwrap_or(0.0);
 
-    let pointer = state.seat.get_pointer().unwrap();
+    let Some(pointer) = state.seat.get_pointer() else {
+        warn!("pointer axis received before pointer capability was initialized");
+        return;
+    };
     let mut frame = AxisFrame::new(Event::time_msec(&event) as u32).source(source);
     if horizontal != 0.0 {
         frame = frame.value(Axis::Horizontal, horizontal);

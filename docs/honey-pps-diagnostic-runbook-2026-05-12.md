@@ -133,8 +133,9 @@ Record the human-visible result separately:
 - `visual_observed=yes`: visible non-black HMD output was observed by the lab
   operator during the active run.
 - `visual_observed=no`: OpenXR/Monado reached session proof but goggles stayed
-  black.
+  black. Record `visual_first_frame=P4_FAILED`.
 - `visual_observed=not_observed`: no person was watching the headset.
+  Record `visual_first_frame=P4_UNOBSERVED`.
 
 Do not promote #49 unless `visual_observed=yes` is backed by an attended
 evidence packet.
