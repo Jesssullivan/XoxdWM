@@ -1,6 +1,6 @@
 # XoxdWM Status
 
-Snapshot date: 2026-05-13
+Snapshot date: 2026-05-16
 
 ## Honest Assessment
 
@@ -19,7 +19,7 @@ Snapshot date: 2026-05-13
 - `hello_xr -g Vulkan` on `honey` now reaches `xrCreateInstance`, `xrGetSystem`, `Bigscreen Beyond`, two eye swapchains at `3561x3561`, and, in the May 2026 current-boot lab pass, `READY -> SYNCHRONIZED -> VISIBLE -> FOCUSED`.
 - Current live Honey topology from the May 2026 lab pass is `card0-DP-1` for BS2E and `card0-HDMI-A-1` for the Dell management panel, not the older April `DP-2`/`HDMI-A-2` mapping. Host config must follow the live connector sample before attempting goggles proof.
 - The repo now carries `packaging/scripts/exwm-vr-hmd-connector` so setup/status/proof helpers resolve the headset as connected DP `non_desktop=1`, then BIG EDID `0x1234`/`0x5095`, then explicit override, instead of assuming Honey is always `DP-2`.
-- The May 2026 lab pass still failed human-visible first frame: the OpenXR session reached `FOCUSED`, but the goggles remained black. Treat this as `P3 OpenXR Session` pass / `P4 Visual First Frame` fail after successful host visibility, service lifecycle, DRM lease routing, runtime selection, and OpenXR session bring-up.
+- The May 2026 lab pass still failed human-visible first frame: the OpenXR session reached `FOCUSED`, a later same-boot pass proved DP-1 lease/link/DSC active, and a brief edge-light/backlight flash was observed during Dell/display initialization, but the goggles never retained visible non-black output. Treat this as `P3 OpenXR Session` pass / `P4 Visual First Frame` fail after successful host visibility, service lifecycle, DRM lease routing, runtime selection, OpenXR session bring-up, and active DSC evidence. The current history and failure-class split is in [honey-beyond-black-display-history-2026-05-16.md](research/honey-beyond-black-display-history-2026-05-16.md).
 - The P4 promotion packet is now explicit in [honey-p4-visual-first-frame-evidence-template.md](honey-p4-visual-first-frame-evidence-template.md): #49 needs `visual_observed=yes` from a human lab observer, while the fresh-boot template remains the separate P5 repeatability surface.
 - `linux-xr` PR #69 merged a read-only AMD DSC PPS debugfs carry at `dbfcd3938a2f3`; the follow-up diagnostic artifact lane is `kernel-xr-rpms-generic` from Actions run `25710987473`, with inspected RPMs at `6.19.5-12.xr.el10`. This is PPS observability for the black-goggles lane, not a visual fix or P4 proof until installed, captured, and observed on `honey`.
 - The packaged `beyond-power-on` helper had drifted from the corrected Rust HID implementation by placing the SetWorkState command at byte 2 instead of byte 1. The repo copy is now corrected and guarded by a substrate test; any installed Honey helper should be refreshed before using the service as panel-power evidence.
@@ -108,7 +108,7 @@ Snapshot date: 2026-05-13
 ## Immediate Priorities
 
 1. Preserve the now-explicit `monado_comp_ipc` cleanup path in the launcher and keep the `honey` OpenXR status wrapper as the safe preflight.
-2. Preserve the installed `monado-beyond` host lane on `honey`, refresh the corrected `beyond-power-on` helper on-host, capture packed DSC PPS on the diagnostic kernel, and resolve the black first-frame blocker before promoting OpenXR smoke to product evidence.
+2. Preserve the installed `monado-beyond` host lane on `honey`, keep the corrected `beyond-power-on` helper refreshed on-host, capture packed DSC PPS on the diagnostic kernel when approved, audit the `28de:2300` Watchman video/display-state lane before any writes, and resolve the retained panel-state blocker before promoting OpenXR smoke to product evidence.
 3. Keep using the installed `exwm-vr-openxr-smoke-client` path for honey OpenXR smoke runs and record whether failures are host/substrate, packaging/deployment, or compositor/runtime blockers.
 4. Keep the Rocky base package lane green while leaving Monado, SELinux, and BCI as separate follow-on concerns.
 5. Preserve the now-proven `yoga` package/session lane as the 2D reference host while packaging continues to evolve.

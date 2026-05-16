@@ -14,7 +14,7 @@ Status vocabulary:
 - `Synthetic`: code/static/headless proof exists, but no named visual runtime proof.
 - `Design`: code/docs/research exist, but the flow is not yet claimed as working on a named target.
 
-Date baseline: 2026-05-10.
+Date baseline: 2026-05-16.
 
 ## Honey XR Proof Ladder
 
@@ -32,8 +32,12 @@ it, and CLI smoke never substitutes for the human observation required at P4.
 | P6 | Operator Stability | Repeated use is stable enough for an operator workflow, not only bounded smoke. |
 
 Current `honey` classification: P3 pass / P4 fail. The May 2026 session reached
-`FOCUSED` with swapchains, but `visual_observed=no` because the goggles stayed
-black. Use
+`FOCUSED` with swapchains and later proved DP-1 lease/link/DSC active on the
+same boot, but `visual_observed=no` because the goggles did not retain visible
+output. A brief edge-light/backlight flash during Dell/display initialization is
+panel-power evidence, not P4 proof. See
+[honey-beyond-black-display-history-2026-05-16.md](research/honey-beyond-black-display-history-2026-05-16.md)
+for the current failure-class split. Use
 [honey-p4-visual-first-frame-evidence-template.md](honey-p4-visual-first-frame-evidence-template.md)
 for any #49 promotion attempt; the fresh-boot template is the separate P5
 repeatability surface.
