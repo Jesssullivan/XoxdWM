@@ -168,7 +168,10 @@ fi
 case "$client_name" in
     hello_xr|exwm-vr-hello-xr)
         if ((${#client_args[@]} == 0)); then
-            client_args=(-g Vulkan)
+            # Monado/HelloXR's legacy Vulkan path can enumerate the HMD and
+            # exit after non-actual swapchains without holding a present loop.
+            # Vulkan2 is the stronger smoke path for a bounded visual run.
+            client_args=(-g Vulkan2)
         fi
         ;;
 esac
@@ -302,7 +305,7 @@ if ((rc == 0)); then
 fi
 
 if ((rc == 124)) && [[ "$accept_timeout_after_ready" = "1" ]]; then
-    if grep -Eqi "READY|Head:|swapchain|xrGetSystem" "$run_log"; then
+    if grep -Eqi "READY|FOCUSED|Session State|xrGetVulkanGraphicsDeviceKHR|Creating color and depth swapchain" "$run_log"; then
         echo "openxr_smoke=p3_session_after_ready_timeout"
         echo "proof_ladder=P3_OPENXR_SESSION"
         echo "visual_observed=${visual_observed}"
