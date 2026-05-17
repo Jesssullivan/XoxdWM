@@ -401,6 +401,8 @@
         (template (truth-surface-test--read-file "docs/honey-fresh-boot-evidence-template.md"))
         (p4-template (truth-surface-test--read-file
                       "docs/honey-p4-visual-first-frame-evidence-template.md"))
+        (watchman-runbook (truth-surface-test--read-file
+                           "docs/honey-watchman-readonly-audit-2026-05-17.md"))
         (smoke (truth-surface-test--read-file "packaging/scripts/exwm-vr-openxr-smoke"))
         (p4-checker (truth-surface-test--read-file
                      "packaging/scripts/exwm-vr-p4-evidence-check")))
@@ -423,6 +425,8 @@
     (should (string-match-p "visual_observed=no" matrix))
     (should (string-match-p "edge-light/backlight flash" matrix))
     (should (string-match-p "honey-beyond-black-display-history-2026-05-16" matrix))
+    (should (string-match-p "honey-watchman-readonly-audit-2026-05-17" matrix))
+    (should (string-match-p "Watchman feature reports" matrix))
     (should (string-match-p "EXWM_VR_VISUAL_CONFIRMATION=VISIBLE_NON_BLACK" matrix))
     (should (string-match-p "honey-p4-visual-first-frame-evidence-template" matrix))
     (should (string-match-p "visual_observed" runbook))
@@ -436,10 +440,13 @@
     (should (string-match-p "honey-p4-evidence-check" p4-template))
     (should (string-match-p "--require-p4" p4-template))
     (should (string-match-p "P3 pass / P4 fail" p4-template))
+    (should (string-match-p "just honey-watchman-readonly-audit honey" p4-template))
     (should (string-match-p "P5" p4-template))
     (should (string-match-p "Do not stop, restart, drain, or otherwise touch `rke2`" p4-template))
     (should (string-match-p "not P4 unless a human records visible" p4-template))
     (should (string-match-p "not P4 unless visible non-black headset output is sustained" p4-template))
+    (should (string-match-p "Do not write Watchman feature reports" watchman-runbook))
+    (should (string-match-p "does not promote P4" watchman-runbook))
     (should (string-match-p "proof_ladder=P3_OPENXR_SESSION" smoke))
     (should (string-match-p "openxr_smoke=p3_session_after_ready_timeout" smoke))
     (should (string-match-p "visual_first_frame=P4_OBSERVED" p4-checker))

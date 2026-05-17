@@ -40,7 +40,10 @@ panel-power evidence, not P4 proof. See
 for the current failure-class split. Use
 [honey-p4-visual-first-frame-evidence-template.md](honey-p4-visual-first-frame-evidence-template.md)
 for any #49 promotion attempt; the fresh-boot template is the separate P5
-repeatability surface.
+repeatability surface. Use
+[honey-watchman-readonly-audit-2026-05-17.md](honey-watchman-readonly-audit-2026-05-17.md)
+only for the retained panel-state / Watchman inventory lane; it cannot promote
+P4 and must not write Watchman feature reports.
 
 ## Named Hosts
 

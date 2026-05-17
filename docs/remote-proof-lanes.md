@@ -16,6 +16,8 @@ Record the result with
 [honey-fresh-boot-evidence-template.md](honey-fresh-boot-evidence-template.md).
 For the read-only packed DSC PPS diagnostic lane after `linux-xr` PR #69, use
 [honey-pps-diagnostic-runbook-2026-05-12.md](honey-pps-diagnostic-runbook-2026-05-12.md).
+For the retained panel-state / Watchman inventory lane, use
+[honey-watchman-readonly-audit-2026-05-17.md](honey-watchman-readonly-audit-2026-05-17.md).
 
 ## Core Distinction
 
@@ -60,6 +62,7 @@ Not every remote workflow is authoritative in the same way.
    - `just honey-openxr-clean-cycle`
    - `just honey-openxr-fresh-boot-check`
    - `just honey-kernel-dsc-truth`
+   - `just honey-watchman-readonly-audit`
 4. Inspect the live remote surface with `just remote-proof-surface` and
    `just remote-proof-runs`.
 5. Dispatch bounded remote checks when needed:
@@ -158,6 +161,14 @@ The repo now has a thin explicit remote-dev/operator lane for working from
   - this target is read-only with respect to debugfs and must not be combined
     with link retraining or service mutation unless the operator has explicitly
     approved a broader attended run
+- `just honey-watchman-readonly-audit`
+  - stream the repo-owned Watchman audit helper to `honey` over plain SSH
+  - capture `28de:2300`, `35bd:0101`, and `28de:2102` USB/hidraw inventory,
+    descriptor hashes, permissions, selected udev properties, and runtime
+    socket presence
+  - this target does not use sudo, enter `nix develop`, write Watchman feature
+    reports, write debugfs, retrain DP, restart services, touch `rke2`, change
+    kernels, reboot, or promote P4
 
 This lane is for live host work such as:
 

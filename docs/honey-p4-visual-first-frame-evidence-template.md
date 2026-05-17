@@ -138,6 +138,35 @@ Required fields:
 - `pps_rc_ranges_bpp8_444_patched`:
 - `pps_rc_ranges_bpp8_444_stock`:
 
+## Optional Watchman / Panel-State Read-Only Audit
+
+Use this section when the retained panel-state hypothesis is under review and
+the lab wants the USB/hidraw/descriptor surface recorded without mutating
+Watchman state.
+
+Command:
+
+```sh
+just honey-watchman-readonly-audit honey
+```
+
+Required fields:
+
+- Watchman `28de:2300` present:
+- Bigscreen `35bd:0101` present:
+- matching hidraw nodes:
+- report descriptor hashes:
+- `video_state_capture`:
+- forbidden mutations confirmed:
+  - Watchman writes: no
+  - debugfs writes: no
+  - DP retrain: no
+  - service restart: no
+  - `rke2` operation: no
+
+This audit is inventory-only. It does not read current Watchman video state and
+does not promote P4.
+
 ## Human Visual Observation
 
 The lab observer must be watching the headset during the active OpenXR session.

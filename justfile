@@ -998,6 +998,14 @@ honey-openxr-fresh-boot-check host="honey" cycles="1" timeout="20":
     just honey-openxr-clean-cycle "{{host}}" "${cycles}" "${timeout_seconds}"
 
 [group('ci')]
+honey-watchman-readonly-audit host="honey":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "This target is read-only. It does not use sudo, restart services, write debugfs, retrain DP, touch rke2, or send Watchman feature reports."
+    ssh jess@{{host}} 'export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"; bash -s' \
+        < "{{project_root}}/packaging/scripts/exwm-vr-watchman-readonly-audit"
+
+[group('ci')]
 honey-p4-evidence-check evidence="-":
     ./packaging/scripts/exwm-vr-p4-evidence-check "{{evidence}}"
 

@@ -34,6 +34,7 @@ As of 2026-05-12:
 - [Honey Fresh-Boot Evidence Template](docs/honey-fresh-boot-evidence-template.md)
 - [Honey P4 Visual First-Frame Evidence Template](docs/honey-p4-visual-first-frame-evidence-template.md)
 - [Honey PPS Diagnostic Runbook](docs/honey-pps-diagnostic-runbook-2026-05-12.md)
+- [Honey Watchman Read-Only Audit](docs/honey-watchman-readonly-audit-2026-05-17.md)
 - [Emacs/eGreg App-Layer Contract](docs/emacs-egreg-app-layer.md)
 - [Status](docs/status.md)
 - [Q2 2026 Roadmap](docs/roadmap-2026-q2.md)
