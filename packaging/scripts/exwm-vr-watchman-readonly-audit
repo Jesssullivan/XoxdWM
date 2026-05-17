@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "audit=honey_watchman_readonly"
+echo "mode=read-only"
+echo "host=$(hostname 2>/dev/null || echo unknown)"
+echo "kernel=$(uname -r 2>/dev/null || echo unknown)"
+echo "boot_id=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || echo unknown)"
+echo "uid=$(id -u)"
+echo "forbidden_mutations=watchman_feature_report_write,debugfs_write,dp_retrain,service_restart,rke2_operation,kernel_change,reboot"
+
+section() {
+    printf '\n== %s ==\n' "$1"
+}
+
+has_cmd() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+section "usb inventory"
+if has_cmd lsusb; then
+    lsusb | awk '
+        BEGIN { found = 0 }
+        /28de:2300|35bd:0101|28de:2102/ {
+            found = 1
+            print "usb_device=" $0
+        }
+        END {
+            if (!found) {
+                print "usb_device_match=none"
+            }
+        }
+    '
+else
+    echo "lsusb=missing"
+fi
+
+section "hidraw inventory"
+matched=0
+shopt -s nullglob
+for class_node in /sys/class/hidraw/hidraw*; do
+    hidraw_name="$(basename "$class_node")"
+    devnode="/dev/${hidraw_name}"
+    device_dir="$(readlink -f "${class_node}/device" 2>/dev/null || true)"
+    uevent="${device_dir}/uevent"
+
+    if [[ ! -r "${uevent}" ]]; then
+        continue
+    fi
+
+    if ! grep -Eiq '000028DE:00002300|000035BD:00000101|000028DE:00002102' "${uevent}"; then
+        continue
+    fi
+
+    matched=1
+    echo "hidraw=${devnode}"
+    echo "hidraw_sysfs=${device_dir}"
+    if [[ -e "${devnode}" ]]; then
+        echo "hidraw_permissions=$(stat -Lc '%a %U:%G' "${devnode}" 2>/dev/null || echo unknown)"
+    else
+        echo "hidraw_permissions=missing"
+    fi
+
+    echo "hid_uevent_begin"
+    sed 's/^/  /' "${uevent}"
+    echo "hid_uevent_end"
+
+    descriptor="${device_dir}/report_descriptor"
+    if [[ -r "${descriptor}" ]]; then
+        echo "report_descriptor_bytes=$(wc -c < "${descriptor}" | tr -d ' ')"
+        if has_cmd sha256sum; then
+            echo "report_descriptor_sha256=$(sha256sum "${descriptor}" | awk '{print $1}')"
+        else
+            echo "report_descriptor_sha256=sha256sum_missing"
+        fi
+    else
+        echo "report_descriptor=unreadable"
+    fi
+
+    if has_cmd udevadm && [[ -e "${devnode}" ]]; then
+        echo "udev_properties_begin"
+        udevadm info -q property -n "${devnode}" 2>/dev/null \
+            | grep -E '^(DEVPATH|SUBSYSTEM|ID_|HID_)' \
+            | sed 's/^/  /' || true
+        echo "udev_properties_end"
+    else
+        echo "udevadm=missing_or_no_devnode"
+    fi
+done
+
+if [[ "${matched}" -eq 0 ]]; then
+    echo "hidraw_match=none"
+fi
+
+section "runtime boundary"
+echo "xdg_runtime_dir=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+for socket_name in wayland-0 ewwm-ipc.sock monado_comp_ipc; do
+    socket_path="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/${socket_name}"
+    if [[ -S "${socket_path}" ]]; then
+        echo "${socket_name}=present"
+    else
+        echo "${socket_name}=missing"
+    fi
+done
+
+section "classification"
+echo "watchman_audit=inventory_only"
+echo "video_state_capture=not_attempted"
+echo "p4_promotion=not_allowed"

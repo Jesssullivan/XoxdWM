@@ -89,6 +89,14 @@
   (expand-file-name "docs/honey-pps-diagnostic-runbook-2026-05-12.md"
                     (expand-file-name ".." (file-name-directory load-file-name))))
 
+(defconst honey-substrate--watchman-audit-script
+  (expand-file-name "packaging/scripts/exwm-vr-watchman-readonly-audit"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
+(defconst honey-substrate--watchman-audit-runbook
+  (expand-file-name "docs/honey-watchman-readonly-audit-2026-05-17.md"
+                    (expand-file-name ".." (file-name-directory load-file-name))))
+
 (defun honey-substrate--read-file (path)
   "Return PATH contents as a string."
   (with-temp-buffer
@@ -799,6 +807,50 @@
       (should-not (string-match-p (regexp-quote "./packaging/scripts/exwm-vr-openxr-smoke") stanza))
       (should-not (string-match-p (regexp-quote "just honey-run") stanza))
       (should-not (string-match-p (regexp-quote "nix develop") stanza)))))
+
+(ert-deftest honey-substrate/watchman-readonly-audit-script-is-inventory-only ()
+  "The Watchman audit helper should collect inventory without mutating Honey."
+  (let ((script (honey-substrate--read-file honey-substrate--watchman-audit-script))
+        (runbook (honey-substrate--read-file honey-substrate--watchman-audit-runbook)))
+    (should (string-match-p "audit=honey_watchman_readonly" script))
+    (should (string-match-p "mode=read-only" script))
+    (should (string-match-p "28de:2300" script))
+    (should (string-match-p "35bd:0101" script))
+    (should (string-match-p "28de:2102" script))
+    (should (string-match-p "report_descriptor_sha256" script))
+    (should (string-match-p "watchman_audit=inventory_only" script))
+    (should (string-match-p "video_state_capture=not_attempted" script))
+    (should (string-match-p "Do not write Watchman feature reports" runbook))
+    (should (string-match-p "Do not write debugfs" runbook))
+    (should (string-match-p "Do not retrain DisplayPort" runbook))
+    (should (string-match-p "Do not stop, restart, drain, or otherwise touch `rke2`" runbook))
+    (should (string-match-p "P4 still requires human-observed visible" runbook))
+    (dolist (unsafe '("sudo"
+                      "honey-sudo-run"
+                      "systemctl[^\n]*\\(restart\\|stop\\|start\\)"
+                      "\\(^\\|[[:space:];|&]\\)reboot\\([[:space:];|&]\\|$\\)"
+                      "\\(^\\|[[:space:];|&]\\)shutdown\\([[:space:];|&]\\|$\\)"
+                      "link_settings"
+                      "dsc_bits_per_pixel.*>"
+                      "hidapitester"
+                      "lighthouse_console"))
+      (should-not (string-match-p unsafe script)))))
+
+(ert-deftest honey-substrate/justfile-exposes-watchman-readonly-audit-lane ()
+  "The Watchman audit target should stream the local helper over plain SSH."
+  (let* ((justfile (honey-substrate--read-file honey-substrate--justfile))
+         (start (string-match "^honey-watchman-readonly-audit host=\"honey\":" justfile))
+         (end (and start (string-match "^\\[group" justfile (1+ start))))
+         (stanza (and start end (substring justfile start end))))
+    (should stanza)
+    (should (string-match-p "read-only" stanza))
+    (should (string-match-p (regexp-quote "ssh jess@{{host}}") stanza))
+    (should (string-match-p (regexp-quote "packaging/scripts/exwm-vr-watchman-readonly-audit") stanza))
+    (should-not (string-match-p (regexp-quote "just honey-run") stanza))
+    (should-not (string-match-p (regexp-quote "just honey-sudo-run") stanza))
+    (should-not (string-match-p (regexp-quote "nix develop") stanza))
+    (should-not (string-match-p "\\(^\\|[[:space:];]\\)sudo\\([[:space:]]\\|$\\)" stanza))
+    (should-not (string-match-p "systemctl[^\n]*\\(restart\\|stop\\|start\\)" stanza))))
 
 (ert-deftest honey-substrate/remote-authority-doc-separates-direnv-honey-and-bazel ()
   "Remote authority docs should keep local direnv, `honey` devshells, and `rockies` Bazel distinct."
