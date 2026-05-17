@@ -20,6 +20,10 @@ during an active OpenXR/Monado session.
   non-black headset output.
 - PPS/DSC capture is diagnostic evidence only. It does not promote P4 unless
   `visual_observed=yes` is recorded by the lab observer.
+- A transient edge-light, backlight flicker, link-training flash, static burst,
+  or other non-retained panel-power symptom is useful diagnostic evidence. It is
+  not P4 unless visible non-black headset output is sustained and recorded by
+  the lab observer.
 
 ## Run Identity
 
@@ -158,6 +162,10 @@ Required fields:
   - yes / no / not observed
 - Description of visible content or black-screen symptom:
 - Any panel power, backlight, static, flicker, or link-training symptom:
+- Transient edge-light/backlight event:
+  - yes / no / not observed
+  - duration:
+  - coincident host/display event:
 - If photographed or filmed, artifact link:
 
 ## Classification
