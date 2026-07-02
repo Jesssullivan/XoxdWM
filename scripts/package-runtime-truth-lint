@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""Lint package/runtime boundaries for native XoxdWM authority."""
+
+from __future__ import annotations
+
+import pathlib
+import re
+import sys
+
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+
+def read(relative: str) -> str:
+    return (ROOT / relative).read_text(encoding="utf-8")
+
+
+def fail(message: str) -> None:
+    print(f"package-runtime-truth-lint: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        fail(message)
+
+
+def rpm_section(spec: str, heading: str) -> str:
+    pattern = rf"^{re.escape(heading)}\n"
+    match = re.search(pattern, spec, re.M)
+    require(match is not None, f"RPM section `{heading}` is missing")
+    start = match.end()
+    end = re.search(r"^%(files|package|description|post|preun|postun)\b", spec[start:], re.M)
+    return spec[start:] if end is None else spec[start:start + end.start()]
+
+
+def line_re(pattern: str, content: str) -> bool:
+    return re.search(pattern, content, re.M) is not None
+
+
+def main() -> int:
+    spec = read("packaging/rpm/exwm-vr.spec")
+    target = read("packaging/systemd/exwm-vr.target")
+    session = read("packaging/desktop/exwm-vr-session")
+    nixos_module = read("nix/modules/exwm-vr.nix")
+    home_module = read("nix/home-manager/exwm-vr.nix")
+    flake = read("flake.nix")
+    cargo = read("compositor/Cargo.toml")
+
+    compositor_files = rpm_section(spec, "%files compositor")
+    elisp_files = rpm_section(spec, "%files elisp")
+
+    require(
+        line_re(r"^Requires:\s+%{name}-compositor\b", spec),
+        "RPM meta package must require the native compositor package",
+    )
+    require(
+        line_re(r"^Suggests:\s+%{name}-elisp\b", spec),
+        "RPM meta package should suggest, not require, the Elisp package",
+    )
+    require(
+        not line_re(r"^Requires:\s+%{name}-elisp\b", spec),
+        "RPM meta package must not hard-require the Elisp package",
+    )
+
+    forbidden_compositor_files = [
+        "%{emacs_sitelisp}",
+        "exwm-vr-emacs.service",
+        "exwm-vr-session-init.el",
+    ]
+    for forbidden in forbidden_compositor_files:
+        require(
+            forbidden not in compositor_files,
+            f"compositor package must not own `{forbidden}`",
+        )
+    require(
+        "%{emacs_sitelisp}/core/" in elisp_files,
+        "legacy lisp/core files must stay in the explicit Elisp subpackage",
+    )
+    require(
+        "exwm-vr-emacs.service" in elisp_files,
+        "Emacs service must stay in the explicit Elisp subpackage",
+    )
+    require(
+        "packaging/scripts/xoxdwm-native-authority-proof" in spec,
+        "RPM install section must install the native authority proof helper",
+    )
+    require(
+        "%{_libexecdir}/%{project_name}/native-authority-proof" in compositor_files,
+        "compositor package must own the native authority proof helper",
+    )
+    require(
+        "%{_bindir}/xoxdwm-native-authority-proof" in compositor_files,
+        "compositor package must expose the native authority proof command",
+    )
+    require(
+        "native-authority-proof" not in elisp_files,
+        "native authority proof helper must not live in the Elisp subpackage",
+    )
+
+    require(
+        not line_re(r"^(Wants|Requires)=.*exwm-vr-emacs\.service", target),
+        "default systemd target must not pull in exwm-vr-emacs.service",
+    )
+    require(
+        "optional application/control layer" in target,
+        "systemd target should document Emacs/eGreg as optional app layer",
+    )
+    require(
+        'EXWM_VR_START_EMACS="${EXWM_VR_START_EMACS:-0}"' in session,
+        "session wrapper must default Emacs startup off",
+    )
+    require(
+        '[ "${EXWM_VR_START_EMACS}" = "1" ]' in session,
+        "session wrapper must guard Emacs startup behind EXWM_VR_START_EMACS=1",
+    )
+
+    require(
+        "enable = mkEnableOption (mdDoc \"optional Emacs/eGreg application-control layer\")"
+        in nixos_module,
+        "NixOS module must expose an explicit services.exwm-vr.emacs.enable gate",
+    )
+    require(
+        "++ optional cfg.emacs.enable emacsWithPackages" in nixos_module,
+        "NixOS module must install Emacs only when emacs.enable is true",
+    )
+    require(
+        "++ optional cfg.emacs.enable \"exwm-vr-emacs.service\"" in nixos_module,
+        "NixOS target must pull Emacs only when emacs.enable is true",
+    )
+    require(
+        "Emacs Window Manager Brain" not in nixos_module,
+        "NixOS module must not describe Emacs as the WM brain",
+    )
+    require(
+        '[ "exwm-vr-compositor.service" "exwm-vr-emacs.service" ]' not in nixos_module,
+        "NixOS module contains an unconditional compositor+Emacs target list",
+    )
+
+    require(
+        'enable = lib.mkEnableOption "optional Emacs/eGreg application-control layer"'
+        in home_module,
+        "Home Manager module must expose an explicit programs.exwm-vr.emacs.enable gate",
+    )
+    require(
+        "lib.optional cfg.emacs.enable \"exwm-vr-emacs.service\"" in home_module,
+        "Home Manager target must pull Emacs only when emacs.enable is true",
+    )
+    require(
+        '[ "exwm-vr-compositor.service" "exwm-vr-emacs.service" ]' not in home_module,
+        "Home Manager module contains an unconditional compositor+Emacs target list",
+    )
+
+    require(
+        "transhuman Emacs window manager" not in flake,
+        "flake description must not keep the old Emacs-WM product identity",
+    )
+    require(
+        "xwayland = [" in cargo,
+        "XWayland compatibility should remain a compositor feature, separate from EXWM/XCB ownership",
+    )
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
