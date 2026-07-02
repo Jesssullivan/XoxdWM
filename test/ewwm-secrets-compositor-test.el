@@ -4,6 +4,7 @@
 
 (require 'ert)
 (require 'ewwm-core)
+(require 'ewwm-ipc)
 (require 'ewwm-secrets-compositor)
 
 ;; Forward-declare so `let' creates dynamic binding
@@ -97,6 +98,10 @@
   "ewwm-secrets-compositor--on-autotype-error is defined."
   (should (fboundp 'ewwm-secrets-compositor--on-autotype-error)))
 
+(ert-deftest ewwm-secrets-compositor/on-autotype-aborted-exists ()
+  "ewwm-secrets-compositor--on-autotype-aborted is defined."
+  (should (fboundp 'ewwm-secrets-compositor--on-autotype-aborted)))
+
 ;; ── Event registration ──────────────────────────────────────
 
 (ert-deftest ewwm-secrets-compositor/register-events-adds-handlers ()
@@ -106,6 +111,7 @@
     (should (assq :autotype-complete ewwm-ipc--event-handlers))
     (should (assq :autotype-paused ewwm-ipc--event-handlers))
     (should (assq :autotype-resumed ewwm-ipc--event-handlers))
+    (should (assq :autotype-aborted ewwm-ipc--event-handlers))
     (should (assq :autotype-error ewwm-ipc--event-handlers))))
 
 (ert-deftest ewwm-secrets-compositor/register-events-idempotent ()
@@ -169,6 +175,21 @@
        '(:message "surface lost focus"))
       (should-not ewwm-secrets-compositor--typing-p)
       (should hook-ran))))
+
+(ert-deftest ewwm-secrets-compositor/on-autotype-aborted-sets-state ()
+  "on-autotype-aborted clears typing-p, stores result, and runs error hook."
+  (let ((ewwm-secrets-compositor--typing-p t)
+        (ewwm-secrets-compositor--last-result nil)
+        (hook-message nil))
+    (let ((ewwm-secrets-compositor-error-hook
+           (list (lambda (msg) (setq hook-message msg)))))
+      (ewwm-secrets-compositor--on-autotype-aborted
+       '(:surface-id 7 :chars-typed 3))
+      (should-not ewwm-secrets-compositor--typing-p)
+      (should (equal (plist-get ewwm-secrets-compositor--last-result :surface-id) 7))
+      (should (equal (plist-get ewwm-secrets-compositor--last-result :chars-typed) 3))
+      (should (string-match-p "autotype aborted on surface 7 after 3 chars"
+                              hook-message)))))
 
 ;; ── Provides ────────────────────────────────────────────────
 

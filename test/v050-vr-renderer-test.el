@@ -86,6 +86,19 @@
     (should (string-match-p "struct VrFrameData" content))
     (should (string-match-p "predicted_display_time" content))))
 
+(ert-deftest v050-vr/openxr-has-black-screen-diagnostics ()
+  "Verify VR diagnostics expose P4 debugging counters."
+  (let ((content (v050-vr--read-file "src/vr/openxr_state.rs"))
+        (dispatch (v050-vr--read-file "src/ipc/dispatch.rs")))
+    (should content)
+    (should dispatch)
+    (should (string-match-p "fn diagnostics_sexp" content))
+    (should (string-match-p "frame_wait_count" content))
+    (should (string-match-p "frame_begin_count" content))
+    (should (string-match-p "frame_end_count" content))
+    (should (string-match-p "last_readback_hash" content))
+    (should (string-match-p "\"vr-diagnostics\"" dispatch))))
+
 ;; --- vr_renderer.rs ---
 
 (ert-deftest v050-vr/renderer-has-glow ()
@@ -124,6 +137,16 @@
   (let ((content (v050-vr--read-file "src/vr/vr_renderer.rs")))
     (should content)
     (should (string-match-p "fn render_frame_to_swapchains" content))))
+
+(ert-deftest v050-vr/renderer-has-deterministic-test-pattern ()
+  "Verify EWWM_VR_TEST_PATTERN and readback hash support exist."
+  (let ((content (v050-vr--read-file "src/vr/vr_renderer.rs")))
+    (should content)
+    (should (string-match-p "EWWM_VR_TEST_PATTERN" content))
+    (should (string-match-p "solid-red" content))
+    (should (string-match-p "checker" content))
+    (should (string-match-p "read_pixels" content))
+    (should (string-match-p "last_readback_hash" content))))
 
 (ert-deftest v050-vr/renderer-has-quad-geometry ()
   "Verify quad geometry constants."

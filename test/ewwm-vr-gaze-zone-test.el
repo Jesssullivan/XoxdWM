@@ -4,6 +4,7 @@
 
 (require 'ert)
 (require 'ewwm-core)
+(require 'ewwm-ipc)
 (require 'ewwm-vr-gaze-zone)
 
 ;; Forward-declare so `let' creates dynamic binding (needed for `boundp')

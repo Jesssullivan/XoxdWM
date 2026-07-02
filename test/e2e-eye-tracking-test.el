@@ -261,6 +261,7 @@
                    :gaze-tracking-lost
                    :gaze-dwell
                    :gaze-dwell-progress
+                   :gaze-focus-requested
                    :gaze-focus-request
                    :gaze-cooldown
                    :gaze-saccade-state

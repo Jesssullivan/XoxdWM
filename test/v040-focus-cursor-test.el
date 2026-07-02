@@ -37,11 +37,11 @@
       (should (search-forward "pub enum CursorImageStatus" nil t)))))
 
 (ert-deftest v040/seat-focus-changed-emits-ipc ()
-  "focus_changed handler broadcasts IPC event."
+  "focus_changed handler broadcasts the canonical focus IPC event."
   (let ((file (expand-file-name "compositor/src/handlers/seat.rs" v040-test--root)))
     (with-temp-buffer
       (insert-file-contents file)
-      (should (search-forward "focus-changed" nil t)))))
+      (should (search-forward "surface-focused" nil t)))))
 
 (ert-deftest v040/seat-focus-changed-updates-state ()
   "focus_changed handler updates focused_surface state."
@@ -123,13 +123,28 @@
 
 ;; ── Focus event format ─────────────────────────────────────
 
-(ert-deftest v040/focus-event-has-old-and-new ()
-  "focus-changed event includes :old and :new fields."
+(ert-deftest v040/focus-event-has-canonical-surface-focused ()
+  "surface-focused is the canonical focus event."
   (let ((file (expand-file-name "compositor/src/handlers/seat.rs" v040-test--root)))
     (with-temp-buffer
       (insert-file-contents file)
-      (should (search-forward "(\"old\"" nil t))
-      (should (search-forward "(\"new\"" nil t)))))
+      (should (search-forward "surface-focused" nil t))
+      (should (search-forward "(\"id\"" nil t))
+      (should (search-forward "(\"previous-id\"" nil t)))))
+
+(ert-deftest v040/focus-event-has-no-native-focus-changed-alias ()
+  "focus-changed is not a native emitted focus event."
+  (let ((seat (expand-file-name "compositor/src/handlers/seat.rs" v040-test--root))
+        (ipc (expand-file-name "lisp/vr/ewwm-ipc.el" v040-test--root)))
+    (with-temp-buffer
+      (insert-file-contents seat)
+      (should-not (search-forward "\"focus-changed\"" nil t))
+      (should-not (search-forward "(\"old\"" nil t))
+      (should-not (search-forward "(\"new\"" nil t)))
+    (with-temp-buffer
+      (insert-file-contents ipc)
+      (should-not (search-forward ":focus-changed" nil t))
+      (should-not (search-forward "ewwm-ipc--on-focus-changed-compat" nil t)))))
 
 (ert-deftest v040/focused-surface-returns-metadata ()
   "focused-surface response includes :app-id and :title."
