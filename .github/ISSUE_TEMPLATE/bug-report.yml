@@ -10,8 +10,10 @@ body:
       label: Support State
       description: How should this area currently be treated?
       options:
-        - Proven
+        - Product
         - Smoke
+        - Prototype
+        - Synthetic
         - Design
     validations:
       required: true

@@ -2,7 +2,7 @@ blank_issues_enabled: false
 contact_links:
   - name: Support Matrix
     url: https://github.com/Jesssullivan/XoxdWM/blob/main/docs/support-matrix.md
-    about: Check the current Proven / Smoke / Design status before filing feature support issues.
+    about: Check the current Product / Smoke / Prototype / Synthetic / Design support class before filing feature support issues.
   - name: Status
     url: https://github.com/Jesssullivan/XoxdWM/blob/main/docs/status.md
     about: Review the current repo status and near-term priorities.

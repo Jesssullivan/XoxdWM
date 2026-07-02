@@ -163,7 +163,10 @@ jobs:
 
           mkdir -p /tmp/rpm-validate
           pushd /tmp/rpm-validate >/dev/null
-          rpm2cpio "$RPM" | cpio -idmv "./usr/bin/ewwm-compositor" >/dev/null 2>&1
+          rpm2cpio "$RPM" | cpio -idmv \
+            "./usr/bin/ewwm-compositor" \
+            "./usr/bin/xoxdwm-native-authority-proof" \
+            "./usr/libexec/exwm-vr/native-authority-proof" >/dev/null 2>&1
           BIN=usr/bin/ewwm-compositor
 
           if readelf -l "$BIN" | grep -q '/nix/store'; then
@@ -173,6 +176,14 @@ jobs:
 
           if readelf -d "$BIN" | grep -q '/nix/store'; then
             echo "RPM binary embeds a /nix/store RUNPATH; expected native Rocky runtime linking" >&2
+            exit 1
+          fi
+
+          test -x usr/libexec/exwm-vr/native-authority-proof
+          test -L usr/bin/xoxdwm-native-authority-proof
+          if ! readlink usr/bin/xoxdwm-native-authority-proof \
+            | grep -F '../libexec/exwm-vr/native-authority-proof' >/dev/null; then
+            echo "xoxdwm-native-authority-proof symlink points at the wrong target" >&2
             exit 1
           fi
 

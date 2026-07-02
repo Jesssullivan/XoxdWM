@@ -10,6 +10,16 @@
     "description": "Work required for the named-host MVP"
   },
   {
+    "name": "epic",
+    "color": "5319e7",
+    "description": "Durable milestone-level tracker item"
+  },
+  {
+    "name": "product-gate",
+    "color": "b60205",
+    "description": "Claim-gating issue tied to product truth"
+  },
+  {
     "name": "vr",
     "color": "1d76db",
     "description": "VR compositor, OpenXR, and HMD integration work"

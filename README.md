@@ -1,12 +1,12 @@
 # XoxdWM
 
-XoxdWM is an experimental Wayland compositor plus Emacs window-management layer with VR, eye-tracking, hand-tracking, and BCI research surfaces.
+XoxdWM is an experimental Wayland compositor and developer desktop with optional Emacs/eGreg application clients plus VR, eye-tracking, hand-tracking, and BCI research surfaces.
 
 This repository is the canonical public home for the compositor, packaging, releases, and status tracking. It is not a claim that every documented subsystem is proven on lab hardware today.
 
 ## Current State
 
-As of 2026-04-26:
+As of 2026-05-09:
 
 | Area | Status | Notes |
 | --- | --- | --- |
@@ -14,9 +14,9 @@ As of 2026-04-26:
 | Headless compositor path | Smoke | Build and test surfaces exist, but not re-validated in this pass. |
 | Rocky 10 package install | Smoke | `yoga` now has refreshed installed `0.5.4-1.el10` `exwm-vr-*` RPMs from the current branch, the real installed units pass a named-host bounded proof, and a controlled SDDM autologin run reached a real `EXWM-VR` Wayland user session on `seat0`. The packaged `SuccessExitStatus=15` stop-path fix is now on-host; the remaining follow-on is repeatability and operator polish, not package repair. |
 | `honey` compositor/substrate path | Smoke | `honey` now has installed branch-scoped `exwm-vr-0.5.4-1.el10` packages, a bounded named-host `exwm-vr.target` startup, and a direct-mode lease proof from the installed `/usr/bin/ewwm-compositor` after reinstalling the branch RPM artifact from run `24776900393`. |
-| `honey` VR session | Smoke | On `2026-04-22`, the installed `ewwm-compositor` on `honey` initialized `wp_drm_lease_v1`, reserved `DP-2` via `~/.config/exwm-vr/compositor.env`, and granted a real DRM lease to Monado. A repo-owned `exwm-vr-monado.service` then proved three runtime surfaces on the host: the older local `/usr/local/bin/monado-service` lane, a staged `monado-beyond` companion RPM tree from run `24804821792`, and an installed `monado-beyond` host package from run `24807084915` using `/usr/bin/monado-service` with no `MONADO_SERVICE_BIN` override. The repo now has `just honey-openxr-status`, `just honey-openxr-smoke`, `just honey-openxr-clean-cycle`, and `just honey-openxr-fresh-boot-check` wrappers for the OpenXR client lane, and the `exwm-vr-openxr-smoke-client` RPM from run `24938791255` is installed on `honey`. On `2026-04-25` EDT, three bounded packaged-client smoke passes and three clean stop/start cycles selected `/usr/libexec/exwm-vr/hello_xr -g Vulkan`, reached Monado / Bigscreen Beyond, and created `3561x3561` eye swapchains. This is clean-cycle repeatability evidence, not yet proof of fresh-boot, in-goggles first-frame, or long-running operator stability; see [Honey Substrate Proof](docs/honey-substrate-proof-2026-04-22.md) and the [Honey Fresh-Boot Runbook](docs/honey-fresh-boot-runbook-2026-04-26.md). |
+| `honey` VR session | Smoke | On `2026-04-22`, the installed `ewwm-compositor` on `honey` initialized `wp_drm_lease_v1`, reserved the headset connector, and granted a real DRM lease to Monado. The repo-owned `exwm-vr-monado.service`, installed `monado-beyond` host package, `exwm-vr-openxr-smoke-client` RPM, and `just honey-openxr-*` wrappers now prove the packaged OpenXR client lane. On `2026-05-09`, the current Honey topology was `card0-DP-1` for the BS2E and `card0-HDMI-A-1` for the Dell panel, with `rke2-server` still active. After correcting the host config from the old `DP-2` target to `DP-1`, repeated `/usr/libexec/exwm-vr/hello_xr -g Vulkan` runs selected Monado / Bigscreen Beyond, created two `3561x3561` eye swapchains, and reached `READY -> SYNCHRONIZED -> VISIBLE -> FOCUSED`. The human-visible headset output remained black, so the current classification is P3 OpenXR Session pass / P4 Visual First Frame fail, not first-frame or daily-driver proof. |
 | `yoga` desktop/dev target | Smoke | `yoga` now has an installed `0.5.4` session proof with explicit `drm` backend and dedicated Emacs bootstrap, plus a one-time SDDM greeter-path proof via `sddm-autologin` on `seat0`. The remaining work is repeatability and session polish, not basic launch viability or packaged stop-path repair. |
-| Eye tracking / hand tracking / BCI | Design | Documented and partially implemented, but not currently claimed as proven on named lab hosts. |
+| Eye tracking / hand tracking / BCI | Prototype / Synthetic / Design | Eye and hand paths have prototype code, BCI has synthetic development paths, and real BCI hardware acquisition remains design-level until named-host proof exists. |
 
 ## Start Here
 
@@ -40,7 +40,7 @@ As of 2026-04-26:
 
 The repo contains four different kinds of work:
 
-- compositor and Emacs WM code
+- native compositor code and optional Emacs/eGreg app-control clients
 - packaging for Rocky/Nix/systemd/SELinux
 - hardware and upstream patch research
 - aspirational feature inventory
@@ -91,6 +91,6 @@ The next 12 weeks are aimed at one honest, ordered MVP:
 
 - `yoga`: reproducible Rocky 10 desktop/dev install with a real local session path
 - `honey` substrate: stable XR bridge path with kernel, connector, runtime, and client-tool truth
-- `honey` smoke: convert the one-shot direct-mode proof into a repeatable installed lane
+- `honey` smoke: convert the current-boot direct-mode session proof into visible first-frame and repeatable installed-lane evidence
 
 Everything else remains secondary until those three named outcomes are green.
