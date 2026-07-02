@@ -4,14 +4,12 @@
 //! configurable poll intervals, graceful signal handling, and
 //! periodic status logging.
 
-use crate::{ipc, state::EwwmState};
 use super::IpcConfig;
+use crate::config::CompositorConfig;
+use crate::{ipc, state::EwwmState};
 use smithay::{
     output::{Mode as OutputMode, Output, PhysicalProperties, Subpixel},
-    reexports::{
-        calloop::EventLoop,
-        wayland_server::Display,
-    },
+    reexports::{calloop::EventLoop, wayland_server::Display},
     utils::Transform,
 };
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -63,12 +61,7 @@ impl HeadlessConfig {
 }
 
 /// Create a virtual output with the given index and resolution.
-fn create_virtual_output(
-    state: &mut EwwmState,
-    index: u32,
-    width: i32,
-    height: i32,
-) -> Output {
+fn create_virtual_output(state: &mut EwwmState, index: u32, width: i32, height: i32) -> Output {
     let mode = OutputMode {
         size: (width, height).into(),
         refresh: 60_000,
@@ -90,9 +83,21 @@ fn create_virtual_output(
     );
     output.set_preferred(mode);
     state.space.map_output(&output, ((index as i32) * width, 0));
+    let mut output_config =
+        crate::handlers::output_management::OutputConfig::new(format!("headless-{}", index));
+    output_config.x = (index as i32) * width;
+    output_config.width = width;
+    output_config.height = height;
+    output_config.refresh = 60_000;
+    state
+        .output_management_state
+        .upsert_detected_output(output_config);
     info!(
         "Created virtual output headless-{}: {}x{} at offset ({}, 0)",
-        index, width, height, (index as i32) * width
+        index,
+        width,
+        height,
+        (index as i32) * width
     );
     output
 }
@@ -121,11 +126,13 @@ pub fn run(
     exit_after: Option<u64>,
     ipc_config: IpcConfig,
     config: HeadlessConfig,
+    compositor_config: CompositorConfig,
 ) -> anyhow::Result<()> {
     let mut event_loop = EventLoop::<EwwmState>::try_new()?;
     let mut display = Display::<EwwmState>::new()?;
 
-    let mut state = EwwmState::new(&mut display, event_loop.handle());
+    let mut state =
+        EwwmState::new_with_config(&mut display, event_loop.handle(), compositor_config);
 
     // Store headless config in state for IPC queries
     state.headless_active = true;

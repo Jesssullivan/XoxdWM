@@ -2,6 +2,8 @@
 
 use crate::ipc::{dispatch::format_event, server::IpcServer};
 use crate::state::{ClientState, EwwmState};
+#[cfg(feature = "xwayland")]
+use smithay::xwayland::XWaylandClientData;
 use smithay::{
     backend::renderer::utils::on_commit_buffer_handler,
     delegate_compositor,
@@ -22,7 +24,16 @@ impl CompositorHandler for EwwmState {
     }
 
     fn client_compositor_state<'a>(&self, client: &'a Client) -> &'a CompositorClientState {
-        &client.get_data::<ClientState>().unwrap().compositor_state
+        if let Some(state) = client.get_data::<ClientState>() {
+            return &state.compositor_state;
+        }
+
+        #[cfg(feature = "xwayland")]
+        if let Some(state) = client.get_data::<XWaylandClientData>() {
+            return &state.compositor_state;
+        }
+
+        panic!("Wayland client is missing compositor state")
     }
 
     fn commit(&mut self, surface: &WlSurface) {
@@ -53,26 +64,27 @@ impl EwwmState {
         };
 
         // Read current app_id and title from xdg toplevel data.
-        let (app_id, title) = smithay::wayland::compositor::with_states(
-            wl_surface,
-            |states| {
-                states
-                    .data_map
-                    .get::<XdgToplevelSurfaceData>()
-                    .map(|data| {
-                        let guard = data.lock().unwrap();
-                        (guard.app_id.clone(), guard.title.clone())
-                    })
-                    .unwrap_or((None, None))
-            },
-        );
+        let (app_id, title) = smithay::wayland::compositor::with_states(wl_surface, |states| {
+            states
+                .data_map
+                .get::<XdgToplevelSurfaceData>()
+                .map(|data| {
+                    let guard = data.lock().unwrap();
+                    (guard.app_id.clone(), guard.title.clone())
+                })
+                .unwrap_or((None, None))
+        });
 
+        let config = &self.config;
+        let workspace_count = self.workspace_count;
         let data = match self.surfaces.get_mut(&surface_id) {
             Some(d) => d,
             None => return,
         };
 
         let mut changed = false;
+        let old_workspace = data.workspace;
+        let old_floating = data.floating;
 
         if app_id != data.app_id && app_id.is_some() {
             data.app_id = app_id.clone();
@@ -85,13 +97,33 @@ impl EwwmState {
         }
 
         if changed {
-            let aid = app_id
-                .as_deref()
-                .unwrap_or("");
-            let ttl = title
-                .as_deref()
-                .unwrap_or("");
-            trace!(surface_id, app_id = aid, title = ttl, "surface metadata updated");
+            let candidates = [
+                data.app_id.as_deref(),
+                data.x11_class.as_deref(),
+                data.x11_instance.as_deref(),
+            ];
+            if let Some(workspace) = config.workspace_for_app_candidates(&candidates) {
+                if workspace < workspace_count {
+                    data.workspace = workspace;
+                }
+            }
+            if config.should_float_app_candidates(&candidates) {
+                data.floating = true;
+            }
+        }
+
+        let new_workspace = data.workspace;
+        let new_floating = data.floating;
+
+        if changed {
+            let aid = app_id.as_deref().unwrap_or("");
+            let ttl = title.as_deref().unwrap_or("");
+            trace!(
+                surface_id,
+                app_id = aid,
+                title = ttl,
+                "surface metadata updated"
+            );
 
             let event = format_event(
                 "surface-updated",
@@ -102,6 +134,29 @@ impl EwwmState {
                 ],
             );
             IpcServer::broadcast_event(self, &event);
+
+            if old_workspace != new_workspace {
+                let event = format_event(
+                    "surface-workspace-changed",
+                    &[
+                        ("id", &surface_id.to_string()),
+                        ("old-workspace", &old_workspace.to_string()),
+                        ("new-workspace", &new_workspace.to_string()),
+                    ],
+                );
+                IpcServer::broadcast_event(self, &event);
+            }
+
+            if old_floating != new_floating {
+                let event = format_event(
+                    "surface-float-changed",
+                    &[
+                        ("id", &surface_id.to_string()),
+                        ("floating", if new_floating { "t" } else { "nil" }),
+                    ],
+                );
+                IpcServer::broadcast_event(self, &event);
+            }
         }
     }
 }

@@ -3,12 +3,9 @@
 use crate::ipc::{dispatch::format_event, server::IpcServer};
 use crate::state::{CursorImageStatus, EwwmState};
 use smithay::{
-    delegate_cursor_shape, delegate_data_device, delegate_output,
-    delegate_primary_selection, delegate_seat,
-    input::{
-        pointer::CursorImageStatus as SmithayCursorImageStatus,
-        Seat, SeatHandler, SeatState,
-    },
+    delegate_cursor_shape, delegate_data_device, delegate_output, delegate_primary_selection,
+    delegate_seat,
+    input::{pointer::CursorImageStatus as SmithayCursorImageStatus, Seat, SeatHandler, SeatState},
     reexports::wayland_server::protocol::wl_surface::WlSurface,
     wayland::selection::{
         data_device::{
@@ -28,11 +25,7 @@ impl SeatHandler for EwwmState {
         &mut self.seat_state
     }
 
-    fn cursor_image(
-        &mut self,
-        _seat: &Seat<Self>,
-        image: SmithayCursorImageStatus,
-    ) {
+    fn cursor_image(&mut self, _seat: &Seat<Self>, image: SmithayCursorImageStatus) {
         let new_status = match image {
             SmithayCursorImageStatus::Hidden => CursorImageStatus::Hidden,
             SmithayCursorImageStatus::Named(_) => CursorImageStatus::Default,
@@ -44,11 +37,7 @@ impl SeatHandler for EwwmState {
         }
     }
 
-    fn focus_changed(
-        &mut self,
-        _seat: &Seat<Self>,
-        focused: Option<&WlSurface>,
-    ) {
+    fn focus_changed(&mut self, _seat: &Seat<Self>, focused: Option<&WlSurface>) {
         let new_focus = focused.and_then(|wl| self.surface_id_for_wl_surface(wl));
 
         if new_focus != self.focused_surface {
@@ -57,7 +46,6 @@ impl SeatHandler for EwwmState {
 
             debug!(old = ?old, new = ?new_focus, "focus changed");
 
-            // Broadcast focus-changed event to Emacs
             let old_str = old
                 .map(|id| id.to_string())
                 .unwrap_or_else(|| "nil".to_string());
@@ -66,8 +54,8 @@ impl SeatHandler for EwwmState {
                 .unwrap_or_else(|| "nil".to_string());
 
             let event = format_event(
-                "focus-changed",
-                &[("old", &old_str), ("new", &new_str)],
+                "surface-focused",
+                &[("id", &new_str), ("previous-id", &old_str)],
             );
             IpcServer::broadcast_event(self, &event);
         }

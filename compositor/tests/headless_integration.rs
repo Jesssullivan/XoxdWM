@@ -8,12 +8,8 @@
 //! wayland-server support. These tests focus on the logic layer.
 
 use ewwm_compositor::clock::{Clock, TestClock};
-use ewwm_compositor::ipc::recorder::{
-    IpcRecorder, IpcReplayer, MessageDirection, RecordedMessage,
-};
-use ewwm_compositor::input_source::{
-    InputEvent, InputProvider, ScriptedInputProvider,
-};
+use ewwm_compositor::input_source::{InputEvent, InputProvider, ScriptedInputProvider};
+use ewwm_compositor::ipc::recorder::{IpcRecorder, IpcReplayer, MessageDirection, RecordedMessage};
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -80,11 +76,7 @@ fn test_recorder_full_session() {
     );
 
     // Simulate a surface-list
-    rec.record(
-        1,
-        MessageDirection::Request,
-        "(:type :surface-list :id 3)",
-    );
+    rec.record(1, MessageDirection::Request, "(:type :surface-list :id 3)");
     rec.record(
         1,
         MessageDirection::Response,
@@ -187,8 +179,7 @@ fn test_scripted_input_multi_modal_sequence() {
         },
         // Send IPC command
         InputEvent::IpcMessage {
-            payload: "(:type :surface-focus :id 1 :surface-id 42)"
-                .to_string(),
+            payload: "(:type :surface-focus :id 1 :surface-id 42)".to_string(),
         },
     ];
 
@@ -217,8 +208,7 @@ fn test_scripted_input_multi_modal_sequence() {
 #[test]
 fn test_secure_input_state_with_clock() {
     let clock = TestClock::new();
-    let mut state =
-        ewwm_compositor::secure_input::SecureInputState::new();
+    let mut state = ewwm_compositor::secure_input::SecureInputState::new();
 
     let now = clock.now();
     state.enter("test-password", 42, now);
@@ -242,8 +232,7 @@ fn test_secure_input_state_with_clock() {
 #[test]
 fn test_secure_input_status_sexp_with_clock() {
     let clock = TestClock::new();
-    let mut state =
-        ewwm_compositor::secure_input::SecureInputState::new();
+    let mut state = ewwm_compositor::secure_input::SecureInputState::new();
 
     let now = clock.now();
     state.enter("sudo", 7, now);

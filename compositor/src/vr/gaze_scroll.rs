@@ -101,13 +101,7 @@ impl GazeScrollState {
     /// Update scroll state with new gaze position.
     /// Returns scroll event to emit (or None).
     /// gaze_x, gaze_y are in surface-local coordinates [0,1].
-    pub fn update(
-        &mut self,
-        gaze_x: f32,
-        gaze_y: f32,
-        surface_id: u64,
-        dt_ms: f64,
-    ) -> ScrollEvent {
+    pub fn update(&mut self, gaze_x: f32, gaze_y: f32, surface_id: u64, dt_ms: f64) -> ScrollEvent {
         if !self.config.enabled {
             return ScrollEvent::None;
         }
@@ -262,13 +256,17 @@ mod tests {
     fn test_bottom_edge_scrolls_down() {
         let mut state = GazeScrollState::new();
         state.config.activation_delay_ms = 0.0; // no delay for testing
-        // Gaze at bottom edge (0.5, 0.95) — edge_pct=0.10 so 0.90-1.0 is bottom
+                                                // Gaze at bottom edge (0.5, 0.95) — edge_pct=0.10 so 0.90-1.0 is bottom
         let evt = state.update(0.5, 0.95, 1, 16.0);
         // First update enters the zone, second should scroll
         let evt = state.update(0.5, 0.95, 1, 16.0);
         match evt {
             ScrollEvent::Vertical { delta } => {
-                assert!(delta > 0.0, "Bottom edge should scroll down (positive delta): {}", delta);
+                assert!(
+                    delta > 0.0,
+                    "Bottom edge should scroll down (positive delta): {}",
+                    delta
+                );
             }
             _ => panic!("Expected Vertical scroll event, got {:?}", evt),
         }
@@ -283,7 +281,11 @@ mod tests {
         let evt = state.update(0.5, 0.05, 1, 16.0);
         match evt {
             ScrollEvent::Vertical { delta } => {
-                assert!(delta < 0.0, "Top edge should scroll up (negative delta): {}", delta);
+                assert!(
+                    delta < 0.0,
+                    "Top edge should scroll up (negative delta): {}",
+                    delta
+                );
             }
             _ => panic!("Expected Vertical scroll event, got {:?}", evt),
         }
@@ -317,7 +319,8 @@ mod tests {
         assert!(
             delta_deep.abs() > delta_near.abs(),
             "Deeper in edge should scroll faster: near={}, deep={}",
-            delta_near, delta_deep
+            delta_near,
+            delta_deep
         );
     }
 
@@ -332,11 +335,19 @@ mod tests {
 
         // Accumulate time but below threshold (16ms accumulated in edge)
         let evt = state.update(0.5, 0.95, 1, 16.0);
-        assert_eq!(evt, ScrollEvent::None, "Should not scroll before activation delay");
+        assert_eq!(
+            evt,
+            ScrollEvent::None,
+            "Should not scroll before activation delay"
+        );
 
         // Accumulate past threshold
         let evt = state.update(0.5, 0.95, 1, 200.0);
-        assert_ne!(evt, ScrollEvent::None, "Should scroll after activation delay exceeded");
+        assert_ne!(
+            evt,
+            ScrollEvent::None,
+            "Should scroll after activation delay exceeded"
+        );
     }
 
     #[test]

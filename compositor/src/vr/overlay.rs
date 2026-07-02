@@ -230,11 +230,7 @@ impl OverlayManager {
 
     /// Get overlay IDs sorted by sort_order (render order, back to front).
     pub fn render_order(&self) -> Vec<u64> {
-        let mut sorted: Vec<&OverlayLayer> = self
-            .layers
-            .iter()
-            .filter(|l| l.visible)
-            .collect();
+        let mut sorted: Vec<&OverlayLayer> = self.layers.iter().filter(|l| l.visible).collect();
         sorted.sort_by_key(|l| l.sort_order);
         sorted.iter().map(|l| l.id).collect()
     }

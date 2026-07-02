@@ -67,14 +67,11 @@ pub struct DrmConnectorInfo {
 impl DrmConnectorInfo {
     /// Get the preferred (highest resolution, highest refresh) mode.
     pub fn preferred_mode(&self) -> Option<&DisplayMode> {
-        self.modes
-            .iter()
-            .find(|m| m.preferred)
-            .or_else(|| {
-                self.modes.iter().max_by_key(|m| {
-                    (m.width as u64 * m.height as u64, m.refresh_hz)
-                })
-            })
+        self.modes.iter().find(|m| m.preferred).or_else(|| {
+            self.modes
+                .iter()
+                .max_by_key(|m| (m.width as u64 * m.height as u64, m.refresh_hz))
+        })
     }
 
     /// Get available refresh rates for the highest resolution.
@@ -94,7 +91,8 @@ impl DrmConnectorInfo {
 
     /// Generate IPC s-expression for this connector.
     pub fn to_sexp(&self) -> String {
-        let rates: Vec<String> = self.available_refresh_rates()
+        let rates: Vec<String> = self
+            .available_refresh_rates()
             .iter()
             .map(|r| r.to_string())
             .collect();
@@ -155,12 +153,7 @@ impl LeaseState {
 
     /// Grant the lease.
     /// Pass `clock.now()` as `now` for deterministic testing.
-    pub fn grant(
-        &mut self,
-        lessee_id: u32,
-        client_pid: Option<u32>,
-        now: Instant,
-    ) {
+    pub fn grant(&mut self, lessee_id: u32, client_pid: Option<u32>, now: Instant) {
         self.lessee_id = lessee_id;
         self.client_pid = client_pid;
         self.status = LeaseStatus::Active;
@@ -310,14 +303,11 @@ impl HmdManager {
 
     /// Auto-select the best HMD (highest resolution).
     fn auto_select_hmd(&mut self) {
-        let best = self
-            .hmd_connectors
-            .iter()
-            .max_by_key(|c| {
-                c.preferred_mode()
-                    .map(|m| m.width as u64 * m.height as u64)
-                    .unwrap_or(0)
-            });
+        let best = self.hmd_connectors.iter().max_by_key(|c| {
+            c.preferred_mode()
+                .map(|m| m.width as u64 * m.height as u64)
+                .unwrap_or(0)
+        });
 
         if let Some(hmd) = best {
             self.selected_hmd = Some(hmd.connector_id);
@@ -330,7 +320,11 @@ impl HmdManager {
 
     /// Manually select an HMD by connector ID.
     pub fn select_hmd(&mut self, connector_id: u32) -> bool {
-        if self.hmd_connectors.iter().any(|c| c.connector_id == connector_id) {
+        if self
+            .hmd_connectors
+            .iter()
+            .any(|c| c.connector_id == connector_id)
+        {
             // Revoke existing lease if switching
             if let Some(old_id) = self.selected_hmd {
                 if old_id != connector_id {
@@ -345,16 +339,18 @@ impl HmdManager {
             info!("HMD manager: manually selected connector {}", connector_id);
             true
         } else {
-            warn!("HMD manager: connector {} not found or not an HMD", connector_id);
+            warn!(
+                "HMD manager: connector {} not found or not an HMD",
+                connector_id
+            );
             false
         }
     }
 
     /// Get the currently selected HMD connector info.
     pub fn selected_hmd_info(&self) -> Option<&DrmConnectorInfo> {
-        self.selected_hmd.and_then(|id| {
-            self.hmd_connectors.iter().find(|c| c.connector_id == id)
-        })
+        self.selected_hmd
+            .and_then(|id| self.hmd_connectors.iter().find(|c| c.connector_id == id))
     }
 
     /// Set the display mode.
@@ -384,9 +380,10 @@ impl HmdManager {
         // Find closest available rate on selected HMD
         if let Some(hmd) = self.selected_hmd_info() {
             let rates = hmd.available_refresh_rates();
-            if let Some(&closest) = rates.iter().min_by_key(|&&r| {
-                (r as i64 - target_hz as i64).unsigned_abs()
-            }) {
+            if let Some(&closest) = rates
+                .iter()
+                .min_by_key(|&&r| (r as i64 - target_hz as i64).unsigned_abs())
+            {
                 self.active_refresh_rate = closest;
                 info!(
                     "HMD manager: target {}Hz -> active {}Hz",
@@ -403,17 +400,10 @@ impl HmdManager {
     /// Handle a hotplug event (connector connected/disconnected).
     /// Returns true if the event was processed (not debounced).
     /// Pass `clock.now()` as `now` for deterministic testing.
-    pub fn handle_hotplug(
-        &mut self,
-        connector_id: u32,
-        connected: bool,
-        now: Instant,
-    ) -> bool {
+    pub fn handle_hotplug(&mut self, connector_id: u32, connected: bool, now: Instant) -> bool {
         // Debounce
         if let Some(last) = self.last_hotplug {
-            if now.duration_since(last).as_millis()
-                < self.hotplug_debounce_ms as u128
-            {
+            if now.duration_since(last).as_millis() < self.hotplug_debounce_ms as u128 {
                 debug!(
                     "HMD manager: hotplug debounced for connector {}",
                     connector_id
@@ -426,11 +416,19 @@ impl HmdManager {
         if connected {
             info!("HMD manager: connector {} connected", connector_id);
             // Update connector state
-            if let Some(conn) = self.connectors.iter_mut().find(|c| c.connector_id == connector_id) {
+            if let Some(conn) = self
+                .connectors
+                .iter_mut()
+                .find(|c| c.connector_id == connector_id)
+            {
                 conn.connected = true;
                 if conn.non_desktop {
                     let info = conn.clone();
-                    if !self.hmd_connectors.iter().any(|c| c.connector_id == connector_id) {
+                    if !self
+                        .hmd_connectors
+                        .iter()
+                        .any(|c| c.connector_id == connector_id)
+                    {
                         self.hmd_connectors.push(info);
                     }
                     // Auto-select if no HMD selected
@@ -448,10 +446,15 @@ impl HmdManager {
                 }
             }
             // Update connector state
-            if let Some(conn) = self.connectors.iter_mut().find(|c| c.connector_id == connector_id) {
+            if let Some(conn) = self
+                .connectors
+                .iter_mut()
+                .find(|c| c.connector_id == connector_id)
+            {
                 conn.connected = false;
             }
-            self.hmd_connectors.retain(|c| c.connector_id != connector_id);
+            self.hmd_connectors
+                .retain(|c| c.connector_id != connector_id);
 
             // If disconnected HMD was selected, fall back
             if self.selected_hmd == Some(connector_id) {
@@ -499,6 +502,32 @@ impl HmdManager {
     /// Get number of detected HMD connectors.
     pub fn hmd_count(&self) -> usize {
         self.hmd_connectors.len()
+    }
+
+    /// Generate DRM lease diagnostics as an IPC s-expression.
+    pub fn diagnostics_sexp(&self) -> String {
+        let mut advertised = String::from("(");
+        for hmd in &self.hmd_connectors {
+            advertised.push_str(&hmd.to_sexp());
+        }
+        advertised.push(')');
+
+        let mut connectors = String::from("(");
+        for conn in &self.connectors {
+            connectors.push_str(&conn.to_sexp());
+        }
+        connectors.push(')');
+
+        let active_leases = self
+            .leases
+            .values()
+            .filter(|lease| lease.is_active())
+            .count();
+
+        format!(
+            "(:advertised-connectors {} :connectors {} :active-leases {} :last-reject-reason nil)",
+            advertised, connectors, active_leases
+        )
     }
 }
 
@@ -698,9 +727,18 @@ mod tests {
 
     #[test]
     fn test_display_mode_from_str() {
-        assert_eq!(VrDisplayMode::from_str("headset"), Some(VrDisplayMode::Headset));
-        assert_eq!(VrDisplayMode::from_str("preview"), Some(VrDisplayMode::Preview));
-        assert_eq!(VrDisplayMode::from_str("headless"), Some(VrDisplayMode::Headless));
+        assert_eq!(
+            VrDisplayMode::from_str("headset"),
+            Some(VrDisplayMode::Headset)
+        );
+        assert_eq!(
+            VrDisplayMode::from_str("preview"),
+            Some(VrDisplayMode::Preview)
+        );
+        assert_eq!(
+            VrDisplayMode::from_str("headless"),
+            Some(VrDisplayMode::Headless)
+        );
         assert_eq!(VrDisplayMode::from_str("off"), Some(VrDisplayMode::Off));
         assert_eq!(VrDisplayMode::from_str("invalid"), None);
     }

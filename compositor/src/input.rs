@@ -1,7 +1,8 @@
 //! Input event handling — keyboard, pointer, focus management.
 
+use crate::config::LAYOUT_CYCLE;
 use crate::ipc::{dispatch::format_event, server::IpcServer};
-use crate::state::EwwmState;
+use crate::state::{EwwmState, FocusDirection};
 use smithay::{
     backend::input::{
         AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, InputBackend, InputEvent,
@@ -14,7 +15,7 @@ use smithay::{
     },
     utils::SERIAL_COUNTER,
 };
-use tracing::{debug, trace};
+use tracing::{debug, trace, warn};
 
 /// Handle an input event from any backend.
 pub fn handle_input<B: InputBackend>(state: &mut EwwmState, event: InputEvent<B>) {
@@ -72,11 +73,19 @@ fn handle_keyboard<B: InputBackend>(state: &mut EwwmState, event: B::KeyboardKey
     let keyboard = state.seat.get_keyboard().unwrap();
 
     // Check for grabbed keys
-    let _grab_result =
-        keyboard.input::<bool, _>(state, keycode, key_state, serial, time, |state, mods, handle| {
+    let _grab_result = keyboard.input::<bool, _>(
+        state,
+        keycode,
+        key_state,
+        serial,
+        time,
+        |state, mods, handle| {
             if key_state == KeyState::Pressed {
                 let keysym = handle.modified_sym();
                 if let Some(key_desc) = format_key_description(keysym, mods) {
+                    if handle_native_key_action(state, &key_desc, time) {
+                        return FilterResult::Intercept(true);
+                    }
                     if state.grabbed_keys.contains(&key_desc) {
                         debug!(key = %key_desc, "grabbed key intercepted");
                         // Emit key-pressed event to IPC clients
@@ -103,7 +112,131 @@ fn handle_keyboard<B: InputBackend>(state: &mut EwwmState, event: B::KeyboardKey
                 }
             }
             FilterResult::Forward
-        });
+        },
+    );
+}
+
+fn handle_native_key_action(state: &mut EwwmState, key: &str, time: u32) -> bool {
+    let Some(action) = state
+        .config
+        .native_action_for_key(key)
+        .map(ToString::to_string)
+    else {
+        return false;
+    };
+
+    debug!(key, action, "native key action");
+    let result = execute_native_key_action(state, &action);
+    let (status, detail) = match result {
+        Ok(detail) => ("ok", detail),
+        Err(reason) => {
+            warn!(key, action, reason, "native key action failed");
+            ("error", reason)
+        }
+    };
+
+    let key_value = quoted(key);
+    let action_value = quoted(&action);
+    let status_value = format!(":{status}");
+    let detail_value = quoted(&detail);
+    let event = format_event(
+        "native-key-action",
+        &[
+            ("key", &key_value),
+            ("action", &action_value),
+            ("status", &status_value),
+            ("detail", &detail_value),
+            ("timestamp", &time.to_string()),
+        ],
+    );
+    IpcServer::broadcast_event(state, &event);
+    true
+}
+
+fn execute_native_key_action(state: &mut EwwmState, action: &str) -> Result<String, String> {
+    if let Some(workspace) = action.strip_prefix("workspace:") {
+        let workspace = workspace
+            .parse::<usize>()
+            .map_err(|_| format!("invalid workspace action: {action}"))?;
+        return switch_workspace(state, workspace);
+    }
+
+    if let Some(name) = action.strip_prefix("launch:") {
+        return state.launch_configured_app(name);
+    }
+
+    match action {
+        "focus:next" => Ok(focus_adjacent(state, FocusDirection::Next)),
+        "focus:previous" => Ok(focus_adjacent(state, FocusDirection::Previous)),
+        "layout:cycle" => Ok(cycle_layout(state)),
+        "compositor:exit" => {
+            state.running = false;
+            Ok("compositor-exit".to_string())
+        }
+        "compositor:reload" => {
+            let source = state.reload_native_config()?;
+            Ok(format!("config-reloaded:{source}"))
+        }
+        _ => Err(format!("unknown native key action: {action}")),
+    }
+}
+
+fn switch_workspace(state: &mut EwwmState, workspace: usize) -> Result<String, String> {
+    if workspace >= state.workspace_count {
+        return Err(format!(
+            "workspace {} out of range (count {})",
+            workspace, state.workspace_count
+        ));
+    }
+
+    let previous = state.active_workspace;
+    state.active_workspace = workspace;
+    state.apply_native_layout();
+    if previous != workspace {
+        let event = format_event(
+            "workspace-changed",
+            &[
+                ("workspace", &workspace.to_string()),
+                ("previous", &previous.to_string()),
+            ],
+        );
+        IpcServer::broadcast_event(state, &event);
+    }
+    Ok(format!("workspace:{workspace}"))
+}
+
+fn focus_adjacent(state: &mut EwwmState, direction: FocusDirection) -> String {
+    match state.focus_adjacent_surface(direction) {
+        Some(surface_id) => format!("surface:{surface_id}"),
+        None => "surface:none".to_string(),
+    }
+}
+
+fn cycle_layout(state: &mut EwwmState) -> String {
+    let previous = state.current_layout.clone();
+    let current_index = LAYOUT_CYCLE
+        .iter()
+        .position(|layout| *layout == state.current_layout)
+        .unwrap_or(0);
+    let next = LAYOUT_CYCLE[(current_index + 1) % LAYOUT_CYCLE.len()];
+    state.current_layout = next.to_string();
+    state.apply_native_layout();
+
+    let layout_kw = format!(":{next}");
+    let previous_kw = format!(":{previous}");
+    let event = format_event(
+        "layout-changed",
+        &[
+            ("layout", layout_kw.as_str()),
+            ("previous", previous_kw.as_str()),
+        ],
+    );
+    IpcServer::broadcast_event(state, &event);
+    format!("layout:{next}")
+}
+
+fn quoted(value: &str) -> String {
+    format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
 }
 
 fn handle_pointer_motion_absolute<B: InputBackend>(

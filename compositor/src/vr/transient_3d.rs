@@ -64,6 +64,8 @@ pub struct TransientRelation {
 pub struct TransientChainManager {
     /// Parent-child relationships.
     relations: Vec<TransientRelation>,
+    /// Default placement when callers do not provide one.
+    pub default_placement: TransientPlacement,
     /// Default Z offset per depth level (meters).
     pub z_offset_per_level: f32,
     /// Maximum chain depth before rejecting new transients.
@@ -76,6 +78,7 @@ impl TransientChainManager {
     pub fn new() -> Self {
         Self {
             relations: Vec::new(),
+            default_placement: TransientPlacement::Auto,
             z_offset_per_level: 0.1,
             max_depth: 5,
         }
@@ -150,8 +153,7 @@ impl TransientChainManager {
         }
 
         let before = self.relations.len();
-        self.relations
-            .retain(|r| !to_remove.contains(&r.child_id));
+        self.relations.retain(|r| !to_remove.contains(&r.child_id));
         let removed = before - self.relations.len();
 
         debug!(
@@ -240,12 +242,7 @@ impl TransientChainManager {
     }
 
     /// Recursively position all children of `parent_id` in the scene.
-    pub fn position_all_children(
-        &self,
-        parent_id: u64,
-        scene: &mut VrScene,
-        head_pos: Vec3,
-    ) {
+    pub fn position_all_children(&self, parent_id: u64, scene: &mut VrScene, head_pos: Vec3) {
         let children = self.get_children(parent_id);
         for child_id in children {
             let parent_transform = match scene.nodes.get(&parent_id) {
@@ -283,6 +280,16 @@ impl TransientChainManager {
         }
         s.push(')');
         s
+    }
+
+    pub fn config_sexp(&self) -> String {
+        format!(
+            "(:chain-count {} :max-depth {} :z-offset {:.3} :placement :{})",
+            self.relations.len(),
+            self.max_depth,
+            self.z_offset_per_level,
+            self.default_placement.as_str(),
+        )
     }
 }
 

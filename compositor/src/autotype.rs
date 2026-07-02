@@ -4,7 +4,7 @@
 //! characters, yields one `AutoTypeEvent` per tick, and supports pause/resume
 //! and abort.  Remaining text is zeroed on drop to limit credential exposure.
 
-use tracing::{debug, info, warn, error};
+use tracing::{debug, error, info, warn};
 
 // ── AutoTypeConfig ──────────────────────────────────────────
 
@@ -70,14 +70,9 @@ pub enum AutoTypePhase {
         reason: PauseReason,
     },
     /// Typing completed successfully.
-    Complete {
-        surface_id: u64,
-        chars_typed: usize,
-    },
+    Complete { surface_id: u64, chars_typed: usize },
     /// An error occurred during typing.
-    Error {
-        message: String,
-    },
+    Error { message: String },
 }
 
 // ── AutoTypeEvent ───────────────────────────────────────────
@@ -185,7 +180,10 @@ impl AutoTypeManager {
     /// sequence is already in progress.
     pub fn start_typing(&mut self, text: &str, surface_id: u64) -> Result<(), String> {
         // Reject if already typing
-        if matches!(self.phase, AutoTypePhase::Typing { .. } | AutoTypePhase::Paused { .. }) {
+        if matches!(
+            self.phase,
+            AutoTypePhase::Typing { .. } | AutoTypePhase::Paused { .. }
+        ) {
             let msg = "auto-type sequence already in progress".to_string();
             warn!("{}", msg);
             return Err(msg);
@@ -390,7 +388,10 @@ impl AutoTypeManager {
                 surface_id,
                 chars_typed,
             } => {
-                format!("complete :surface-id {} :chars-typed {}", surface_id, chars_typed)
+                format!(
+                    "complete :surface-id {} :chars-typed {}",
+                    surface_id, chars_typed
+                )
             }
             AutoTypePhase::Error { message } => {
                 format!("error :message \"{}\"", message)
@@ -400,7 +401,11 @@ impl AutoTypeManager {
             "(:phase {} :delay-ms {} :verify-surface {} :max-chars {} :secure {})",
             phase_str,
             self.config.delay_ms,
-            if self.config.verify_surface { "t" } else { "nil" },
+            if self.config.verify_surface {
+                "t"
+            } else {
+                "nil"
+            },
             self.config.max_chars,
             if self.secure_mode { "t" } else { "nil" },
         )
@@ -417,8 +422,7 @@ impl AutoTypeManager {
     /// Zero out any remaining text in memory to limit credential exposure.
     pub fn clear_sensitive(&mut self) {
         match &mut self.phase {
-            AutoTypePhase::Typing { remaining, .. }
-            | AutoTypePhase::Paused { remaining, .. } => {
+            AutoTypePhase::Typing { remaining, .. } | AutoTypePhase::Paused { remaining, .. } => {
                 for ch in remaining.iter_mut() {
                     *ch = '\0';
                 }
@@ -481,7 +485,10 @@ mod tests {
         let evt = mgr.tick();
         assert!(matches!(
             evt,
-            Some(AutoTypeEvent::CharTyped { ch: 'a', surface_id: 1 })
+            Some(AutoTypeEvent::CharTyped {
+                ch: 'a',
+                surface_id: 1
+            })
         ));
 
         // Verify state
@@ -500,7 +507,10 @@ mod tests {
         let evt = mgr.tick();
         assert!(matches!(
             evt,
-            Some(AutoTypeEvent::CharTyped { ch: 'b', surface_id: 1 })
+            Some(AutoTypeEvent::CharTyped {
+                ch: 'b',
+                surface_id: 1
+            })
         ));
     }
 
@@ -514,13 +524,7 @@ mod tests {
 
         // Pause
         mgr.pause(PauseReason::GazeAway);
-        assert!(matches!(
-            mgr.phase,
-            AutoTypePhase::Paused {
-                typed: 1,
-                ..
-            }
-        ));
+        assert!(matches!(mgr.phase, AutoTypePhase::Paused { typed: 1, .. }));
 
         // Tick while paused should return None
         assert!(mgr.tick().is_none());

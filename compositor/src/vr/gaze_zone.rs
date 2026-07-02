@@ -24,6 +24,18 @@ pub enum GazeZone {
 }
 
 impl GazeZone {
+    pub const ALL: [Self; 9] = [
+        Self::TopLeft,
+        Self::TopRight,
+        Self::BottomLeft,
+        Self::BottomRight,
+        Self::TopEdge,
+        Self::BottomEdge,
+        Self::LeftEdge,
+        Self::RightEdge,
+        Self::Center,
+    ];
+
     /// String representation for IPC and logging.
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -138,10 +150,7 @@ impl Default for ZoneColors {
 #[derive(Debug, Clone)]
 pub enum ZoneEvent {
     /// Gaze entered a new zone on a surface.
-    ZoneEntered {
-        zone: GazeZone,
-        surface_id: u64,
-    },
+    ZoneEntered { zone: GazeZone, surface_id: u64 },
     /// Zone dwell threshold reached — modifier should be applied.
     ZoneActivated {
         zone: GazeZone,
@@ -149,10 +158,7 @@ pub enum ZoneEvent {
         modifier: String,
     },
     /// Previously active zone was exited.
-    ZoneDeactivated {
-        zone: GazeZone,
-        surface_id: u64,
-    },
+    ZoneDeactivated { zone: GazeZone, surface_id: u64 },
     /// Progress toward zone activation (for overlay animation).
     ZoneDwellProgress {
         zone: GazeZone,
@@ -167,7 +173,7 @@ impl ZoneEvent {
         match self {
             Self::ZoneEntered { zone, surface_id } => {
                 format!(
-                    "(:type :event :event :zone-entered :zone :{} :surface-id {})",
+                    "(:type :event :event :gaze-zone-entered :zone :{} :surface-id {})",
                     zone.as_str(),
                     surface_id,
                 )
@@ -178,7 +184,7 @@ impl ZoneEvent {
                 modifier,
             } => {
                 format!(
-                    "(:type :event :event :zone-activated :zone :{} :surface-id {} :modifier \"{}\")",
+                    "(:type :event :event :gaze-zone-activated :zone :{} :surface-id {} :modifier \"{}\")",
                     zone.as_str(),
                     surface_id,
                     modifier,
@@ -186,7 +192,7 @@ impl ZoneEvent {
             }
             Self::ZoneDeactivated { zone, surface_id } => {
                 format!(
-                    "(:type :event :event :zone-deactivated :zone :{} :surface-id {})",
+                    "(:type :event :event :gaze-zone-deactivated :zone :{} :surface-id {})",
                     zone.as_str(),
                     surface_id,
                 )
@@ -197,7 +203,7 @@ impl ZoneEvent {
                 threshold_ms,
             } => {
                 format!(
-                    "(:type :event :event :zone-dwell-progress :zone :{} :elapsed-ms {:.0} :threshold-ms {:.0})",
+                    "(:type :event :event :gaze-zone-dwell-progress :zone :{} :elapsed-ms {:.0} :threshold-ms {:.0})",
                     zone.as_str(),
                     elapsed_ms,
                     threshold_ms,
@@ -225,6 +231,10 @@ pub struct ZoneDetector {
     pub lock_remaining_ms: f64,
     /// Whether zone detection is enabled.
     pub enabled: bool,
+    /// Name of the active zone-to-modifier layout.
+    pub layout_name: String,
+    /// Native zone-to-modifier map used for activation events.
+    pub zone_modifiers: Vec<(GazeZone, String)>,
 }
 
 impl ZoneDetector {
@@ -238,6 +248,8 @@ impl ZoneDetector {
             active_zone: None,
             lock_remaining_ms: 0.0,
             enabled: true,
+            layout_name: "default".to_string(),
+            zone_modifiers: default_zone_layout(),
         }
     }
 
@@ -328,7 +340,11 @@ impl ZoneDetector {
             let deactivation_event = if let Some(prev_zone) = self.active_zone {
                 self.active_zone = None;
                 self.lock_remaining_ms = self.config.lock_ms;
-                debug!("Zone deactivated: {}, lock {:.0}ms", prev_zone.as_str(), self.config.lock_ms);
+                debug!(
+                    "Zone deactivated: {}, lock {:.0}ms",
+                    prev_zone.as_str(),
+                    self.config.lock_ms
+                );
                 Some(ZoneEvent::ZoneDeactivated {
                     zone: prev_zone,
                     surface_id,
@@ -348,10 +364,7 @@ impl ZoneDetector {
             self.current_zone = Some(zone);
             self.dwell_elapsed_ms = 0.0;
             debug!("Zone entered: {} on surface {}", zone.as_str(), surface_id);
-            return Some(ZoneEvent::ZoneEntered {
-                zone,
-                surface_id,
-            });
+            return Some(ZoneEvent::ZoneEntered { zone, surface_id });
         }
 
         // Same zone — accumulate dwell time
@@ -369,7 +382,7 @@ impl ZoneDetector {
 
         // Check dwell threshold
         if self.dwell_elapsed_ms >= self.config.dwell_ms {
-            let modifier = zone.default_modifier().to_string();
+            let modifier = self.modifier_for_zone(zone);
             self.active_zone = Some(zone);
             info!(
                 "Zone activated: {} on surface {}, modifier \"{}\"",
@@ -400,6 +413,52 @@ impl ZoneDetector {
         self.lock_remaining_ms = 0.0;
     }
 
+    /// Return the active modifier string for a zone.
+    pub fn modifier_for_zone(&self, zone: GazeZone) -> String {
+        self.zone_modifiers
+            .iter()
+            .find_map(|(candidate, modifier)| (*candidate == zone).then(|| modifier.clone()))
+            .unwrap_or_else(|| zone.default_modifier().to_string())
+    }
+
+    /// Set one of the built-in zone layouts.
+    pub fn set_layout_preset(&mut self, layout: &str) -> Result<(), String> {
+        let zone_modifiers = match layout {
+            "default" => default_zone_layout(),
+            "vim-like" => vim_like_zone_layout(),
+            "spacemacs" => spacemacs_zone_layout(),
+            "custom" => self.zone_modifiers.clone(),
+            other => return Err(format!("invalid gaze zone layout: {}", other)),
+        };
+        self.layout_name = layout.to_string();
+        self.zone_modifiers = zone_modifiers;
+        Ok(())
+    }
+
+    /// Set a custom zone layout from IPC/app-layer configuration.
+    pub fn set_custom_layout(&mut self, entries: Vec<(GazeZone, String)>) -> Result<(), String> {
+        if entries.is_empty() {
+            return Err("custom gaze zone layout cannot be empty".to_string());
+        }
+        self.layout_name = "custom".to_string();
+        self.zone_modifiers = entries;
+        Ok(())
+    }
+
+    pub fn layout_sexp(&self) -> String {
+        let mut s = String::from("(");
+        for zone in GazeZone::ALL {
+            let modifier = self.modifier_for_zone(zone);
+            s.push_str(&format!(
+                "(:zone :{} :modifier \"{}\")",
+                zone.as_str(),
+                modifier.replace('\\', "\\\\").replace('"', "\\\""),
+            ));
+        }
+        s.push(')');
+        s
+    }
+
     /// Generate IPC status s-expression.
     pub fn status_sexp(&self) -> String {
         let current = self
@@ -423,7 +482,7 @@ impl ZoneDetector {
     /// Generate IPC config s-expression.
     pub fn config_sexp(&self) -> String {
         format!(
-            "(:corner-fraction {:.2} :edge-depth {:.2} :dwell-ms {:.0} :lock-ms {:.0} :overlay-alpha {:.2} :fade-in-ms {:.0} :fade-out-ms {:.0})",
+            "(:corner-fraction {:.2} :edge-depth {:.2} :dwell-ms {:.0} :lock-ms {:.0} :overlay-alpha {:.2} :fade-in-ms {:.0} :fade-out-ms {:.0} :layout :{} :zones {})",
             self.config.corner_fraction,
             self.config.edge_depth,
             self.config.dwell_ms,
@@ -431,8 +490,65 @@ impl ZoneDetector {
             self.config.overlay_alpha,
             self.config.fade_in_ms,
             self.config.fade_out_ms,
+            self.layout_name,
+            self.layout_sexp(),
         )
     }
+}
+
+fn default_zone_layout() -> Vec<(GazeZone, String)> {
+    GazeZone::ALL
+        .into_iter()
+        .map(|zone| (zone, zone.default_modifier().to_string()))
+        .collect()
+}
+
+fn vim_like_zone_layout() -> Vec<(GazeZone, String)> {
+    vec![
+        (GazeZone::TopLeft, "ESC".to_string()),
+        (GazeZone::TopRight, ":".to_string()),
+        (GazeZone::BottomLeft, "C-w".to_string()),
+        (GazeZone::BottomRight, "C-d".to_string()),
+        (GazeZone::TopEdge, "scroll-up".to_string()),
+        (GazeZone::BottomEdge, "scroll-down".to_string()),
+        (GazeZone::LeftEdge, "C-b".to_string()),
+        (GazeZone::RightEdge, "C-f".to_string()),
+        (GazeZone::Center, "".to_string()),
+    ]
+}
+
+fn spacemacs_zone_layout() -> Vec<(GazeZone, String)> {
+    vec![
+        (GazeZone::TopLeft, "SPC".to_string()),
+        (GazeZone::TopRight, "M-x".to_string()),
+        (GazeZone::BottomLeft, "C-".to_string()),
+        (GazeZone::BottomRight, "M-".to_string()),
+        (GazeZone::TopEdge, "scroll-up".to_string()),
+        (GazeZone::BottomEdge, "scroll-down".to_string()),
+        (GazeZone::LeftEdge, "C-b".to_string()),
+        (GazeZone::RightEdge, "C-f".to_string()),
+        (GazeZone::Center, "".to_string()),
+    ]
+}
+
+pub fn parse_zone_layout_map(value: &str) -> Result<Vec<(GazeZone, String)>, String> {
+    let mut entries = Vec::new();
+    for entry in value
+        .split(',')
+        .map(str::trim)
+        .filter(|entry| !entry.is_empty())
+    {
+        let (zone, modifier) = entry
+            .split_once('=')
+            .ok_or_else(|| format!("invalid gaze_zone_custom_map entry: {}", entry))?;
+        let zone = GazeZone::from_str(zone.trim())
+            .ok_or_else(|| format!("invalid gaze zone in custom map: {}", zone.trim()))?;
+        entries.push((zone, modifier.trim().to_string()));
+    }
+    if entries.is_empty() {
+        return Err("gaze_zone_custom_map cannot be empty".to_string());
+    }
+    Ok(entries)
 }
 
 // ── Tests ───────────────────────────────────────────────────
@@ -450,13 +566,22 @@ mod tests {
         assert_eq!(det.classify(10.0, 10.0, 1000.0, 1000.0), GazeZone::TopLeft);
 
         // Top-right: (950, 10)
-        assert_eq!(det.classify(950.0, 10.0, 1000.0, 1000.0), GazeZone::TopRight);
+        assert_eq!(
+            det.classify(950.0, 10.0, 1000.0, 1000.0),
+            GazeZone::TopRight
+        );
 
         // Bottom-left: (10, 950)
-        assert_eq!(det.classify(10.0, 950.0, 1000.0, 1000.0), GazeZone::BottomLeft);
+        assert_eq!(
+            det.classify(10.0, 950.0, 1000.0, 1000.0),
+            GazeZone::BottomLeft
+        );
 
         // Bottom-right: (950, 950)
-        assert_eq!(det.classify(950.0, 950.0, 1000.0, 1000.0), GazeZone::BottomRight);
+        assert_eq!(
+            det.classify(950.0, 950.0, 1000.0, 1000.0),
+            GazeZone::BottomRight
+        );
     }
 
     #[test]
@@ -471,13 +596,22 @@ mod tests {
         // Bottom edge: (500, 950) — but 950 is also > 850 (corner region for y)
         // (500, 950): frac_x=0.5, frac_y=0.95. in_bottom=true but not in_left/in_right.
         // frac_y > (1-0.15)=0.85, so BottomEdge
-        assert_eq!(det.classify(500.0, 920.0, 1000.0, 1000.0), GazeZone::BottomEdge);
+        assert_eq!(
+            det.classify(500.0, 920.0, 1000.0, 1000.0),
+            GazeZone::BottomEdge
+        );
 
         // Left edge: (50, 500) — near left, center-y
-        assert_eq!(det.classify(50.0, 500.0, 1000.0, 1000.0), GazeZone::LeftEdge);
+        assert_eq!(
+            det.classify(50.0, 500.0, 1000.0, 1000.0),
+            GazeZone::LeftEdge
+        );
 
         // Right edge: (960, 500) — near right, center-y
-        assert_eq!(det.classify(960.0, 500.0, 1000.0, 1000.0), GazeZone::RightEdge);
+        assert_eq!(
+            det.classify(960.0, 500.0, 1000.0, 1000.0),
+            GazeZone::RightEdge
+        );
     }
 
     #[test]
@@ -560,7 +694,7 @@ mod tests {
             surface_id: 42,
         };
         let sexp = evt.to_sexp();
-        assert!(sexp.contains(":event :zone-entered"));
+        assert!(sexp.contains(":event :gaze-zone-entered"));
         assert!(sexp.contains(":zone :top-left"));
         assert!(sexp.contains(":surface-id 42"));
 
@@ -570,7 +704,7 @@ mod tests {
             modifier: "M-".to_string(),
         };
         let sexp = evt.to_sexp();
-        assert!(sexp.contains(":event :zone-activated"));
+        assert!(sexp.contains(":event :gaze-zone-activated"));
         assert!(sexp.contains(":zone :bottom-right"));
         assert!(sexp.contains(":modifier \"M-\""));
 
@@ -600,8 +734,14 @@ mod tests {
     #[test]
     fn test_zone_roundtrip() {
         let zones = vec![
-            "top-left", "top-right", "bottom-left", "bottom-right",
-            "top-edge", "bottom-edge", "left-edge", "right-edge",
+            "top-left",
+            "top-right",
+            "bottom-left",
+            "bottom-right",
+            "top-edge",
+            "bottom-edge",
+            "left-edge",
+            "right-edge",
             "center",
         ];
         for s in &zones {

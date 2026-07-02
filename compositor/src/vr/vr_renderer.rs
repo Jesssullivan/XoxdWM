@@ -10,6 +10,7 @@
 
 use glow::HasContext;
 use openxrs as xr;
+use std::cell::Cell;
 use tracing::{debug, error, info, warn};
 
 use super::scene::{Mat4, Quat, Transform3D, Vec3, VrScene};
@@ -44,10 +45,8 @@ void main() {
 /// Unit quad geometry: position (xyz) + texcoord (uv).
 const QUAD_VERTICES: [f32; 20] = [
     // pos           // uv
-    -0.5, -0.5, 0.0,  0.0, 0.0,
-     0.5, -0.5, 0.0,  1.0, 0.0,
-     0.5,  0.5, 0.0,  1.0, 1.0,
-    -0.5,  0.5, 0.0,  0.0, 1.0,
+    -0.5, -0.5, 0.0, 0.0, 0.0, 0.5, -0.5, 0.0, 1.0, 0.0, 0.5, 0.5, 0.0, 1.0, 1.0, -0.5, 0.5, 0.0,
+    0.0, 1.0,
 ];
 
 /// Quad indices for two triangles.
@@ -116,6 +115,8 @@ pub struct VrRenderer {
     pub texture_manager: TextureManager,
     pub frame_count: u64,
     pub clear_color: [f32; 4],
+    pub test_pattern: Option<TestPattern>,
+    pub last_readback_hash: Cell<Option<u64>>,
 
     // GL resources (initialized via init_gl)
     gl: Option<glow::Context>,
@@ -139,6 +140,8 @@ impl VrRenderer {
             texture_manager: TextureManager::new(),
             frame_count: 0,
             clear_color: [0.102, 0.102, 0.180, 1.0],
+            test_pattern: TestPattern::from_env(),
+            last_readback_hash: Cell::new(None),
             gl: None,
             program: None,
             quad_vao: None,
@@ -157,7 +160,8 @@ impl VrRenderer {
     pub fn init_gl(&mut self, gl: glow::Context) -> Result<(), String> {
         unsafe {
             // Compile shaders
-            let vert = gl.create_shader(glow::VERTEX_SHADER)
+            let vert = gl
+                .create_shader(glow::VERTEX_SHADER)
                 .map_err(|e| format!("create vertex shader: {}", e))?;
             gl.shader_source(vert, VERTEX_SHADER);
             gl.compile_shader(vert);
@@ -167,7 +171,8 @@ impl VrRenderer {
                 return Err(format!("vertex shader compile: {}", log));
             }
 
-            let frag = gl.create_shader(glow::FRAGMENT_SHADER)
+            let frag = gl
+                .create_shader(glow::FRAGMENT_SHADER)
                 .map_err(|e| format!("create fragment shader: {}", e))?;
             gl.shader_source(frag, FRAGMENT_SHADER);
             gl.compile_shader(frag);
@@ -179,7 +184,8 @@ impl VrRenderer {
             }
 
             // Link program
-            let program = gl.create_program()
+            let program = gl
+                .create_program()
                 .map_err(|e| format!("create program: {}", e))?;
             gl.attach_shader(program, vert);
             gl.attach_shader(program, frag);
@@ -200,11 +206,13 @@ impl VrRenderer {
             let u_tex = gl.get_uniform_location(program, "u_tex");
 
             // Create VAO + VBO + EBO for unit quad
-            let vao = gl.create_vertex_array()
+            let vao = gl
+                .create_vertex_array()
                 .map_err(|e| format!("create VAO: {}", e))?;
             gl.bind_vertex_array(Some(vao));
 
-            let vbo = gl.create_buffer()
+            let vbo = gl
+                .create_buffer()
                 .map_err(|e| format!("create VBO: {}", e))?;
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
             let vert_bytes: &[u8] = std::slice::from_raw_parts(
@@ -213,7 +221,8 @@ impl VrRenderer {
             );
             gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vert_bytes, glow::STATIC_DRAW);
 
-            let ebo = gl.create_buffer()
+            let ebo = gl
+                .create_buffer()
                 .map_err(|e| format!("create EBO: {}", e))?;
             gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ebo));
             let idx_bytes: &[u8] = std::slice::from_raw_parts(
@@ -233,7 +242,8 @@ impl VrRenderer {
             gl.bind_vertex_array(None);
 
             // Create FBO for swapchain rendering
-            let fbo = gl.create_framebuffer()
+            let fbo = gl
+                .create_framebuffer()
                 .map_err(|e| format!("create FBO: {}", e))?;
 
             info!("VR renderer: GL resources initialized");
@@ -387,7 +397,9 @@ impl VrRenderer {
                 glow::FRAMEBUFFER,
                 glow::COLOR_ATTACHMENT0,
                 glow::TEXTURE_2D,
-                Some(glow::NativeTexture(std::num::NonZeroU32::new(texture).unwrap())),
+                Some(glow::NativeTexture(
+                    std::num::NonZeroU32::new(texture).unwrap(),
+                )),
                 0,
             );
 
@@ -400,6 +412,10 @@ impl VrRenderer {
                 self.clear_color[3],
             );
             gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
+
+            if let Some(pattern) = self.test_pattern {
+                self.draw_test_pattern(gl, pattern, width, height);
+            }
 
             // Enable depth test and blending
             gl.enable(glow::DEPTH_TEST);
@@ -438,14 +454,14 @@ impl VrRenderer {
                     }
 
                     // Bind surface texture (or fallback to 0)
-                    let tex_id = self.texture_manager
-                        .get_texture(*surface_id)
-                        .unwrap_or(0);
+                    let tex_id = self.texture_manager.get_texture(*surface_id).unwrap_or(0);
                     gl.active_texture(glow::TEXTURE0);
                     if tex_id != 0 {
                         gl.bind_texture(
                             glow::TEXTURE_2D,
-                            Some(glow::NativeTexture(std::num::NonZeroU32::new(tex_id).unwrap())),
+                            Some(glow::NativeTexture(
+                                std::num::NonZeroU32::new(tex_id).unwrap(),
+                            )),
                         );
                     }
 
@@ -461,6 +477,9 @@ impl VrRenderer {
                     );
                 }
             }
+
+            self.last_readback_hash
+                .set(self.readback_hash(gl, width, height));
 
             // Unbind
             gl.bind_vertex_array(None);
@@ -514,7 +533,8 @@ impl VrRenderer {
 
     /// Register a new surface with the texture manager.
     pub fn register_surface(&mut self, surface_id: u64, width: u32, height: u32) {
-        self.texture_manager.register_surface(surface_id, width, height);
+        self.texture_manager
+            .register_surface(surface_id, width, height);
     }
 
     /// Unregister a surface from the texture manager.
@@ -560,6 +580,65 @@ impl VrRenderer {
         self.gl = None;
         info!("VR renderer: GL resources destroyed");
     }
+
+    fn draw_test_pattern(&self, gl: &glow::Context, pattern: TestPattern, width: u32, height: u32) {
+        unsafe {
+            match pattern {
+                TestPattern::SolidRed => {
+                    gl.clear_color(1.0, 0.0, 0.0, 1.0);
+                    gl.clear(glow::COLOR_BUFFER_BIT);
+                }
+                TestPattern::Checker => {
+                    let cols = 8i32;
+                    let rows = 8i32;
+                    let cell_w = (width as i32 / cols).max(1);
+                    let cell_h = (height as i32 / rows).max(1);
+                    gl.enable(glow::SCISSOR_TEST);
+                    for y in 0..rows {
+                        for x in 0..cols {
+                            let red = (x + y) % 2 == 0;
+                            if red {
+                                gl.clear_color(1.0, 0.0, 0.0, 1.0);
+                            } else {
+                                gl.clear_color(0.0, 0.0, 0.0, 1.0);
+                            }
+                            gl.scissor(x * cell_w, y * cell_h, cell_w, cell_h);
+                            gl.clear(glow::COLOR_BUFFER_BIT);
+                        }
+                    }
+                    gl.disable(glow::SCISSOR_TEST);
+                }
+            }
+        }
+    }
+
+    fn readback_hash(&self, gl: &glow::Context, width: u32, height: u32) -> Option<u64> {
+        let sample_w = width.min(16) as i32;
+        let sample_h = height.min(16) as i32;
+        if sample_w <= 0 || sample_h <= 0 {
+            return None;
+        }
+
+        let mut pixels = vec![0u8; (sample_w * sample_h * 4) as usize];
+        unsafe {
+            gl.read_pixels(
+                0,
+                0,
+                sample_w,
+                sample_h,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                glow::PixelPackData::Slice(Some(&mut pixels)),
+            );
+        }
+
+        let mut hash = 0xcbf29ce484222325u64;
+        for b in pixels {
+            hash ^= b as u64;
+            hash = hash.wrapping_mul(0x100000001b3);
+        }
+        Some(hash)
+    }
 }
 
 impl Default for VrRenderer {
@@ -576,6 +655,30 @@ pub struct SwapchainRenderResult {
     pub height: u32,
 }
 
+/// Deterministic compositor-side test pattern for visual-output debugging.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TestPattern {
+    SolidRed,
+    Checker,
+}
+
+impl TestPattern {
+    pub fn from_env() -> Option<Self> {
+        match std::env::var("EWWM_VR_TEST_PATTERN").ok().as_deref() {
+            Some("solid-red") => Some(Self::SolidRed),
+            Some("checker") => Some(Self::Checker),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::SolidRed => "solid-red",
+            Self::Checker => "checker",
+        }
+    }
+}
+
 /// Build a view matrix from an OpenXR pose.
 fn view_matrix_from_xr_pose(pose: &xr::Posef) -> Mat4 {
     let q = &pose.orientation;
@@ -583,7 +686,12 @@ fn view_matrix_from_xr_pose(pose: &xr::Posef) -> Mat4 {
 
     let transform = Transform3D {
         position: Vec3::new(p.x, p.y, p.z),
-        rotation: Quat { x: q.x, y: q.y, z: q.z, w: q.w },
+        rotation: Quat {
+            x: q.x,
+            y: q.y,
+            z: q.z,
+            w: q.w,
+        },
         scale: Vec3::ONE,
     };
 
@@ -658,6 +766,6 @@ mod tests {
     #[test]
     fn test_quad_geometry() {
         assert_eq!(QUAD_VERTICES.len(), 20); // 4 vertices * 5 floats
-        assert_eq!(QUAD_INDICES.len(), 6);   // 2 triangles * 3 indices
+        assert_eq!(QUAD_INDICES.len(), 6); // 2 triangles * 3 indices
     }
 }

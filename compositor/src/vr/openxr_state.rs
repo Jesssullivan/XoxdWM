@@ -15,25 +15,26 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
 
+use super::anchor::AnchorManager;
+use super::bci_state::BciState;
+use super::beyond_hid::BeyondHidManager;
+use super::blink_wink::BlinkWinkManager;
+use super::capture_visibility::CaptureVisibilityManager;
 use super::drm_lease::HmdManager;
 use super::eye_tracking::EyeTracking;
-use super::frame_timing::FrameTiming;
-use super::blink_wink::BlinkWinkManager;
 use super::fatigue::FatigueMonitor;
+use super::follow_mode::FollowMode;
+use super::frame_timing::FrameTiming;
 use super::gaze_focus::GazeFocusManager;
 use super::gaze_scroll::GazeScrollState;
 use super::gaze_zone::ZoneDetector;
 use super::gesture::GestureState;
+use super::gpu_power::GpuPowerState;
 use super::hand_tracking::HandTrackingState;
 use super::link_hints::LinkHintState;
-use super::scene::VrScene;
-use super::bci_state::BciState;
-use super::follow_mode::FollowMode;
-use super::beyond_hid::BeyondHidManager;
-use super::gpu_power::GpuPowerState;
 use super::overlay::OverlayManager;
 use super::radial_menu::RadialMenu;
-use super::capture_visibility::CaptureVisibilityManager;
+use super::scene::VrScene;
 use super::transient_3d::TransientChainManager;
 use super::virtual_keyboard::VirtualKeyboardState;
 use super::vr_interaction::VrInteraction;
@@ -155,6 +156,7 @@ pub struct VrState {
     pub overlay_manager: OverlayManager,
     pub radial_menu: RadialMenu,
     pub capture_visibility: CaptureVisibilityManager,
+    pub anchors: AnchorManager,
 
     // VR renderer (lazy-init when GL context is available)
     renderer: Option<VrRenderer>,
@@ -177,6 +179,13 @@ pub struct VrState {
     max_retries: u32,
     retry_count: u32,
     last_retry: Option<Instant>,
+
+    // Diagnostics
+    frame_wait_count: u64,
+    frame_begin_count: u64,
+    frame_end_count: u64,
+    last_frame_error: Option<String>,
+    last_end_error: Option<String>,
 }
 
 impl VrState {
@@ -211,6 +220,7 @@ impl VrState {
             overlay_manager: OverlayManager::new(),
             radial_menu: RadialMenu::new(),
             capture_visibility: CaptureVisibilityManager::new(),
+            anchors: AnchorManager::new(),
             renderer: None,
             entry: None,
             instance: None,
@@ -225,6 +235,11 @@ impl VrState {
             max_retries: 3,
             retry_count: 0,
             last_retry: None,
+            frame_wait_count: 0,
+            frame_begin_count: 0,
+            frame_end_count: 0,
+            last_frame_error: None,
+            last_end_error: None,
         }
     }
 
@@ -236,7 +251,10 @@ impl VrState {
         let entry = match unsafe { xr::Entry::load() } {
             Ok(e) => e,
             Err(e) => {
-                warn!("VR: OpenXR loader not available: {} (continuing in 2D mode)", e);
+                warn!(
+                    "VR: OpenXR loader not available: {} (continuing in 2D mode)",
+                    e
+                );
                 return Ok(false);
             }
         };
@@ -249,7 +267,10 @@ impl VrState {
                 return Ok(false);
             }
         };
-        info!("VR: OpenXR extensions available: {:?}", available_extensions);
+        info!(
+            "VR: OpenXR extensions available: {:?}",
+            available_extensions
+        );
 
         // Step 3: Select extensions
         let mut required_extensions = xr::ExtensionSet::default();
@@ -287,12 +308,12 @@ impl VrState {
             }
         };
 
-        let instance_props = instance.properties().unwrap_or_else(|_| {
-            xr::InstanceProperties {
+        let instance_props = instance
+            .properties()
+            .unwrap_or_else(|_| xr::InstanceProperties {
                 runtime_name: "unknown".to_string(),
                 runtime_version: xr::Version::new(0, 0, 0),
-            }
-        });
+            });
         info!(
             "VR: OpenXR runtime: {} v{}",
             instance_props.runtime_name, instance_props.runtime_version
@@ -305,16 +326,10 @@ impl VrState {
                 self.hmd_info = HmdInfo {
                     system_name: system_props.system_name.clone(),
                     vendor_id: system_props.vendor_id,
-                    max_width: system_props
-                        .graphics_properties
-                        .max_swapchain_image_width,
-                    max_height: system_props
-                        .graphics_properties
-                        .max_swapchain_image_height,
+                    max_width: system_props.graphics_properties.max_swapchain_image_width,
+                    max_height: system_props.graphics_properties.max_swapchain_image_height,
                     max_layers: system_props.graphics_properties.max_layer_count,
-                    orientation_tracking: system_props
-                        .tracking_properties
-                        .orientation_tracking,
+                    orientation_tracking: system_props.tracking_properties.orientation_tracking,
                     position_tracking: system_props.tracking_properties.position_tracking,
                     recommended_width: 1920, // Updated after view config query
                     recommended_height: 1080,
@@ -365,9 +380,12 @@ impl VrState {
         egl_config: *mut std::ffi::c_void,
         egl_context: *mut std::ffi::c_void,
     ) -> anyhow::Result<()> {
-        let instance = self.instance.as_ref()
+        let instance = self
+            .instance
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("OpenXR instance not initialized"))?;
-        let system_id = self.system_id
+        let system_id = self
+            .system_id
             .ok_or_else(|| anyhow::anyhow!("OpenXR system not discovered"))?;
 
         // Query view configuration for PRIMARY_STEREO
@@ -378,8 +396,14 @@ impl VrState {
         info!(
             "VR: view config: {} views, recommended {}x{} per eye",
             view_config_views.len(),
-            view_config_views.first().map(|v| v.recommended_image_rect_width).unwrap_or(0),
-            view_config_views.first().map(|v| v.recommended_image_rect_height).unwrap_or(0),
+            view_config_views
+                .first()
+                .map(|v| v.recommended_image_rect_width)
+                .unwrap_or(0),
+            view_config_views
+                .first()
+                .map(|v| v.recommended_image_rect_height)
+                .unwrap_or(0),
         );
 
         // Update HMD info with actual recommended resolution
@@ -408,9 +432,8 @@ impl VrState {
         };
 
         // Create session
-        let (session, frame_waiter, frame_stream) = unsafe {
-            instance.create_session::<xr::OpenGL>(system_id, &session_create_info)?
-        };
+        let (session, frame_waiter, frame_stream) =
+            unsafe { instance.create_session::<xr::OpenGL>(system_id, &session_create_info)? };
         info!("VR: OpenGL session created");
 
         // Create reference space
@@ -517,6 +540,24 @@ impl VrState {
         self.renderer.as_mut()
     }
 
+    pub fn renderer_ready(&self) -> bool {
+        self.renderer.is_some()
+    }
+
+    pub fn renderer_frame_count(&self) -> u64 {
+        self.renderer
+            .as_ref()
+            .map(|renderer| renderer.frame_count)
+            .unwrap_or(0)
+    }
+
+    pub fn renderer_texture_count(&self) -> usize {
+        self.renderer
+            .as_ref()
+            .map(|renderer| renderer.texture_manager.texture_count())
+            .unwrap_or(0)
+    }
+
     /// Set the VR renderer (call once GL context is available).
     pub fn set_renderer(&mut self, renderer: VrRenderer) {
         self.renderer = Some(renderer);
@@ -533,8 +574,7 @@ impl VrState {
         view_configs: &[xr::ViewConfigurationView],
     ) {
         if let Some(renderer) = self.renderer.as_mut() {
-            let swapchain_images: Vec<Vec<u32>> =
-                self.swapchain_images.clone();
+            let swapchain_images: Vec<Vec<u32>> = self.swapchain_images.clone();
             let results = renderer.render_frame_to_swapchains(
                 &self.scene,
                 &mut self.swapchains,
@@ -745,8 +785,13 @@ impl VrState {
 
         // Wait for frame timing
         let frame_state = match frame_waiter.wait() {
-            Ok(state) => state,
+            Ok(state) => {
+                self.frame_wait_count += 1;
+                self.last_frame_error = None;
+                state
+            }
             Err(e) => {
+                self.last_frame_error = Some(format!("wait_frame failed: {}", e));
                 error!("VR: wait_frame failed: {}", e);
                 return None;
             }
@@ -754,9 +799,11 @@ impl VrState {
 
         // Begin frame
         if let Err(e) = frame_stream.begin() {
+            self.last_frame_error = Some(format!("begin_frame failed: {}", e));
             error!("VR: begin_frame failed: {}", e);
             return None;
         }
+        self.frame_begin_count += 1;
 
         let should_render = frame_state.should_render;
         if !should_render {
@@ -766,7 +813,11 @@ impl VrState {
                 xr::EnvironmentBlendMode::OPAQUE,
                 &[],
             ) {
+                self.last_end_error = Some(format!("end_frame empty failed: {}", e));
                 error!("VR: end_frame (empty) failed: {}", e);
+            } else {
+                self.frame_end_count += 1;
+                self.last_end_error = None;
             }
             return Some(VrFrameData {
                 views: Vec::new(),
@@ -825,7 +876,11 @@ impl VrState {
             xr::EnvironmentBlendMode::OPAQUE,
             &layer_refs,
         ) {
+            self.last_end_error = Some(format!("end_frame failed: {}", e));
             error!("VR: end_frame failed: {}", e);
+        } else {
+            self.frame_end_count += 1;
+            self.last_end_error = None;
         }
     }
 
@@ -880,8 +935,9 @@ impl VrState {
             })
             .collect();
 
-        let projection_layer =
-            xr::CompositionLayerProjection::new().space(space).views(&projection_views);
+        let projection_layer = xr::CompositionLayerProjection::new()
+            .space(space)
+            .views(&projection_views);
 
         use std::ops::Deref;
         let layer_refs: Vec<&xr::CompositionLayerBase<'_, xr::OpenGL>> =
@@ -892,7 +948,11 @@ impl VrState {
             xr::EnvironmentBlendMode::OPAQUE,
             &layer_refs,
         ) {
+            self.last_end_error = Some(format!("end_frame failed: {}", e));
             error!("VR: end_frame failed: {}", e);
+        } else {
+            self.frame_end_count += 1;
+            self.last_end_error = None;
         }
     }
 
@@ -946,6 +1006,51 @@ impl VrState {
             if self.headless { "t" } else { "nil" },
             self.enabled_extensions,
             self.frame_stats_sexp(),
+        )
+    }
+
+    /// Generate IPC diagnostics for black-screen and first-frame debugging.
+    pub fn diagnostics_sexp(&self) -> String {
+        let readback_hash = self
+            .renderer
+            .as_ref()
+            .and_then(|renderer| renderer.last_readback_hash.get())
+            .map(|hash| format!("\"{:016x}\"", hash))
+            .unwrap_or_else(|| "nil".to_string());
+        let test_pattern = self
+            .renderer
+            .as_ref()
+            .and_then(|renderer| renderer.test_pattern)
+            .map(|pattern| format!(":{}", pattern.as_str()))
+            .unwrap_or_else(|| "nil".to_string());
+        let last_frame_error = self
+            .last_frame_error
+            .as_deref()
+            .map(|err| format!("\"{}\"", err.replace('"', "\\\"")))
+            .unwrap_or_else(|| "nil".to_string());
+        let last_end_error = self
+            .last_end_error
+            .as_deref()
+            .map(|err| format!("\"{}\"", err.replace('"', "\\\"")))
+            .unwrap_or_else(|| "nil".to_string());
+
+        format!(
+            "(:renderer-ready {} :xr-state :{} :swapchain-count {} :view-count {} :frame-wait-count {} :frame-begin-count {} :frame-end-count {} :scene-node-count {} :texture-count {} :test-pattern {} :last-readback-hash {} :last-frame-error {} :last-end-error {} :drm-lease {} :beyond-hid {})",
+            if self.renderer_ready() { "t" } else { "nil" },
+            self.session_state_str(),
+            self.swapchains.len(),
+            self.view_config_views.len(),
+            self.frame_wait_count,
+            self.frame_begin_count,
+            self.frame_end_count,
+            self.scene.surface_count(),
+            self.renderer_texture_count(),
+            test_pattern,
+            readback_hash,
+            last_frame_error,
+            last_end_error,
+            self.hmd_manager.diagnostics_sexp(),
+            self.beyond_hid.diagnostics_sexp(),
         )
     }
 }

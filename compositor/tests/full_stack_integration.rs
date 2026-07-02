@@ -8,7 +8,9 @@
 //! by the unified input abstraction.
 
 use ewwm_compositor::clock::{Clock, TestClock};
-use ewwm_compositor::input_source::{InputEvent, InputProvider, RecordingProvider, ScriptedInputProvider};
+use ewwm_compositor::input_source::{
+    InputEvent, InputProvider, RecordingProvider, ScriptedInputProvider,
+};
 use ewwm_compositor::ipc::recorder::{IpcRecorder, MessageDirection};
 
 use std::sync::Arc;
@@ -73,13 +75,20 @@ fn test_gaze_dwell_focus_with_clock() {
         }) = &event
         {
             assert_eq!(*sid, surface_id);
-            assert!(*dwell_ms >= 200.0, "dwell_ms should be >= 200, got {}", dwell_ms);
+            assert!(
+                *dwell_ms >= 200.0,
+                "dwell_ms should be >= 200, got {}",
+                dwell_ms
+            );
             focus_requested = true;
             break;
         }
     }
 
-    assert!(focus_requested, "FocusRequested should fire after dwell threshold");
+    assert!(
+        focus_requested,
+        "FocusRequested should fire after dwell threshold"
+    );
     assert_eq!(gaze_focus.focused_surface, Some(surface_id));
 }
 
@@ -167,7 +176,11 @@ fn test_pinch_gesture_lifecycle() {
     };
 
     // Other fingertips need to be away from palm (not grab)
-    for joint in &[HandJoint::MiddleTip, HandJoint::RingTip, HandJoint::LittleTip] {
+    for joint in &[
+        HandJoint::MiddleTip,
+        HandJoint::RingTip,
+        HandJoint::LittleTip,
+    ] {
         left.joints[joint.index()] = JointPose {
             position: [0.0, 0.15, 0.0], // extended away
             orientation: [0.0, 0.0, 0.0, 1.0],
@@ -183,7 +196,13 @@ fn test_pinch_gesture_lifecycle() {
     for _frame in 0..10 {
         let events = gesture.update(&left, &right, 16.0);
         for event in &events {
-            if matches!(event, GestureEvent::Started { gesture: GestureType::Pinch, .. }) {
+            if matches!(
+                event,
+                GestureEvent::Started {
+                    gesture: GestureType::Pinch,
+                    ..
+                }
+            ) {
                 pinch_started = true;
             }
         }
@@ -197,9 +216,15 @@ fn test_pinch_gesture_lifecycle() {
     left.joints[HandJoint::IndexTip.index()].position = [0.15, 0.15, 0.0];
 
     let events = gesture.update(&left, &right, 16.0);
-    let released = events
-        .iter()
-        .any(|e| matches!(e, GestureEvent::Released { gesture: GestureType::Pinch, .. }));
+    let released = events.iter().any(|e| {
+        matches!(
+            e,
+            GestureEvent::Released {
+                gesture: GestureType::Pinch,
+                ..
+            }
+        )
+    });
     assert!(released, "Pinch release should be detected");
 }
 
@@ -339,7 +364,11 @@ fn test_full_multi_modal_sequence() {
         total_events += 1;
 
         match event {
-            InputEvent::Gaze { yaw, pitch, confidence } => {
+            InputEvent::Gaze {
+                yaw,
+                pitch,
+                confidence,
+            } => {
                 gaze_events += 1;
                 frame_counter += 1;
                 // Feed to gaze focus manager
@@ -366,7 +395,11 @@ fn test_full_multi_modal_sequence() {
                 clock.advance(duration);
                 wait_total += duration;
             }
-            InputEvent::Gesture { name, hand, confidence } => {
+            InputEvent::Gesture {
+                name,
+                hand,
+                confidence,
+            } => {
                 // Record as IPC event
                 ipc_recorder.record(
                     0,
@@ -431,12 +464,23 @@ fn test_vr_state_stub_subsystem_access() {
     // All subsystems accessible through VrState
     assert!(vr.gaze_focus.focused_surface.is_none());
     assert!(vr.gesture.binding_count() == 0);
-    assert!(matches!(vr.bci.connection, ewwm_compositor::vr::bci_state::BciConnectionState::Disconnected));
+    assert!(matches!(
+        vr.bci.connection,
+        ewwm_compositor::vr::bci_state::BciConnectionState::Disconnected
+    ));
     // Stub and real VrState have different frame_stats_sexp formats;
     // just verify it starts with "(:" and contains "fps 0"
     let stats = vr.frame_stats_sexp();
-    assert!(stats.starts_with("(:"), "frame_stats_sexp should start with '(:' got '{}'", stats);
-    assert!(stats.contains("fps 0"), "frame_stats_sexp should contain 'fps 0' got '{}'", stats);
+    assert!(
+        stats.starts_with("(:"),
+        "frame_stats_sexp should start with '(:' got '{}'",
+        stats
+    );
+    assert!(
+        stats.contains("fps 0"),
+        "frame_stats_sexp should contain 'fps 0' got '{}'",
+        stats
+    );
 }
 
 // ── Deterministic dwell with TestClock driving timing ────────
@@ -491,7 +535,11 @@ fn test_deterministic_dwell_with_test_clock() {
         let event = gaze_focus.update(Some(&hit), Some(&gaze_t), 0.020);
         match &event {
             Some(GazeFocusEvent::DwellProgress { elapsed_ms, .. }) => {
-                assert!(*elapsed_ms < 100.0, "should not reach threshold yet at {}ms", elapsed_ms);
+                assert!(
+                    *elapsed_ms < 100.0,
+                    "should not reach threshold yet at {}ms",
+                    elapsed_ms
+                );
             }
             other => {
                 // May get other events (cooldown, etc.) — skip
@@ -522,7 +570,10 @@ fn test_deterministic_dwell_with_test_clock() {
             break;
         }
     }
-    assert!(focus_triggered, "focus should be requested after 100ms dwell threshold");
+    assert!(
+        focus_triggered,
+        "focus should be requested after 100ms dwell threshold"
+    );
     assert_eq!(gaze_focus.focused_surface, Some(7));
 }
 
@@ -580,7 +631,10 @@ fn test_ipc_record_replay_round_trip() {
             "request should contain type"
         );
     }
-    assert_eq!(request_count, 5, "should extract 5 requests from 10 messages");
+    assert_eq!(
+        request_count, 5,
+        "should extract 5 requests from 10 messages"
+    );
     assert_eq!(replayer.consumed, 10);
 }
 
@@ -673,9 +727,19 @@ fn test_multi_surface_focus_switching() {
 #[test]
 fn test_recording_provider_preserves_order() {
     let events = vec![
-        InputEvent::BciSample { channel: 0, value: 0.1 },
-        InputEvent::BciSample { channel: 1, value: 0.2 },
-        InputEvent::Gaze { yaw: 0.5, pitch: 0.3, confidence: 0.9 },
+        InputEvent::BciSample {
+            channel: 0,
+            value: 0.1,
+        },
+        InputEvent::BciSample {
+            channel: 1,
+            value: 0.2,
+        },
+        InputEvent::Gaze {
+            yaw: 0.5,
+            pitch: 0.3,
+            confidence: 0.9,
+        },
         InputEvent::Gesture {
             name: "grab".to_string(),
             hand: "left".to_string(),
@@ -716,8 +780,14 @@ fn test_recording_provider_preserves_order() {
     assert_eq!(recorded.len(), 8);
 
     // Verify ordering
-    assert!(matches!(recorded[0], InputEvent::BciSample { channel: 0, .. }));
-    assert!(matches!(recorded[1], InputEvent::BciSample { channel: 1, .. }));
+    assert!(matches!(
+        recorded[0],
+        InputEvent::BciSample { channel: 0, .. }
+    ));
+    assert!(matches!(
+        recorded[1],
+        InputEvent::BciSample { channel: 1, .. }
+    ));
     assert!(matches!(recorded[2], InputEvent::Gaze { .. }));
     assert!(matches!(recorded[3], InputEvent::Gesture { .. }));
     assert!(matches!(recorded[4], InputEvent::Blink { .. }));
@@ -738,7 +808,10 @@ fn test_shared_clock_across_subsystems() {
     let clock: Arc<dyn Clock> = Arc::new(TestClock::new());
     let now1 = clock.now();
     let now2 = clock.now();
-    assert_eq!(now1, now2, "same clock should return same time without advance");
+    assert_eq!(
+        now1, now2,
+        "same clock should return same time without advance"
+    );
 
     let ms1 = clock.unix_millis();
     let ms2 = clock.unix_millis();

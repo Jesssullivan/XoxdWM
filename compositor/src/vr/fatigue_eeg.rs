@@ -160,13 +160,7 @@ impl EegFatigueMonitor {
     }
 
     /// Update fatigue metrics with current EEG band powers and blink rate.
-    pub fn update(
-        &mut self,
-        theta: f64,
-        alpha: f64,
-        beta: f64,
-        blink_rate: f64,
-    ) {
+    pub fn update(&mut self, theta: f64, alpha: f64, beta: f64, blink_rate: f64) {
         if !self.monitoring || !self.config.enabled {
             return;
         }
@@ -203,8 +197,7 @@ impl EegFatigueMonitor {
 
         // Blink rate elevation indicator
         let blink_elevation = if self.baseline_blink_rate > 0.0 {
-            (self.blink_rate - self.baseline_blink_rate)
-                / self.baseline_blink_rate
+            (self.blink_rate - self.baseline_blink_rate) / self.baseline_blink_rate
         } else {
             0.0
         };
@@ -212,8 +205,7 @@ impl EegFatigueMonitor {
 
         // Theta/beta ratio indicator
         let current_ratio = if self.baseline_beta > 0.001 {
-            let current_theta =
-                self.baseline_theta * (1.0 + self.theta_trend);
+            let current_theta = self.baseline_theta * (1.0 + self.theta_trend);
             let current_beta = self.baseline_beta * (1.0 + self.beta_trend);
             if current_beta > 0.001 {
                 current_theta / current_beta
@@ -242,10 +234,7 @@ impl EegFatigueMonitor {
     }
 
     /// Classify fatigue level from composite index.
-    fn classify(
-        index: f64,
-        config: &EegFatigueConfig,
-    ) -> EegFatigueLevel {
+    fn classify(index: f64, config: &EegFatigueConfig) -> EegFatigueLevel {
         if index >= config.severe_threshold {
             EegFatigueLevel::Severe
         } else if index >= config.moderate_threshold {

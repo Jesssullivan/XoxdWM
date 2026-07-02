@@ -164,7 +164,12 @@ fn cross(a: &Vec3, b: &Vec3) -> Vec3 {
 /// Ray-quad intersection. Returns (t, uv) if the ray hits the quad.
 /// The quad is centered at origin in its local space, spanning
 /// [-w/2, w/2] x [-h/2, h/2] in the XY plane (normal along +Z).
-pub fn ray_quad_intersection(ray: &Ray, transform: &Transform3D, width: f32, height: f32) -> Option<(f32, Vec2)> {
+pub fn ray_quad_intersection(
+    ray: &Ray,
+    transform: &Transform3D,
+    width: f32,
+    height: f32,
+) -> Option<(f32, Vec2)> {
     // Transform ray into surface-local space
     let model = Mat4::from_transform(transform);
     let inv_model = model.inverse()?;
@@ -351,7 +356,10 @@ pub fn raycast_scene(ray: &Ray, scene: &VrScene) -> Option<RayHit> {
 pub fn uv_to_pixel(uv: &Vec2, surface_width: u32, surface_height: u32) -> (i32, i32) {
     let px = (uv.x * surface_width as f32).round() as i32;
     let py = (uv.y * surface_height as f32).round() as i32;
-    (px.clamp(0, surface_width as i32 - 1), py.clamp(0, surface_height as i32 - 1))
+    (
+        px.clamp(0, surface_width as i32 - 1),
+        py.clamp(0, surface_height as i32 - 1),
+    )
 }
 
 // ── Surface pointer state ────────────────────────────────────
@@ -686,11 +694,11 @@ impl Default for CalibrationState {
             active: false,
             current_target: 0,
             targets: vec![
-                Vec3::new(0.0, 0.0, d),            // center
-                Vec3::new(-spread, spread, d),       // top-left
-                Vec3::new(spread, spread, d),        // top-right
-                Vec3::new(-spread, -spread, d),      // bottom-left
-                Vec3::new(spread, -spread, d),       // bottom-right
+                Vec3::new(0.0, 0.0, d),         // center
+                Vec3::new(-spread, spread, d),  // top-left
+                Vec3::new(spread, spread, d),   // top-right
+                Vec3::new(-spread, -spread, d), // bottom-left
+                Vec3::new(spread, -spread, d),  // bottom-right
             ],
         }
     }
@@ -903,11 +911,7 @@ impl VrInteraction {
     pub fn start_grab(&mut self, scene: &VrScene) -> Option<u64> {
         let hit = self.current_hit?;
         let node = scene.nodes.get(&hit.surface_id)?;
-        let grab = GrabState::new(
-            hit.surface_id,
-            node.transform.position,
-            hit.world_point,
-        );
+        let grab = GrabState::new(hit.surface_id, node.transform.position, hit.world_point);
         let sid = grab.surface_id;
         self.grab = Some(grab);
         self.ray_color = RayColorState::Grabbing;
@@ -918,7 +922,8 @@ impl VrInteraction {
     /// End the current grab, returning (surface_id, new_position).
     pub fn end_grab(&mut self) -> Option<(u64, Vec3)> {
         let grab = self.grab.take()?;
-        let pos = self.current_hit
+        let pos = self
+            .current_hit
             .map(|h| grab.compute_position(&h.world_point))
             .unwrap_or(grab.initial_position);
         self.ray_color = if self.current_hit.is_some() {
@@ -944,7 +949,10 @@ impl VrInteraction {
                 let distance = self.current_hit.map(|h| h.t).unwrap_or(0.0);
                 format!(
                     "(:surface-id {} :x {} :y {} :distance {:.2} :ray :{})",
-                    ptr.surface_id, ptr.pixel_x, ptr.pixel_y, distance,
+                    ptr.surface_id,
+                    ptr.pixel_x,
+                    ptr.pixel_y,
+                    distance,
                     self.ray_color.as_str()
                 )
             }
@@ -959,7 +967,8 @@ impl VrInteraction {
             let curr_str = current
                 .map(|id| id.to_string())
                 .unwrap_or_else(|| "nil".to_string());
-            let prev_str = self.previous_target
+            let prev_str = self
+                .previous_target
                 .map(|id| id.to_string())
                 .unwrap_or_else(|| "nil".to_string());
             Some(format!(
@@ -1051,9 +1060,9 @@ mod tests {
         let result = ray_cylinder_intersection(
             &ray,
             &transform,
-            2.0,              // radius
+            2.0,                  // radius
             std::f32::consts::PI, // arc angle (180 degrees)
-            2.0,              // height
+            2.0,                  // height
         );
 
         assert!(result.is_some(), "Should hit the cylinder");
@@ -1067,7 +1076,7 @@ mod tests {
     fn test_closest_intersection() {
         let mut scene = VrScene::new();
         scene.layout_mode = VrLayoutMode::Freeform; // Prevent recompute_layout overriding transforms
-        // Near surface at z=-1
+                                                    // Near surface at z=-1
         scene.add_surface(1, 1000, 1000);
         scene.nodes.get_mut(&1).unwrap().transform = Transform3D::at(0.0, 0.0, -1.0);
         // Far surface at z=-3

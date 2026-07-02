@@ -1,14 +1,16 @@
-//! EWWM Compositor - VR-first Wayland compositor built on Smithay
+//! XoxdWM compositor - VR-first Wayland compositor built on Smithay.
 //!
-//! Part of the EXWM-VR project: a transhuman Emacs window manager.
+//! Emacs/eGreg clients connect through IPC as optional application/control
+//! surfaces; compositor startup and WM authority live in this process.
 
-use ewwm_compositor::backend;
+use ewwm_compositor::{backend, config::CompositorConfig};
 
 use clap::Parser;
+use std::path::PathBuf;
 use tracing::info;
 
 #[derive(Parser, Debug)]
-#[command(name = "ewwm-compositor", about = "EXWM-VR Wayland compositor")]
+#[command(name = "ewwm-compositor", about = "XoxdWM Wayland compositor")]
 struct Cli {
     /// Backend to use: winit, drm, or headless
     #[arg(long, default_value = "auto")]
@@ -33,6 +35,10 @@ struct Cli {
     /// IPC socket path (default: $XDG_RUNTIME_DIR/ewwm-ipc.sock)
     #[arg(long)]
     ipc_socket: Option<String>,
+
+    /// Native compositor config file (default: $XDG_CONFIG_HOME/exwm-vr/compositor.json)
+    #[arg(long)]
+    config: Option<PathBuf>,
 
     /// Log all IPC messages to stderr
     #[arg(long)]
@@ -61,6 +67,23 @@ fn main() -> anyhow::Result<()> {
 
     info!("ewwm-compositor v{} starting", env!("CARGO_PKG_VERSION"));
     info!("backend: {}", cli.backend);
+
+    let compositor_config = if let Some(path) = &cli.config {
+        let path_text = path.to_string_lossy();
+        let cfg = CompositorConfig::load_from_file(path_text.as_ref())
+            .map_err(|err| anyhow::anyhow!("failed to load config {}: {}", path.display(), err))?;
+        info!("config: loaded from {}", path.display());
+        cfg
+    } else {
+        CompositorConfig::load_or_default()
+    };
+    info!(
+        config_default_path = %CompositorConfig::config_path().display(),
+        config_override_path = ?cli.config,
+        config_ipc_socket = ?compositor_config.ipc_socket_path,
+        config_vr_enabled = compositor_config.vr_enabled,
+        "native compositor config initialized"
+    );
 
     let backend_type = match cli.backend.as_str() {
         #[cfg(feature = "full-backend")]
@@ -101,16 +124,15 @@ fn main() -> anyhow::Result<()> {
     };
 
     // Parse headless resolution
-    let (h_width, h_height) = backend::headless::HeadlessConfig::parse_resolution(
-        &cli.headless_resolution,
-    )
-    .unwrap_or_else(|| {
-        eprintln!(
-            "Invalid headless resolution '{}', using 1920x1080",
-            cli.headless_resolution
-        );
-        (1920, 1080)
-    });
+    let (h_width, h_height) =
+        backend::headless::HeadlessConfig::parse_resolution(&cli.headless_resolution)
+            .unwrap_or_else(|| {
+                eprintln!(
+                    "Invalid headless resolution '{}', using 1920x1080",
+                    cli.headless_resolution
+                );
+                (1920, 1080)
+            });
 
     let headless_config = backend::headless::HeadlessConfig {
         output_count: cli.headless_outputs,
@@ -119,7 +141,10 @@ fn main() -> anyhow::Result<()> {
         poll_interval_ms: 100,
     };
 
-    let ipc_socket = cli.ipc_socket.map(std::path::PathBuf::from);
+    let ipc_socket = cli
+        .ipc_socket
+        .map(PathBuf::from)
+        .or_else(|| compositor_config.ipc_socket_pathbuf());
 
     backend::run(
         backend_type,
@@ -128,5 +153,6 @@ fn main() -> anyhow::Result<()> {
         headless_config,
         ipc_socket,
         cli.ipc_trace,
+        compositor_config,
     )
 }

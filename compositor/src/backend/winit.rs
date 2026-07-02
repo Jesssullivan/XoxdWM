@@ -1,7 +1,8 @@
 //! Winit backend — development mode, compositor runs inside a window.
 
-use crate::{ipc, render, state::EwwmState};
 use super::IpcConfig;
+use crate::config::CompositorConfig;
+use crate::{ipc, render, state::EwwmState};
 use smithay::{
     backend::{
         renderer::damage::OutputDamageTracker,
@@ -14,18 +15,23 @@ use smithay::{
     },
     reexports::wayland_server::Display,
     utils::Transform,
-    xwayland::{XWayland, XWaylandEvent},
     xwayland::xwm::X11Wm,
+    xwayland::{XWayland, XWaylandEvent},
 };
 use std::process::Stdio;
 use std::time::Duration;
 use tracing::{error, info, warn};
 
-pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result<()> {
+pub fn run(
+    socket_name: Option<String>,
+    ipc_config: IpcConfig,
+    compositor_config: CompositorConfig,
+) -> anyhow::Result<()> {
     let mut event_loop = EventLoop::<EwwmState>::try_new()?;
     let mut display = Display::<EwwmState>::new()?;
 
-    let mut state = EwwmState::new(&mut display, event_loop.handle());
+    let mut state =
+        EwwmState::new_with_config(&mut display, event_loop.handle(), compositor_config);
 
     // Configure IPC
     state.ipc_server.ipc_trace = ipc_config.trace;
@@ -36,9 +42,9 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
     ipc::IpcServer::bind(&ipc_path, &event_loop.handle())?;
 
     // Initialize Winit backend
-    let (mut backend, mut winit_evt) = winit_backend::init::<
-        smithay::backend::renderer::gles::GlesRenderer,
-    >().map_err(|e| anyhow::anyhow!("winit init failed: {:?}", e))?;
+    let (mut backend, mut winit_evt) =
+        winit_backend::init::<smithay::backend::renderer::gles::GlesRenderer>()
+            .map_err(|e| anyhow::anyhow!("winit init failed: {:?}", e))?;
 
     // Create output matching window size
     let mode = OutputMode {
@@ -54,9 +60,22 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
             model: "Winit".into(),
         },
     );
-    output.change_current_state(Some(mode), Some(Transform::Normal), None, Some((0, 0).into()));
+    output.change_current_state(
+        Some(mode),
+        Some(Transform::Normal),
+        None,
+        Some((0, 0).into()),
+    );
     output.set_preferred(mode);
     state.space.map_output(&output, (0, 0));
+    let mut output_config =
+        crate::handlers::output_management::OutputConfig::new("winit-0".to_string());
+    output_config.width = 1920;
+    output_config.height = 1080;
+    output_config.refresh = 60_000;
+    state
+        .output_management_state
+        .upsert_detected_output(output_config);
 
     // Set up Wayland socket
     let xdg_runtime_dir = std::env::var("XDG_RUNTIME_DIR")
@@ -70,30 +89,33 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
     std::env::set_var("WAYLAND_DISPLAY", &socket_name_str);
 
     // Accept Wayland client connections
-    event_loop.handle().insert_source(
-        smithay::reexports::calloop::generic::Generic::new(
-            listener,
-            smithay::reexports::calloop::Interest::READ,
-            smithay::reexports::calloop::Mode::Level,
-        ),
-        |_, source, state: &mut EwwmState| {
-            match source.accept() {
-                Ok((stream, _)) => {
-                    if let Err(e) = state.display_handle.insert_client(
-                        stream,
-                        std::sync::Arc::new(crate::state::ClientState::default()),
-                    ) {
-                        warn!("failed to insert Wayland client: {}", e);
+    event_loop
+        .handle()
+        .insert_source(
+            smithay::reexports::calloop::generic::Generic::new(
+                listener,
+                smithay::reexports::calloop::Interest::READ,
+                smithay::reexports::calloop::Mode::Level,
+            ),
+            |_, source, state: &mut EwwmState| {
+                match source.accept() {
+                    Ok((stream, _)) => {
+                        if let Err(e) = state.display_handle.insert_client(
+                            stream,
+                            std::sync::Arc::new(crate::state::ClientState::default()),
+                        ) {
+                            warn!("failed to insert Wayland client: {}", e);
+                        }
+                    }
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+                    Err(e) => {
+                        warn!("Wayland socket accept error: {}", e);
                     }
                 }
-                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
-                Err(e) => {
-                    warn!("Wayland socket accept error: {}", e);
-                }
-            }
-            Ok(smithay::reexports::calloop::PostAction::Continue)
-        },
-    ).map_err(|e| anyhow::anyhow!("failed to insert socket source: {:?}", e))?;
+                Ok(smithay::reexports::calloop::PostAction::Continue)
+            },
+        )
+        .map_err(|e| anyhow::anyhow!("failed to insert socket source: {:?}", e))?;
 
     // Spawn XWayland
     match XWayland::spawn(
@@ -106,34 +128,44 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
         |_| (),
     ) {
         Ok((xwayland, client)) => {
-            event_loop.handle().insert_source(xwayland, move |event, _, state: &mut EwwmState| {
-                match event {
-                    XWaylandEvent::Ready { x11_socket, display_number } => {
-                        info!(display_number, "XWayland ready");
-                        match X11Wm::start_wm(
-                            state.loop_handle.clone(),
+            event_loop
+                .handle()
+                .insert_source(
+                    xwayland,
+                    move |event, _, state: &mut EwwmState| match event {
+                        XWaylandEvent::Ready {
                             x11_socket,
-                            client.clone(),
-                        ) {
-                            Ok(wm) => {
-                                state.xwm = Some(wm);
-                                state.xdisplay = Some(display_number);
-                                std::env::set_var("DISPLAY", format!(":{}", display_number));
-                            }
-                            Err(e) => {
-                                error!("Failed to start X11 WM: {}", e);
+                            display_number,
+                        } => {
+                            info!(display_number, "XWayland ready");
+                            match X11Wm::start_wm(
+                                state.loop_handle.clone(),
+                                x11_socket,
+                                client.clone(),
+                            ) {
+                                Ok(wm) => {
+                                    state.xwm = Some(wm);
+                                    state.xdisplay = Some(display_number);
+                                    std::env::set_var("DISPLAY", format!(":{}", display_number));
+                                }
+                                Err(e) => {
+                                    error!("Failed to start X11 WM: {}", e);
+                                }
                             }
                         }
-                    }
-                    XWaylandEvent::Error => {
-                        warn!("XWayland crashed on startup (continuing without X11 support)");
-                    }
-                }
-            }).ok();
+                        XWaylandEvent::Error => {
+                            warn!("XWayland crashed on startup (continuing without X11 support)");
+                        }
+                    },
+                )
+                .ok();
             info!("XWayland spawning");
         }
         Err(e) => {
-            warn!("XWayland not available: {} (continuing without X11 support)", e);
+            warn!(
+                "XWayland not available: {} (continuing without X11 support)",
+                e
+            );
         }
     }
 
@@ -151,19 +183,20 @@ pub fn run(socket_name: Option<String>, ipc_config: IpcConfig) -> anyhow::Result
     let render_output = output.clone();
 
     // Render timer (60 Hz)
-    event_loop.handle().insert_source(
-        Timer::from_duration(Duration::from_millis(16)),
-        move |_, _, state| {
-            // Render frame with damage tracking
-            render::render_winit(
-                &mut backend,
-                &mut damage_tracker,
-                state,
-                &render_output,
-            );
-            TimeoutAction::ToDuration(Duration::from_millis(16))
-        },
-    ).map_err(|e| anyhow::anyhow!("failed to insert render timer: {:?}", e))?;
+    event_loop
+        .handle()
+        .insert_source(
+            Timer::from_duration(Duration::from_millis(16)),
+            move |_, _, state| {
+                // Render frame with damage tracking
+                render::render_winit(&mut backend, &mut damage_tracker, state, &render_output);
+                TimeoutAction::ToDuration(Duration::from_millis(16))
+            },
+        )
+        .map_err(|e| anyhow::anyhow!("failed to insert render timer: {:?}", e))?;
+
+    state.run_startup_autostart();
+    state.run_startup_idle();
 
     info!("Winit backend initialized, entering event loop");
 
