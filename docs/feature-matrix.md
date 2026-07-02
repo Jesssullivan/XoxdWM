@@ -9,7 +9,7 @@ This document is an inventory, not a support promise. For the current operationa
 ## 1. IPC Command Reference
 
 The dispatcher in `compositor/src/ipc/dispatch.rs` currently contains
-**184 commands** in this checkout. The grouped table below is still being
+**255 commands** in this checkout. The grouped table below is still being
 reconciled and should not be treated as exhaustive until it is regenerated
 from code.
 
@@ -31,6 +31,19 @@ from code.
 | `workspace-move-surface` | state.rs | ewwm-workspace | none |
 | `layout-set` | state.rs | ewwm-layout | none |
 | `layout-cycle` | state.rs | ewwm-layout | none |
+| `app-launch-list` | dispatch.rs, state.rs | ewwm-ipc clients | none |
+| `app-launch` | dispatch.rs, state.rs | ewwm-ipc clients | none |
+| `launch-app` | dispatch.rs, state.rs | ewwm-ipc clients | none |
+| `config-reload` | dispatch.rs, state.rs | ewwm-ipc clients | none |
+| `reload-config` | dispatch.rs, state.rs | ewwm-ipc clients | none |
+| `autostart-list` | dispatch.rs, state.rs | ewwm-ipc clients | none |
+| `autostart-run` | dispatch.rs, state.rs | ewwm-ipc clients | none |
+| `session-status` | dispatch.rs, state.rs | ewwm-session | none |
+| `session-lock` | dispatch.rs, state.rs | ewwm-session | none |
+| `session-logout` | dispatch.rs, state.rs | ewwm-session | none |
+| `session-idle-status` | dispatch.rs, state.rs | ewwm-session | none |
+| `session-idle-start` | dispatch.rs, state.rs | ewwm-session | none |
+| `session-idle-stop` | dispatch.rs, state.rs | ewwm-session | none |
 | `key-grab` | state.rs | ewwm-input | none |
 | `key-ungrab` | state.rs | ewwm-input | none |
 
@@ -39,6 +52,7 @@ from code.
 | Command | Rust module | Elisp module | Hardware |
 |---------|-------------|--------------|----------|
 | `vr-status` | openxr_state.rs / stub.rs | ewwm-vr | HMD |
+| `vr-diagnostics` | openxr_state.rs / stub.rs | ewwm-vr | HMD |
 | `vr-set-reference-space` | openxr_state.rs / stub.rs | ewwm-vr | HMD |
 | `vr-restart` | openxr_state.rs / stub.rs | ewwm-vr | HMD |
 | `vr-get-frame-timing` | frame_timing.rs | ewwm-vr | HMD |
@@ -265,7 +279,7 @@ from code.
 
 | Subsystem | Rust modules | Elisp modules | IPC commands | Rust unit tests |
 |-----------|-------------|---------------|-------------|----------------|
-| Core WM | state.rs, dispatch.rs | ewwm-core, ewwm-ipc, ewwm-manage, ewwm-floating, ewwm-workspace, ewwm-layout, ewwm-input, ewwm-launch | 16 | 0 |
+| Core WM | state.rs, dispatch.rs | ewwm-core, ewwm-ipc, ewwm-manage, ewwm-floating, ewwm-workspace, ewwm-layout, ewwm-input, ewwm-launch, ewwm-session | 29 | 0 |
 | VR / OpenXR | openxr_state.rs, stub.rs, frame_timing.rs | ewwm-vr | 4 | 5 |
 | VR Scene | scene.rs, texture.rs, vr_renderer.rs | ewwm-vr-scene | 7 | 21 |
 | VR Display | drm_lease.rs | ewwm-vr-display | 6 | 14 |
@@ -296,7 +310,7 @@ from code.
 | Environment | -- | ewwm-environment | 0 | 0 |
 | IPC Recording | recorder.rs | ewwm-ipc | 3 | 7 |
 | Extension Framework | -- | ewwm-ext | 0 | 0 |
-| **Totals** | **25 VR + 7 compositor** | **48 ewwm-* + 1 ext** | **131** | **271** |
+| **Totals** | **25 VR + 7 compositor** | **48 ewwm-* + 1 ext** | **144** | **271** |
 
 ---
 

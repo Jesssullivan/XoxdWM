@@ -210,15 +210,20 @@ supported user-scoped config surface instead of requiring arbitrary unit edits:
 ```bash
 mkdir -p ~/.config/exwm-vr
 
-cat > ~/.config/exwm-vr/compositor.env <<'EOF'
-EWWM_DRM_LEASE_CONNECTORS=DP-2
+hmd_connector=$(/usr/libexec/exwm-vr/hmd-connector --format name) || {
+  echo "No live HMD connector resolved; set EXWM_VR_HMD_CONNECTOR=DP-n and rerun" >&2
+  exit 1
+}
+
+cat > ~/.config/exwm-vr/compositor.env <<EOF
+EWWM_DRM_LEASE_CONNECTORS=${hmd_connector}
 EOF
 
-cat > ~/.config/exwm-vr/monado.env <<'EOF'
+cat > ~/.config/exwm-vr/monado.env <<EOF
 # Optional for hosts that still use a local Monado build:
 # MONADO_SERVICE_BIN=/usr/local/bin/monado-service
 XRT_COMPOSITOR_FORCE_WAYLAND_DIRECT=1
-XRT_COMPOSITOR_WAYLAND_CONNECTOR=DP-2
+XRT_COMPOSITOR_WAYLAND_CONNECTOR=${hmd_connector}
 WAYLAND_DISPLAY=wayland-0
 STEAMVR_LH_ENABLE=1
 XRT_COMPOSITOR_COMPUTE=1
@@ -239,14 +244,16 @@ service at a local `/usr/local/bin/monado-service` build on hosts like
 
 Select "EXWM-VR" from your display manager (GDM, SDDM) session list. The
 session wrapper at `/usr/share/wayland-sessions/exwm-vr.desktop` handles
-environment setup, compositor launch, and Emacs startup.
+environment setup and compositor launch. Emacs/eGreg is an optional
+application/control layer; set `EXWM_VR_START_EMACS=1` when the packaged
+Emacs compatibility service should also start.
 
 On `yoga`, this greeter-driven session path has now been smoke-validated once
 through SDDM on `seat0` using the installed package surface, and the packaged
 `SuccessExitStatus=15` stop-path fix is now present on-host without a separate
 unit override.
 
-On the packaged Rocky session lane, Emacs starts through the dedicated
+On the packaged Rocky session lane, optional Emacs startup uses the dedicated
 `/usr/share/exwm-vr/exwm-vr-session-init.el` bootstrap. That session entrypoint
 avoids ambient `~/.emacs` / `init.el` state and optionally loads
 `~/.config/exwm-vr/config.el` instead.
@@ -260,12 +267,17 @@ avoids ambient `~/.emacs` / `init.el` state and optionally loads
    Wayland display socket at `$XDG_RUNTIME_DIR/wayland-0`
 3. **IPC socket appears**: the compositor also binds its control socket at
    `$XDG_RUNTIME_DIR/ewwm-ipc.sock`
-4. **Emacs connects**: Emacs (pgtk) starts with `WAYLAND_DISPLAY=wayland-0`
-   and `ewwm-ipc.el` connects to the compositor via the Unix domain socket
-5. **Hello handshake**: Emacs sends `(:type :hello :version 1 :client "ewwm.el")`
-   and receives feature flags (VR, XWayland status)
+4. **Optional Emacs/eGreg connects**: if `EXWM_VR_START_EMACS=1` or an
+   external eGreg daemon is used, Emacs (pgtk) starts with
+   `WAYLAND_DISPLAY=wayland-0` and `ewwm-ipc.el` connects to the compositor
+   via the Unix domain socket
+5. **Optional hello handshake**: Emacs sends
+   `(:type :hello :version 1 :client "ewwm.el")` and receives feature flags
+   (VR, XWayland status)
 6. **Workspace ready**: 4 workspaces are initialized; workspace 0 is active
-7. **Launch applications**: `s-r` opens `ewwm-launch`, type an application name
+7. **Launch applications**: `s-RET` launches the configured terminal target;
+   optional native autostart launches named targets when enabled in compositor
+   config
 
 ### Verify the Connection
 
@@ -292,23 +304,287 @@ Monado service, BrainFlow daemon, serial ports, and GPU capabilities.
 
 ## Configuration Reference
 
-All configuration is via Emacs `defcustom` variables. On the packaged Rocky
-session lane, place session-specific settings in `~/.config/exwm-vr/config.el`.
-For non-packaged development flows, you can still set them in your regular
-`init.el` or via `M-x customize-group RET ewwm RET`.
+Configuration is split between native compositor startup settings and the
+Emacs/eGreg application layer. Native compositor settings are loaded before the
+Wayland backend starts; Emacs `defcustom` variables remain for editor,
+diagnostic, and compatibility-client behavior.
+
+### Native Compositor Config
+
+The compositor loads native JSON config from
+`$XDG_CONFIG_HOME/exwm-vr/compositor.json`, or
+`~/.config/exwm-vr/compositor.json` when `XDG_CONFIG_HOME` is unset. A missing
+default config file is deterministic: the compositor logs the missing path and
+uses built-in defaults.
+
+Use `--config /path/to/compositor.json` to load an explicit file. An explicit
+config path must exist and parse successfully; this prevents typoed operator
+paths from silently falling back to defaults.
+
+IPC socket precedence is:
+
+1. `ewwm-compositor --ipc-socket /path/to/socket`
+2. native JSON `ipc_socket_path`
+3. `$XDG_RUNTIME_DIR/ewwm-ipc.sock`
+
+Minimal native config:
+
+```json
+{
+  "ipc_socket_path": "/run/user/1000/ewwm-ipc.sock",
+  "workspace_count": 4,
+  "active_workspace": 0,
+  "layout_default": "tiling",
+  "layout_master_ratio": 0.55,
+  "workspace_app_rules": "firefox=1,foot=0",
+  "floating_app_ids": "pavucontrol,org.keepassxc.KeePassXC",
+  "key_action_bindings": "s-1=workspace:0,s-2=workspace:1,s-RET=launch:terminal,s-SPC=layout:cycle,s-j=focus:next,s-k=focus:previous,s-r=compositor:reload,s-q=compositor:exit",
+  "app_launch_commands": "terminal=foot,browser=firefox,launcher=rofi -show drun",
+  "autostart_enabled": false,
+  "autostart_targets": "",
+  "session_lock_command": "swaylock",
+  "session_idle_enabled": false,
+  "session_idle_command": "",
+  "vr_enabled": false,
+  "passthrough_blend_mode": "opaque",
+  "passthrough_opacity": 1.0,
+  "gaze_zone_layout": "default",
+  "gaze_zone_custom_map": "",
+  "default_scale": 1.0,
+  "cursor_size": 24
+}
+```
+
+### Emacs Application Config
+
+On the packaged Rocky session lane, place Emacs/eGreg application-layer
+settings in `~/.config/exwm-vr/config.el`. For non-packaged development flows,
+you can still set them in your regular `init.el` or via
+`M-x customize-group RET ewwm RET`.
 
 ### Core Settings
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `ewwm-workspace-number` | integer | 4 | Number of workspaces |
-| `ewwm-layout-default` | symbol | `tiling` | Default layout: tiling, monocle, grid, floating |
-| `ewwm-layout-master-ratio` | float | 0.55 | Master window width ratio |
+| `ewwm-workspace-number` | integer | 4 | Emacs app-layer workspace count; native compositor startup uses JSON `workspace_count` |
+| `ewwm-layout-default` | symbol | `tiling` | Emacs app-layer default layout; native compositor startup uses JSON `layout_default` |
+| `ewwm-layout-master-ratio` | float | 0.55 | Emacs app-layer master ratio; native compositor startup uses JSON `layout_master_ratio` |
 | `ewwm-ipc-socket-path` | string/nil | nil | IPC socket path (nil = auto-detect) |
 | `ewwm-ipc-reconnect-max-delay` | integer | 30 | Max reconnect backoff (seconds) |
 | `ewwm-ipc-sync-timeout` | number | 2 | Sync request timeout (seconds) |
 
+### Native Manage Policy
+
+The native compositor config supports an early exact-match policy surface for
+common app placement. `workspace_app_rules` is a comma-separated
+`app-id=workspace` list. `floating_app_ids` is a comma-separated list matched
+against Wayland app IDs and XWayland class/instance strings.
+
+```json
+{
+  "workspace_app_rules": "firefox=1,foot=0",
+  "floating_app_ids": "pavucontrol,org.keepassxc.KeePassXC"
+}
+```
+
+This is intentionally smaller than the historical Lisp predicate rule engine.
+Use it for stable startup policy while richer native rule matching is built.
+
+### Native Workspace Visibility
+
+Workspace membership is native compositor state. Inactive workspace surfaces are
+removed from the compositor space, and active workspace surfaces are remapped
+before layout reflow. This means `workspace-switch` and
+`workspace-move-surface` affect what the compositor displays even when no
+Emacs/eGreg IPC client is running.
+
+Floating and manually moved surfaces retain their last compositor geometry for
+workspace visibility changes. Tiled surfaces are then placed by the active
+native layout mode.
+
+### Native Layout Policy
+
+The compositor reflows non-floating surfaces on the active workspace without
+requiring Emacs/eGreg in the WM path. Native reflow runs after new Wayland or
+XWayland windows map, workspace switches, surface workspace moves, float
+toggles, layout changes, and native config reloads.
+
+`layout_default` may be `tiling`, `monocle`, `grid`, or `floating`. `tiling`
+uses `layout_master_ratio` for the master area and stacks remaining windows on
+the right. `monocle` sizes each tiled surface to the usable output area. `grid`
+uses a deterministic row/column layout. `floating` leaves surface geometry under
+explicit move/resize or client policy.
+
+Emacs/eGreg can still observe and request layout changes through IPC, but the
+basic placement behavior is native compositor policy.
+The `ewwm-layout-set` and `ewwm-layout-cycle` helpers request native
+`:layout-set` / `:layout-cycle` when connected, and mirror native
+`:layout-changed` events into their app-layer state.
+
+### Native Key Actions
+
+Native key actions are compositor-owned startup policy. They are handled before
+IPC key grabs so core WM behavior does not require Emacs/eGreg in the input
+path.
+
+```json
+{
+  "key_action_bindings": "s-1=workspace:0,s-2=workspace:1,s-RET=launch:terminal,s-SPC=layout:cycle,s-j=focus:next,s-k=focus:previous,s-r=compositor:reload,s-q=compositor:exit",
+  "app_launch_commands": "terminal=foot,browser=firefox,launcher=rofi -show drun"
+}
+```
+
+Supported native actions are `workspace:N`, `focus:next`, `focus:previous`,
+`layout:cycle`, `launch:NAME`, `compositor:reload`, and `compositor:exit`.
+`launch:NAME` resolves through `app_launch_commands` and runs from the
+compositor process; keep commands short and user-scoped. Emacs/eGreg can still
+register IPC key grabs for app-layer behavior, but those grabs are no longer the
+only route for core workspace, focus, launch, layout, and exit behavior.
+
+The bundled Emacs/eGreg default key helpers also prefer native IPC for core
+workspace switches, surface moves, layout cycling, and config reload when a
+compositor connection exists. Their historical Lisp commands remain disconnected
+fallbacks for app-layer debugging and editor-only sessions.
+
+The same launch table is available to IPC clients through configured targets:
+
+```elisp
+(:type :app-launch-list :id 14)
+(:type :app-launch :name "terminal")
+```
+
+The compositor launches only names present in `app_launch_commands`; arbitrary
+shell command strings stay outside this IPC surface.
+Emacs/eGreg can use `ewwm-launch-native-target` and
+`ewwm-launch-native-target-list` for this native target surface while keeping
+`ewwm-launch` as an app-layer arbitrary command fallback.
+
+Native config reload is also available over IPC:
+
+```elisp
+(:type :config-reload :id 16)
+```
+
+The compositor reloads `~/.config/exwm-vr/compositor.json`, reapplies native
+workspace/layout/app policy, and emits a `config-reloaded` event. Emacs/eGreg
+may request this as an app-layer client, but the resulting policy remains
+compositor-owned. Missing config reloads built-in defaults; invalid config
+returns an IPC error instead of silently replacing runtime policy.
+
+### Native Autostart Policy
+
+Native autostart is compositor-owned session launch policy for named targets in
+`app_launch_commands`. It is disabled by default so headless checks and smoke
+runs do not launch applications unexpectedly.
+
+```json
+{
+  "app_launch_commands": "terminal=foot,browser=firefox,launcher=rofi -show drun",
+  "autostart_enabled": true,
+  "autostart_targets": "terminal,browser"
+}
+```
+
+The real-session DRM and winit backends run enabled autostart targets after
+the Wayland display is ready. The compositor records launched targets for the
+session and skips duplicates unless IPC explicitly requests a forced run.
+
+```elisp
+(:type :autostart-list :id 17)
+(:type :autostart-run :id 18)
+(:type :autostart-run :id 19 :force t)
+```
+
+This deliberately does not replace the full historical XDG `.desktop`
+autostart parser in `ewwm-autostart.el` yet. That Lisp code remains
+compatibility and app-layer scaffolding until a native desktop-entry parser is
+planned and tested.
+
+### Native Session Lock
+
+The compositor owns the session-lock protocol and exposes a small native lock
+launcher so Emacs/eGreg can request a lock without owning the session command
+path.
+
+```json
+{
+  "session_lock_command": "swaylock"
+}
+```
+
+```elisp
+(:type :session-status :id 20)
+(:type :session-lock :id 21)
+(:type :session-logout :id 22)
+```
+
+`:session-lock` launches `session_lock_command`; the actual locked state is
+reported by the Wayland session-lock protocol when a locker client takes the
+lock. `:session-logout` is a compatibility alias for compositor shutdown and
+sets the native runtime shutdown flag. Shutdown, reboot, suspend, and
+hibernate remain app-layer/operator policy until XoxdWM has a mediated native
+power-management contract.
+
+### Native Idle Supervision
+
+The compositor can supervise one configured idle daemon process for real
+sessions. This is disabled by default; enable it only with an explicit
+user-scoped command.
+
+```json
+{
+  "session_idle_enabled": true,
+  "session_idle_command": "swayidle -w timeout 300 swaylock"
+}
+```
+
+```elisp
+(:type :session-idle-status :id 23)
+(:type :session-idle-start :id 24)
+(:type :session-idle-stop :id 25)
+```
+
+The DRM and winit backends start the configured idle daemon after the Wayland
+display is ready when `session_idle_enabled` is true. Emacs/eGreg
+`ewwm-session-start-idle`, `ewwm-session-stop-idle`, and `ewwm-session-status`
+request the native IPC surface when connected and keep their existing fallback
+behavior for app-layer use.
+
+DPMS remains native compositor IPC through `:dpms-get` and `:dpms-set`.
+The Emacs compatibility functions `ewwm-dpms-get` and `ewwm-dpms-set` are IPC
+clients rather than local display-power policy.
+
 ### VR Settings
+
+Native compositor config includes the passthrough defaults used by the VR
+scene IPC compatibility surface:
+
+```json
+{
+  "passthrough_blend_mode": "opaque",
+  "passthrough_opacity": 1.0
+}
+```
+
+The Emacs/eGreg passthrough commands are app-layer IPC clients; the runtime
+scene background, blend mode, and opacity state live in the compositor.
+
+Gaze-zone layout is also compositor-owned at runtime. Set
+`gaze_zone_layout` to `default`, `vim-like`, `spacemacs`, or `custom`. For a
+custom layout, provide `gaze_zone_custom_map` as comma-separated
+`zone=modifier` entries:
+
+```json
+{
+  "gaze_zone_layout": "custom",
+  "gaze_zone_custom_map": "top-left=SPC,top-right=M-x,bottom-left=C-,bottom-right=M-,center="
+}
+```
+
+Spatial anchor commands are compositor-local scene anchors. The compositor
+stores named surface poses and can reapply/focus them at runtime; this is not
+XR_EXT spatial-anchor persistence. The Emacs/eGreg app layer may still persist
+the anchor list as JSON and restore it over IPC.
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -368,11 +644,15 @@ All global bindings use the Super key prefix (`s-`).
 
 | Key | Action |
 |-----|--------|
-| `s-r` | Launch application |
 | `s-1` through `s-4` | Switch to workspace 1-4 |
 | `s-S-1` through `s-S-4` | Move surface to workspace 1-4 |
 | `s-RET` | Open terminal |
-| `s-q` | Close focused surface |
+| `s-b` | Open browser |
+| `s-SPC` | Cycle layout |
+| `s-j` / `s-k` | Focus next / previous surface |
+| `s-r` | Reload native compositor config |
+| `s-q` | Exit compositor |
+| IPC `:surface-close` | Close focused or selected surface |
 | `s-f` | Toggle floating |
 | `s-F` | Toggle fullscreen |
 | `s-l` | Cycle layout (tiling -> monocle -> grid) |
@@ -469,9 +749,12 @@ Workspaces are named `ws-0` through `ws-3` by default. Rename with:
 
 ### Cycle Layouts
 
-Press `s-l` to cycle through layouts, or:
+Native XoxdWM owns the current layout mode. Emacs/eGreg can still request
+changes as a control client:
 
 ```elisp
+(ewwm-ipc-send '(:type :layout-get))
+(ewwm-ipc-send '(:type :layout-set :layout :grid))
 (ewwm-layout-cycle)
 (ewwm-layout-set 'grid)
 ```
@@ -481,9 +764,24 @@ Press `s-l` to cycle through layouts, or:
 Toggle floating with `s-f` or `f` in ewwm-mode. Floating windows are
 excluded from tiling layouts.
 
+Emacs/eGreg sends explicit `:enable` values for `:surface-float` and
+`:surface-fullscreen` requests, then mirrors native
+`:surface-float-changed` and `:surface-workspace-changed` events back into the
+surface buffers. Treat the buffer state as an app-layer view of native
+compositor state, not the source of WM truth.
+
 ### Master Ratio
 
-Adjust the master/stack split:
+Adjust the native startup default in `~/.config/exwm-vr/compositor.json`:
+
+```json
+{
+  "layout_default": "tiling",
+  "layout_master_ratio": 0.6
+}
+```
+
+Emacs app-layer layout helpers can also use their local ratio:
 
 ```elisp
 (setq ewwm-layout-master-ratio 0.6)  ; 60% master, 40% stack
@@ -591,6 +889,42 @@ Or, on a Linux target, build the headless compositor directly:
 ```bash
 cargo build --release --no-default-features
 ```
+
+The native-authority smoke proves the compositor can start as a headless
+Wayland process without an Emacs or EXWM service owning startup:
+
+```bash
+just boot-without-emacs-smoke 1
+```
+
+That smoke is a process/startup gate, not a visual-product gate. It should pass
+before treating Emacs/eGreg as optional application clients rather than the
+WM authority.
+
+For the Linux visual/runtime gate, use the native-authority proof lane:
+
+```bash
+just native-authority-proof
+```
+
+On an installed Rocky package, the same helper is available as:
+
+```bash
+xoxdwm-native-authority-proof
+```
+
+To run the proof over the existing remote host wrapper:
+
+```bash
+just native-authority-proof-remote honey 0  # read-only IPC proof
+just native-authority-proof-remote yoga 1   # mutating proof while observing UI
+just native-authority-proof-remote yoga 1 terminal  # also request app launch
+```
+
+That command probes the live compositor IPC surface, verifies the Emacs service
+is not the WM authority path, and exercises native workspace/layout commands.
+Record human-visible app launch, focus, workspace visibility, and layout reflow
+in [native-authority-runtime-proof-template.md](native-authority-runtime-proof-template.md).
 
 ### Headless IPC Commands
 

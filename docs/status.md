@@ -1,11 +1,33 @@
 # XoxdWM Status
 
-Snapshot date: 2026-04-26
+Snapshot date: 2026-05-10
 
 ## Honest Assessment
 
 - The repo has a real public release and substantial packaging work.
 - `v0.5.1` is publicly released and publishes the repaired Rocky compositor RPM and the DEB artifact.
+- The native-authority branch now treats XoxdWM as the compositor/DE policy owner:
+  - native JSON config is wired into compositor startup and owns workspace count, active workspace, layout default, app placement rules, and floating rules
+  - native key action config now handles workspace switch, focus next/previous, layout cycle, app launch, compositor reload, and compositor exit before IPC key grabs
+  - native app launch is also exposed through `:app-launch-list` and `:app-launch` IPC for configured `app_launch_commands` targets, so Emacs/eGreg can request launch without owning launcher policy
+  - native config reload is exposed through `:config-reload` IPC, so app-layer clients can request reload while Rust owns the resulting runtime policy
+  - Emacs/eGreg default key helpers now prefer native IPC for core workspace, surface-move, layout-cycle, and config-reload requests when connected, with historical Lisp calls kept as disconnected fallbacks
+  - Emacs/eGreg surface helpers now pass explicit native `:enable` state for float/fullscreen toggles and mirror native surface workspace/float events instead of silently becoming a second policy source
+  - raw Lisp IPC workspace helpers are now named `ewwm-ipc-workspace-*` and only provide guarded compatibility aliases, so `ewwm-ipc.el` no longer overrides the workspace app-layer module by load order
+  - native autostart policy now has Rust-owned `autostart_enabled` / `autostart_targets` config, real-session backend startup hooks, and `:autostart-list` / `:autostart-run` IPC for configured launch targets
+  - native session lock/logout now has `session_lock_command`, `:session-status`, `:session-lock`, and `:session-logout`; system power actions remain app-layer/operator policy until mediated natively
+  - native idle supervision now has `session_idle_enabled` / `session_idle_command`, real-session backend startup hooks, and `:session-idle-status` / `:session-idle-start` / `:session-idle-stop`; Emacs/eGreg idle helpers bridge to IPC when connected
+  - native layout reflow now deterministically places non-floating active-workspace surfaces for tiling, monocle, and grid layouts after map, workspace, float, layout, and config changes
+  - Emacs/eGreg layout helpers now request native `:layout-set` / `:layout-cycle` when connected and mirror native `:layout-changed` events instead of applying compositor geometry as the first authority
+  - native workspace visibility now removes inactive-workspace surfaces from the compositor space and remaps active-workspace surfaces before reflow
+  - `just native-authority-proof` is the Linux operator lane for proving IPC workspace/layout behavior plus human-visible app launch, focus, workspace visibility, and layout reflow without Emacs in the WM authority path
+  - layout, workspace, focus, manage-policy scaffolding, gaze-zone layout maps, passthrough config, transient chain config, compositor-local anchors, hand-tracking config, BCI config-state aliases, and autotype compatibility commands now have Rust dispatch authority
+  - Emacs/eGreg IPC commands remain application-layer clients; the contract test now requires every Lisp request type to hit Rust dispatch instead of drifting silently
+  - IPC event parity is now guarded too: Rust-emitted events need either an Emacs handler or an explicit server-side boundary, while Emacs-only handlers are listed as app-layer/design debt
+- The remaining unproven BCI/multimodal/passkey surfaces now return explicit native responses: BCI attention/SSVEP/P300/MI compatibility aliases map to native design/config state, while neurofeedback streaming, multimodal fusion, native DND policy, and passkey browser response plumbing are not promoted without product authority.
+- Focus changes now use the single native `:surface-focused` event schema with `:id` and `:previous-id`; Rust no longer broadcasts the old `:focus-changed` `:old`/`:new` alias.
+- Native gaze-zone events now use the canonical `:gaze-zone-*` names consumed by the Emacs app layer, and the Emacs secrets compositor client consumes native `:autotype-aborted` instead of leaving it as an unhandled compositor event.
+- Native anchors are compositor-local surface pose anchors. They do not claim XR_EXT spatial-anchor support or persistent physical-space proof; Emacs/eGreg can still own JSON persistence as an application-layer client.
 - The base Rocky RPM gate is complete: the public package now installs on Rocky 10 without the earlier bare-`wayland` metadata or `/nix/store` runtime-linking problems.
 - The release lane now treats Monado integration, SELinux hardening, and the BrainFlow BCI virtualenv as separate opt-in package paths so the base Rocky compositor package can stay shippable.
 - `honey` is not currently a stable deployed XoxdWM VR stack.
@@ -13,20 +35,24 @@ Snapshot date: 2026-04-26
 - `honey` now has refreshed `exwm-vr-0.5.4-1.el10`, `exwm-vr-compositor-0.5.4-1.el10`, and `exwm-vr-elisp-0.5.4-1.el10` installed from branch-scoped RPMs.
 - `honey` has XR prereqs plus explicit runtime activation: `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `monado-beyond-0.0.1-1.20260310git.el10`, `/usr/bin/monado-service`, `/usr/share/openxr/1/openxr_monado.json`, and `/etc/xdg/openxr/1/active_runtime.json`.
 - `honey` does not currently expose `openxr-info`, `xrgears`, or `xoxdwm`.
-- `honey` now has a bounded named-host XoxdWM compositor startup: `exwm-vr.target`, `exwm-vr-compositor.service`, and `exwm-vr-emacs.service` all reached `active`, `DP-2` came up at `5088x2544@75Hz`, `HDMI-A-2` came up at `1920x1080@60Hz`, IPC initialized, and Emacs reached `ewwm: initialized`; see [honey-substrate-proof-2026-04-22.md](honey-substrate-proof-2026-04-22.md).
-- `honey` now has a one-shot direct-mode client proof from the installed package surface too: after reinstalling `exwm-vr-compositor-0.5.4-1.el10` from packaging run `24776900393`, `/usr/bin/ewwm-compositor` initialized `wp_drm_lease_v1`, read `EWWM_DRM_LEASE_CONNECTORS=DP-2` from `~/.config/exwm-vr/compositor.env`, kept `DP-2` out of the desktop output map, and granted a real DRM lease to Monado.
+- `honey` has a bounded named-host XoxdWM compositor startup: `exwm-vr.target`, `exwm-vr-compositor.service`, and `exwm-vr-emacs.service` reached `active`, IPC initialized, and Emacs reached `ewwm: initialized`; see [honey-substrate-proof-2026-04-22.md](honey-substrate-proof-2026-04-22.md).
+- `honey` now has direct-mode client proof from the installed package surface too: after reinstalling `exwm-vr-compositor-0.5.4-1.el10` from packaging run `24776900393`, `/usr/bin/ewwm-compositor` initialized `wp_drm_lease_v1`, read the explicit headset connector from `~/.config/exwm-vr/compositor.env`, kept that connector out of the desktop output map, and granted a real DRM lease to Monado.
 - `honey` now also has a repo-owned Monado service proof on three runtime surfaces: `/usr/lib/systemd/user/exwm-vr-monado.service` plus `~/.config/exwm-vr/monado.env` reached direct-mode proof first with the older local `/usr/local/bin/monado-service` lane, then with a staged `monado-beyond` companion RPM tree from GitHub Actions run `24804821792`, and now with an installed `monado-beyond` host package from run `24807084915`.
-- `hello_xr -g Vulkan` on `honey` now reaches `xrCreateInstance`, `xrGetSystem`, `Bigscreen Beyond`, `READY`, and two eye swapchains at `3561x3561`.
+- `hello_xr -g Vulkan` on `honey` now reaches `xrCreateInstance`, `xrGetSystem`, `Bigscreen Beyond`, two eye swapchains at `3561x3561`, and, in the May 2026 current-boot lab pass, `READY -> SYNCHRONIZED -> VISIBLE -> FOCUSED`.
+- Current live Honey topology from the May 2026 lab pass is `card0-DP-1` for BS2E and `card0-HDMI-A-1` for the Dell management panel, not the older April `DP-2`/`HDMI-A-2` mapping. Host config must follow the live connector sample before attempting goggles proof.
+- The repo now carries `packaging/scripts/exwm-vr-hmd-connector` so setup/status/proof helpers resolve the headset as connected DP `non_desktop=1`, then BIG EDID `0x1234`/`0x5095`, then explicit override, instead of assuming Honey is always `DP-2`.
+- The May 2026 lab pass still failed human-visible first frame: the OpenXR session reached `FOCUSED`, but the goggles remained black. Treat this as `P3 OpenXR Session` pass / `P4 Visual First Frame` fail after successful host visibility, service lifecycle, DRM lease routing, runtime selection, and OpenXR session bring-up.
+- The packaged `beyond-power-on` helper had drifted from the corrected Rust HID implementation by placing the SetWorkState command at byte 2 instead of byte 1. The repo copy is now corrected and guarded by a substrate test; any installed Honey helper should be refreshed before using the service as panel-power evidence.
 - The active blockers on `honey` are now productization and repeatability, not missing lease support:
-  - compositor-side `DP-2` designation and Monado direct-mode settings now both have supported host config surfaces, and `monado-beyond` is installed as a real host package on `honey`
+  - compositor-side headset connector designation and Monado direct-mode settings now both have supported host config surfaces, and `monado-beyond` is installed as a real host package on `honey`
   - the package-default `exwm-vr-monado.service` now runs `/usr/bin/monado-service` without `MONADO_SERVICE_BIN`, and the packaged launcher clears dead `monado_comp_ipc` sockets before launching when no `monado-service` is active
   - the repo now carries `packaging/scripts/exwm-vr-openxr-smoke`, plus `just honey-openxr-status`, `just honey-openxr-smoke`, `just honey-openxr-clean-cycle`, and `just honey-openxr-fresh-boot-check`, so the OpenXR client invocation, clean service-cycle check, and post-boot capture lane are repo-owned instead of undocumented SSH one-liners
   - the `exwm-vr-openxr-smoke-client` RPM from GitHub Actions run `24938791255` is now installed on `honey`, and `just honey-openxr-status` resolves the packaged client path `/usr/libexec/exwm-vr/hello_xr -g Vulkan`
   - on `2026-04-25` EDT, three bounded packaged-client smoke passes succeeded in one active user-service session, each selecting Bigscreen Beyond and creating two `3561x3561` eye swapchains through Monado
   - three clean stop/start cycles also succeeded: two from the explicit shell sequence and one through `just honey-openxr-clean-cycle`; `rke2-server` stayed active
-  - `just honey-openxr-fresh-boot-check` is now prepared for the next attended/manual fresh boot; it does not reboot `honey`, and it has not yet produced fresh-boot evidence
+  - `just honey-openxr-fresh-boot-check` is prepared for attended/manual fresh-boot evidence; it does not reboot `honey`, and a current-boot focused session still is not first-frame proof while the headset is black
   - the attended fresh-boot procedure is captured in [honey-fresh-boot-runbook-2026-04-26.md](honey-fresh-boot-runbook-2026-04-26.md)
-  - the current proof is clean service-cycle repeatability evidence, but it is not yet fresh-boot, in-goggles first-frame, or long-running operator proof
+  - the current proof is current-boot OpenXR/session evidence, but it is not yet in-goggles first-frame, long-running operator, or daily-driver proof
 - `yoga` now has `exwm-vr-0.5.4-1.el10`, `exwm-vr-compositor-0.5.4-1.el10`, and `exwm-vr-elisp-0.5.4-1.el10` installed.
 - `yoga` validated the earlier named-host package line: the compositor binary links cleanly, a bounded runtime succeeds with `seatd`, and Wayland/DRM/libinput startup is confirmed.
 - The branch-scoped `0.5.4-1.el10` session payload from GitHub Actions run `24768509226` now has both a staged proof and a real installed-package proof on `yoga`; the installed units reached `active` / `active` / `active`, `ewwm-compositor v0.5.4 starting`, `backend: drm`, `ewwm-ipc: connected`, and `ewwm: initialized` without the old ambient dotfile contamination.
@@ -82,7 +108,8 @@ Snapshot date: 2026-04-26
 ## Immediate Priorities
 
 1. Preserve the now-explicit `monado_comp_ipc` cleanup path in the launcher and keep the `honey` OpenXR status wrapper as the safe preflight.
-2. Preserve the new installed `monado-beyond` host lane on `honey` and follow [honey-fresh-boot-runbook-2026-04-26.md](honey-fresh-boot-runbook-2026-04-26.md) before promoting clean service-cycle smoke to fresh-boot evidence.
+2. Preserve the installed `monado-beyond` host lane on `honey`, refresh the corrected `beyond-power-on` helper on-host, and resolve the black first-frame blocker before promoting OpenXR smoke to product evidence.
 3. Keep using the installed `exwm-vr-openxr-smoke-client` path for honey OpenXR smoke runs and record whether failures are host/substrate, packaging/deployment, or compositor/runtime blockers.
 4. Keep the Rocky base package lane green while leaving Monado, SELinux, and BCI as separate follow-on concerns.
 5. Preserve the now-proven `yoga` package/session lane as the 2D reference host while packaging continues to evolve.
+6. Continue the native-authority migration by turning explicit BCI/multimodal/passkey boundary responses into real native contracts only when named-host proof or a clear app-layer ownership decision exists.

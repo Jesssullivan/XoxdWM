@@ -123,6 +123,17 @@ IPC client for compositor communication.
 | `ewwm-surface-resize` | `(surface-id w h)` | Resize surface |
 | `ewwm-workspace-switch` | `(n)` | Switch to workspace N |
 | `ewwm-workspace-list` | `()` | Query workspaces |
+| `:app-launch-list` IPC | `()` | List configured native app launch targets |
+| `:app-launch` IPC | `(:name)` | Launch configured native app target |
+| `:config-reload` IPC | `()` | Reload native compositor config |
+| `:autostart-list` IPC | `()` | List native autostart targets and launched session state |
+| `:autostart-run` IPC | `(&optional :force t)` | Run configured native autostart targets |
+| `:session-status` IPC | `()` | Query native session lock state |
+| `:session-lock` IPC | `()` | Launch configured native session locker |
+| `:session-logout` IPC | `()` | Request native compositor shutdown |
+| `:session-idle-status` IPC | `()` | Query native idle daemon supervisor state |
+| `:session-idle-start` IPC | `()` | Start configured native idle daemon |
+| `:session-idle-stop` IPC | `()` | Stop native idle daemon |
 | `ewwm-key-grab` | `(key)` | Register global key grab |
 | `ewwm-key-ungrab` | `(key)` | Release key grab |
 
@@ -676,10 +687,12 @@ Multi-modal fusion (gaze + EEG + gesture).
 | `:surface-created` | `:id :app-id :title` | New surface |
 | `:surface-destroyed` | `:id` | Surface closed |
 | `:surface-title-changed` | `:id :title` | Title updated |
-| `:surface-focused` | `:id` | Focus changed |
+| `:surface-focused` | `:id :previous-id` | Canonical focus changed event |
 | `:surface-geometry-changed` | `:id :geometry` | Geometry changed |
-| `:workspace-changed` | `:workspace` | Workspace switched |
+| `:workspace-changed` | `:workspace :previous` | Workspace switched after native visibility update |
+| `:layout-changed` | `:layout :previous` | Native layout mode changed and compositor reflow applied |
 | `:key-pressed` | `:key :modifiers :timestamp` | Grabbed key pressed |
+| `:native-key-action` | `:key :action :status :detail :timestamp` | Native compositor key action handled before IPC grabs |
 | `:output-usable-area-changed` | `:x :y :w :h` | Layer-shell area changed |
 
 ### VR Events
@@ -694,6 +707,8 @@ Multi-modal fusion (gaze + EEG + gesture).
 | Event | Fields | Description |
 |-------|--------|-------------|
 | `:gaze-update` | `:x :y :z :confidence :surface-id` | Gaze position update |
+| `:gaze-focus-requested` | `:surface-id :dwell-ms :x :y` | Canonical gaze dwell focus request |
+| `:gaze-focus-request` | `:surface-id :dwell-ms :x :y` | Temporary compatibility alias handled by Emacs clients |
 | `:gaze-focus-changed` | `:surface-id :old-surface-id` | Gaze focus switch |
 | `:gaze-calibration-complete` | `:rms-error` | Calibration done |
 | `:gaze-calibration-drift` | `:error-deg` | Drift detected |

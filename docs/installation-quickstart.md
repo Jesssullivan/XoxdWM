@@ -94,7 +94,7 @@ git clone https://github.com/Jesssullivan/XoxdWM.git
 cd XoxdWM
 
 # Build compositor (requires Rust 1.70+, wayland-devel, mesa, libinput, libxkbcommon)
-cargo build --release --manifest-path compositor/Cargo.toml
+cargo build --release --manifest-path compositor/Cargo.toml --features full-backend
 
 # Install
 sudo install -Dm755 compositor/target/release/ewwm-compositor /usr/local/bin/

@@ -4,13 +4,36 @@ This matrix, together with [status.md](status.md) and
 [reality-check-2026-04-22.md](reality-check-2026-04-22.md), is the current
 support surface for the repo.
 
-Status vocabulary:
+Support class vocabulary:
 
-- `Proven`: repeatably validated on a named host or in stable automation.
+- `Product`: repeatably validated on a named host or in stable automation, and suitable for current support claims.
 - `Smoke`: packaged or manually validated once, but not yet a stable supported lane.
-- `Design`: code/docs/research exist, but the flow is not yet claimed as working on a named target.
+- `Prototype`: implemented code or IPC surfaces exist, but named-host support is not claimed.
+- `Synthetic`: simulation, fixture, or development-only paths exist; this is not hardware acquisition proof.
+- `Design`: docs/research/plans exist, but the flow is not claimed as working on a named target.
 
-Date baseline: 2026-04-26.
+Date baseline: 2026-05-09.
+
+## Honey XR Proof Ladder
+
+Use this ladder for `honey` VR claims. A higher level includes the levels below
+it, and CLI smoke never substitutes for the human observation required at P4.
+Use [honey-p4-visual-first-frame-template.md](honey-p4-visual-first-frame-template.md)
+for P4 evidence packets.
+
+| Level | Name | Required Evidence |
+| --- | --- | --- |
+| P0 | Inventory | Host, kernel, GPU, DP/HDMI topology, USB `35bd`, hidraw, runtime JSON, service state, and rke2 state captured read-only. |
+| P1 | Host Substrate | Kernel, firmware, permissions, active runtime, and package paths are present without disturbing rke2 or display topology. |
+| P2 | Lease/Runtime | The compositor advertises the live headset connector for DRM lease and Monado selects the Bigscreen Beyond runtime path. |
+| P3 | OpenXR Session | An OpenXR client reaches the HMD, creates eye swapchains, and reaches `READY`/`VISIBLE`/`FOCUSED` or equivalent session markers. |
+| P4 | Visual First Frame | A human observer records visible non-black headset output. `visual_observed=yes` must be explicit. |
+| P5 | Fresh-Boot Repeatability | P4 survives an attended fresh boot with changed `boot_id` and rke2 still active. |
+| P6 | Operator Stability | Repeated use is stable enough for an operator workflow, not only bounded smoke. |
+
+Current `honey` classification: P3 pass / P4 fail. The May 2026 session reached
+`FOCUSED` with swapchains, but `visual_observed=no` because the goggles stayed
+black.
 
 ## Named Hosts
 
@@ -27,15 +50,15 @@ For PREEMPT_RT specifically, use the Dell claim ladder:
 
 | Target | Status | Notes |
 | --- | --- | --- |
-| `honey` kernel generic lane | Proven | Running `6.19.5-7.xr.el10`; this is the persistent default. Baseline validated in [`Dell-7810/docs/platform/host-kernel-baseline.md`](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/platform/host-kernel-baseline.md). |
+| `honey` kernel generic lane | Product | The May 2026 lab pass was on `6.19.5-10.xr.el10`; generic XR kernel boot remains the default lane. Baseline validation belongs in [`Dell-7810/docs/platform/host-kernel-baseline.md`](https://github.com/Jesssullivan/Dell-7810/blob/main/docs/platform/host-kernel-baseline.md). |
 | `honey` kernel RT lane | Smoke | Dell-7810 has one-time RT boot proof and host-posture validation for `6.19.5-rt1-8.xr.el10`, but XoxdWM does not yet claim a downstream XR/software RT benefit on `honey`. |
-| `honey` XoxdWM compositor install | Smoke | `honey` now has branch-scoped `exwm-vr-0.5.4-1.el10` packages installed, and `systemctl --user start exwm-vr.target` reached a bounded named-host startup with active compositor plus Emacs, `DP-2` at `5088x2544@75Hz`, `HDMI-A-2` at `1920x1080@60Hz`, and `ewwm: initialized`. Reinstalling the `24776900393` compositor RPM put the lease-capable `/usr/bin/ewwm-compositor` onto the host, and the installed package surface now grants a real DRM lease to Monado when `DP-2` is designated via the supported `~/.config/exwm-vr/compositor.env` surface; see [honey-substrate-proof-2026-04-22.md](honey-substrate-proof-2026-04-22.md). |
-| `honey` OpenXR userspace prereqs | Smoke | `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `monado-beyond-0.0.1-1.20260310git.el10`, `/usr/bin/monado-service`, `/usr/share/openxr/1/openxr_monado.json`, and `/etc/xdg/openxr/1/active_runtime.json` are present. `monado-cli probe` can now identify the Bigscreen Beyond when the host uses the explicit `DP-2`/SteamVR environment. |
-| `honey` VR session | Smoke | On `2026-04-22`, the installed `ewwm-compositor` from the reinstalled `24776900393` RPM artifact granted a real `DP-2` DRM lease to Monado on `honey`, and `hello_xr -g Vulkan` reached `READY` with two eye swapchains at `3561x3561`. The compositor-side lease designation now uses `~/.config/exwm-vr/compositor.env`, and a repo-owned `exwm-vr-monado.service` now uses `~/.config/exwm-vr/monado.env` without service drop-ins. A later staged `monado-beyond` companion RPM proof from run `24804821792` reached active Monado plus eye swapchain creation, and the installed-host follow-up from run `24807084915` now reaches the same direct-mode proof on `honey` with `/usr/bin/monado-service` and no `MONADO_SERVICE_BIN` override. The repo now carries `exwm-vr-openxr-smoke` plus `just honey-openxr-status` / `just honey-openxr-smoke` / `just honey-openxr-clean-cycle` / `just honey-openxr-fresh-boot-check`; the `exwm-vr-openxr-smoke-client` package from run `24938791255` is installed on `honey`. On `2026-04-25` EDT, three bounded packaged-client smoke passes and three clean stop/start cycles selected `/usr/libexec/exwm-vr/hello_xr`, reached Monado / Bigscreen Beyond, and created `3561x3561` eye swapchains. The next evidence path is the attended [Honey Fresh-Boot Runbook](honey-fresh-boot-runbook-2026-04-26.md). The remaining gap is fresh-boot, in-goggles first-frame, and long-running stability, not client provenance or command shape. |
+| `honey` XoxdWM compositor install | Smoke | `honey` has branch-scoped `exwm-vr-0.5.4-1.el10` packages installed, and `systemctl --user start exwm-vr.target` reached bounded named-host startup with active compositor plus Emacs and `ewwm: initialized`. Reinstalling the `24776900393` compositor RPM put the lease-capable `/usr/bin/ewwm-compositor` onto the host, and the installed package surface grants a real DRM lease to Monado when the live headset connector is designated via `~/.config/exwm-vr/compositor.env`; see [honey-substrate-proof-2026-04-22.md](honey-substrate-proof-2026-04-22.md). May 2026 live topology is `card0-DP-1` for BS2E and `card0-HDMI-A-1` for Dell, superseding the April `DP-2`/`HDMI-A-2` sample. |
+| `honey` OpenXR userspace prereqs | Smoke | `openxr-libs`, `openxr-devel`, `wlroots`, `wlroots-devel`, `monado-beyond-0.0.1-1.20260310git.el10`, `/usr/bin/monado-service`, `/usr/share/openxr/1/openxr_monado.json`, and `/etc/xdg/openxr/1/active_runtime.json` are present. `monado-cli`/OpenXR clients can identify the Bigscreen Beyond when the host uses the explicit live connector and SteamVR environment. |
+| `honey` VR session | Smoke | The installed compositor can grant a real DRM lease to Monado on `honey`, and the repo-owned `exwm-vr-monado.service`, `exwm-vr-openxr-smoke`, and installed smoke-client package now prove the packaged client lane. On `2026-05-09`, with BS2E on `card0-DP-1`, `hello_xr -g Vulkan` selected Monado / Bigscreen Beyond, created `3561x3561` eye swapchains, and reached `READY -> SYNCHRONIZED -> VISIBLE -> FOCUSED`. This is P3 pass / P4 fail: the headset remained black to the human observer, so the current blocker is product/visual first-frame after successful session bring-up. The corrected `beyond-power-on` helper must also be refreshed on-host before its service result is treated as panel-power evidence. |
 | `yoga` kernel-xr boot path | Smoke | One-time boot into `6.19.5-8.xr.el10` succeeded; normal reboot returned to the saved stock Rocky default. |
 | `yoga` XoxdWM install | Smoke | `yoga` now has refreshed installed `0.5.4-1.el10` `exwm-vr-*` RPMs from the current branch, and the real installed units pass a named-host proof with explicit `drm` backend and dedicated Emacs bootstrap. Actions run `24771056471` carried the packaged `SuccessExitStatus=15` stop-path fix onto the host, so no `/etc/systemd/user` drop-in is still required. `sddm` is installed and active, `state.conf` preselects `jsullivan2` plus `exwm-vr.desktop`, and a controlled `sddm-autologin` run reached a real `wayland` `EXWM-VR` user session on `seat0`; see [yoga-session-proof-2026-04-22.md](yoga-session-proof-2026-04-22.md). |
 | `yoga` OpenXR userspace prereqs | Design | No Monado/OpenXR/wlroots runtime packages or runtime manifest were found. |
-| `petting-zoo-mini` | Out of scope | Not a current Linux XR validation target. |
+| `petting-zoo-mini` | Design | Not a current Linux XR validation target. |
 
 ## Packaging And Install Surfaces
 
@@ -57,11 +80,13 @@ For PREEMPT_RT specifically, use the Dell claim ladder:
 | Headless compositor | Smoke | Explicit build/test path exists. |
 | Desktop 2D compositor path | Smoke | Earlier bounded startup was proved on `yoga`, and the installed `0.5.4` user-unit path now reaches compositor plus Emacs initialization on the host. It is still not yet a polished local desktop/session lane. |
 | DRM backend on AMD | Smoke | Code exists and bounded named-host startup is now recorded on both `yoga` and `honey`; `honey` now also has direct-mode lease proof with Monado plus `hello_xr`, including packaged-client smoke across clean user-service cycles. It is not yet a fresh-boot operator lane. |
-| VR session lifecycle | Smoke | `honey` now has a direct-mode session proof where `hello_xr -g Vulkan` reached `READY` and created eye swapchains from the installed compositor package surface. It also has a staged Monado companion RPM proof that reached active direct-mode Monado plus eye swapchain creation. The repo-owned OpenXR smoke wrapper plus installed smoke-client package now give repeated smoke evidence across clean user-service cycles, but the packaged-client path is not yet claimed as a stable first-frame, long-running, or fresh-boot proof. |
-| DRM lease / HMD non-desktop handling | Smoke | The live `honey` direct-mode probe now initializes `wp_drm_lease_v1`, keeps `DP-2` out of the desktop output map when explicitly designated, and grants a real lease to Monado. The remaining gap is supported host configuration and repeatability, not missing lease support. |
-| Eye tracking | Design | Documented and implemented in part; no named-host support claim. |
-| Hand tracking / gestures | Design | Same. |
-| BCI / BrainFlow | Design | Same. |
+| VR session lifecycle | Smoke | `honey` now has a direct-mode session proof where `hello_xr -g Vulkan` reached `FOCUSED` and created eye swapchains from the installed compositor package surface. The repo-owned OpenXR smoke wrapper plus installed smoke-client package give repeated smoke evidence, but the packaged-client path is not yet claimed as stable first-frame, long-running, or daily-driver proof because the current in-goggles result is black. |
+| DRM lease / HMD non-desktop handling | Smoke | The live `honey` direct-mode probe initializes `wp_drm_lease_v1`, keeps the explicitly designated headset connector out of the desktop output map, and grants a real lease to Monado. In May 2026 the live connector is `DP-1`; the kernel still does not expose a useful `non_desktop` sysfs property locally, so explicit connector designation remains required. |
+| Eye tracking | Prototype | Documented and implemented in part; no named-host support claim. |
+| Hand tracking / gestures | Prototype | Documented and implemented in part; no named-host support claim. |
+| BCI / BrainFlow hardware acquisition | Design | BrainFlow/OpenBCI acquisition is not yet named-host proven in this repo. |
+| BCI synthetic pipeline | Synthetic | Synthetic injection and classifier/config paths are useful for development and tests; they are not hardware acquisition proof. |
+| Mouth / voice input | Design | Goal surface only; no native product contract or named-host proof yet. |
 
 ## CI
 
@@ -75,4 +100,4 @@ For PREEMPT_RT specifically, use the Dell claim ladder:
 
 ## Interpretation
 
-The feature matrix is a subsystem inventory, not a support promise. If a capability is not listed here as `Proven` or `Smoke`, treat it as `Design` regardless of how detailed the subsystem docs are.
+The feature matrix is a subsystem inventory, not a support promise. If a capability is not listed here as `Product` or `Smoke`, treat it as `Prototype`, `Synthetic`, or `Design` according to the support class row, regardless of how detailed the subsystem docs are.
