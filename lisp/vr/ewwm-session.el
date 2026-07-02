@@ -66,6 +66,12 @@ Default: lock after 5 min, DPMS off after 10 min, lock before sleep."
 (defvar ewwm-session-lock-process nil
   "Process object for the lock screen.")
 
+(defun ewwm-session--ipc-connected-p ()
+  "Return non-nil when the compositor IPC bridge is connected."
+  (and (fboundp 'ewwm-ipc-connected-p)
+       (funcall 'ewwm-ipc-connected-p)
+       (fboundp 'ewwm-ipc-send)))
+
 ;; ── Lock ─────────────────────────────────────────────────────
 
 (defun ewwm-session-lock ()
@@ -74,7 +80,11 @@ Default: lock after 5 min, DPMS off after 10 min, lock before sleep."
   (if (and ewwm-session-lock-process
            (process-live-p ewwm-session-lock-process))
       (message "ewwm-session: screen already locked")
-    (let ((proc (if (fboundp 'ewwm-launch)
+    (if (ewwm-session--ipc-connected-p)
+        (progn
+          (funcall 'ewwm-ipc-send '(:type :session-lock))
+          (message "ewwm-session: requested native session lock"))
+      (let ((proc (if (fboundp 'ewwm-launch)
                     (ewwm-launch
                      (mapconcat #'identity
                                 (cons ewwm-session-lock-command
@@ -84,9 +94,9 @@ Default: lock after 5 min, DPMS off after 10 min, lock before sleep."
                          "ewwm-lock" " *ewwm-lock*"
                          ewwm-session-lock-command
                          ewwm-session-lock-args))))
-      (setq ewwm-session-lock-process proc)
-      (set-process-sentinel proc #'ewwm-session--lock-sentinel)
-      (message "ewwm-session: locked"))))
+        (setq ewwm-session-lock-process proc)
+        (set-process-sentinel proc #'ewwm-session--lock-sentinel)
+        (message "ewwm-session: locked")))))
 
 (defun ewwm-session--lock-sentinel (proc _event)
   "Clean up when lock PROC exits."
@@ -102,10 +112,8 @@ Sends exit command to the compositor via IPC, or calls `ewwm-exit'."
   (when (yes-or-no-p "Log out of EWWM session? ")
     (cond
      ;; Try IPC shutdown first
-     ((and (fboundp 'ewwm-ipc-connected-p)
-           (funcall 'ewwm-ipc-connected-p)
-           (fboundp 'ewwm-ipc-send))
-      (funcall 'ewwm-ipc-send '(:type :compositor-exit))
+     ((ewwm-session--ipc-connected-p)
+      (funcall 'ewwm-ipc-send '(:type :session-logout))
       (message "ewwm-session: sent exit to compositor"))
      ;; Fall back to ewwm-exit
      ((fboundp 'ewwm-exit)
@@ -148,7 +156,11 @@ Sends exit command to the compositor via IPC, or calls `ewwm-exit'."
   (if (and ewwm-session-idle-process
            (process-live-p ewwm-session-idle-process))
       (message "ewwm-session: idle daemon already running")
-    (let ((proc (if (fboundp 'ewwm-launch)
+    (if (ewwm-session--ipc-connected-p)
+        (progn
+          (funcall 'ewwm-ipc-send '(:type :session-idle-start))
+          (message "ewwm-session: requested native idle daemon start"))
+      (let ((proc (if (fboundp 'ewwm-launch)
                     (ewwm-launch
                      (mapconcat #'identity
                                 (cons ewwm-session-idle-command
@@ -158,18 +170,22 @@ Sends exit command to the compositor via IPC, or calls `ewwm-exit'."
                          "ewwm-idle" " *ewwm-idle*"
                          ewwm-session-idle-command
                          ewwm-session-idle-args))))
-      (setq ewwm-session-idle-process proc)
-      (set-process-sentinel proc #'ewwm-session--idle-sentinel)
-      (message "ewwm-session: idle daemon started"))))
+        (setq ewwm-session-idle-process proc)
+        (set-process-sentinel proc #'ewwm-session--idle-sentinel)
+        (message "ewwm-session: idle daemon started")))))
 
 (defun ewwm-session-stop-idle ()
   "Stop the idle management daemon."
   (interactive)
-  (when (and ewwm-session-idle-process
-             (process-live-p ewwm-session-idle-process))
-    (kill-process ewwm-session-idle-process))
-  (setq ewwm-session-idle-process nil)
-  (message "ewwm-session: idle daemon stopped"))
+  (if (ewwm-session--ipc-connected-p)
+      (progn
+        (funcall 'ewwm-ipc-send '(:type :session-idle-stop))
+        (message "ewwm-session: requested native idle daemon stop"))
+    (when (and ewwm-session-idle-process
+               (process-live-p ewwm-session-idle-process))
+      (kill-process ewwm-session-idle-process))
+    (setq ewwm-session-idle-process nil)
+    (message "ewwm-session: idle daemon stopped")))
 
 (defun ewwm-session--idle-sentinel (proc _event)
   "Clean up when idle daemon PROC exits."
@@ -182,6 +198,9 @@ Sends exit command to the compositor via IPC, or calls `ewwm-exit'."
 (defun ewwm-session-status ()
   "Display session status in the minibuffer."
   (interactive)
+  (when (ewwm-session--ipc-connected-p)
+    (funcall 'ewwm-ipc-send '(:type :session-status))
+    (funcall 'ewwm-ipc-send '(:type :session-idle-status)))
   (message "ewwm-session: idle=%s lock=%s"
            (if (and ewwm-session-idle-process
                     (process-live-p ewwm-session-idle-process))
@@ -189,6 +208,24 @@ Sends exit command to the compositor via IPC, or calls `ewwm-exit'."
            (if (and ewwm-session-lock-process
                     (process-live-p ewwm-session-lock-process))
                "active" "inactive")))
+
+(defun ewwm-dpms-set (state)
+  "Set compositor DPMS STATE through native IPC."
+  (interactive "sDPMS state (on/standby/suspend/off): ")
+  (if (ewwm-session--ipc-connected-p)
+      (progn
+        (funcall 'ewwm-ipc-send `(:type :dpms-set :state ,state))
+        (message "ewwm-session: requested DPMS %s" state))
+    (message "ewwm-session: no compositor IPC connection for DPMS")))
+
+(defun ewwm-dpms-get ()
+  "Query compositor DPMS state through native IPC."
+  (interactive)
+  (if (ewwm-session--ipc-connected-p)
+      (progn
+        (funcall 'ewwm-ipc-send '(:type :dpms-get))
+        (message "ewwm-session: requested DPMS status"))
+    (message "ewwm-session: no compositor IPC connection for DPMS")))
 
 (provide 'ewwm-session)
 ;;; ewwm-session.el ends here

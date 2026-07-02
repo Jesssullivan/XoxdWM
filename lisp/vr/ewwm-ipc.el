@@ -43,7 +43,12 @@
     (:surface-title-changed . ewwm-ipc--on-surface-title-changed)
     (:surface-focused    . ewwm-ipc--on-surface-focused)
     (:surface-geometry-changed . ewwm-ipc--on-surface-geometry-changed)
+    (:surface-float-changed . ewwm-ipc--on-surface-float-changed)
+    (:surface-workspace-changed . ewwm-ipc--on-surface-workspace-changed)
     (:workspace-changed  . ewwm-ipc--on-workspace-changed)
+    (:autostart-ran     . ewwm-ipc--on-autostart-ran)
+    (:config-reloaded   . ewwm-ipc--on-config-reloaded)
+    (:layout-changed    . ewwm-ipc--on-layout-changed)
     (:key-pressed        . ewwm-ipc--on-key-pressed)
     (:output-usable-area-changed . ewwm-ipc--on-output-usable-area-changed))
   "Alist mapping event types to handler functions.")
@@ -315,10 +320,38 @@ TIMEOUT defaults to `ewwm-ipc-sync-timeout' seconds."
   ;; Silent — high frequency
   nil)
 
+(defun ewwm-ipc--on-surface-float-changed (msg)
+  "Handle :surface-float-changed event MSG."
+  (message "ewwm: surface float changed: id=%s floating=%s"
+           (plist-get msg :id)
+           (plist-get msg :floating)))
+
+(defun ewwm-ipc--on-surface-workspace-changed (msg)
+  "Handle :surface-workspace-changed event MSG."
+  (message "ewwm: surface workspace changed: id=%s workspace=%s"
+           (plist-get msg :id)
+           (or (plist-get msg :new-workspace)
+               (plist-get msg :workspace))))
+
 (defun ewwm-ipc--on-workspace-changed (msg)
   "Handle :workspace-changed event MSG."
   (let ((workspace (plist-get msg :workspace)))
     (message "ewwm: workspace changed: %d" workspace)))
+
+(defun ewwm-ipc--on-autostart-ran (msg)
+  "Handle :autostart-ran event MSG."
+  (message "ewwm: native autostart target ran: %s"
+           (plist-get msg :target)))
+
+(defun ewwm-ipc--on-config-reloaded (msg)
+  "Handle :config-reloaded event MSG."
+  (message "ewwm: native config reloaded from %s"
+           (or (plist-get msg :source) "unknown source")))
+
+(defun ewwm-ipc--on-layout-changed (msg)
+  "Handle :layout-changed event MSG."
+  (message "ewwm: native layout changed: %s"
+           (plist-get msg :layout)))
 
 (defun ewwm-ipc--on-key-pressed (msg)
   "Handle :key-pressed event MSG."
@@ -385,18 +418,24 @@ Updates layout usable area when layer-shell exclusive zones change."
   "Resize SURFACE-ID to dimensions (W, H)."
   (ewwm-ipc-send `(:type :surface-resize :surface-id ,surface-id :w ,w :h ,h)))
 
-(defun ewwm-workspace-switch (n)
-  "Switch to workspace N."
+(defun ewwm-ipc-workspace-switch (n)
+  "Request native compositor switch to workspace N."
   (interactive "nWorkspace: ")
   (ewwm-ipc-send `(:type :workspace-switch :workspace ,n)))
 
-(defun ewwm-workspace-list ()
-  "Query the compositor for workspace state."
+(defun ewwm-ipc-workspace-list ()
+  "Query the native compositor for workspace state."
   (interactive)
   (let ((resp (ewwm-ipc-send-sync '(:type :workspace-list))))
     (if (eq (plist-get resp :status) :ok)
         (plist-get resp :workspaces)
       (error "ewwm: workspace-list failed: %s" (plist-get resp :reason)))))
+
+(unless (fboundp 'ewwm-workspace-switch)
+  (defalias 'ewwm-workspace-switch #'ewwm-ipc-workspace-switch))
+
+(unless (fboundp 'ewwm-workspace-list)
+  (defalias 'ewwm-workspace-list #'ewwm-ipc-workspace-list))
 
 (defun ewwm-key-grab (key)
   "Register a global key grab for KEY (Emacs key description)."

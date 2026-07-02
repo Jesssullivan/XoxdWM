@@ -10,6 +10,8 @@
 
 (require 'cl-lib)
 (require 'ewwm-core)
+(declare-function ewwm-ipc-connected-p "ewwm-ipc")
+(declare-function ewwm-ipc-send "ewwm-ipc")
 
 ;; ── Customization ────────────────────────────────────────────
 
@@ -36,7 +38,32 @@
 (defvar ewwm-launch--processes nil
   "Alist of (COMMAND . PROCESS) for tracked launched processes.")
 
+(defun ewwm-launch--ipc-connected-p ()
+  "Return non-nil when native compositor IPC is connected."
+  (and (fboundp 'ewwm-ipc-connected-p)
+       (ewwm-ipc-connected-p)
+       (fboundp 'ewwm-ipc-send)))
+
 ;; ── Launch functions ─────────────────────────────────────────
+
+(defun ewwm-launch-native-target (target)
+  "Ask the native compositor to launch configured TARGET.
+TARGET must be a name from native `app_launch_commands'."
+  (interactive "sNative launch target: ")
+  (if (ewwm-launch--ipc-connected-p)
+      (progn
+        (ewwm-ipc-send `(:type :app-launch :name ,target))
+        (message "ewwm: requested native launch target %s" target))
+    (user-error "ewwm: no compositor IPC connection for native launch target")))
+
+(defun ewwm-launch-native-target-list ()
+  "Ask the native compositor for configured app launch targets."
+  (interactive)
+  (if (ewwm-launch--ipc-connected-p)
+      (progn
+        (ewwm-ipc-send '(:type :app-launch-list))
+        (message "ewwm: requested native launch target list"))
+    (user-error "ewwm: no compositor IPC connection for native launch target list")))
 
 (defun ewwm-launch (command)
   "Launch COMMAND as a Wayland client.

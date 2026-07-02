@@ -171,6 +171,17 @@ sent as a single auto-type sequence."
     (run-hook-with-args 'ewwm-secrets-compositor-error-hook
                         (or message-text "unknown error"))))
 
+(defun ewwm-secrets-compositor--on-autotype-aborted (data)
+  "Handle :autotype-aborted event DATA from the compositor."
+  (let ((surface-id (plist-get data :surface-id))
+        (chars-typed (plist-get data :chars-typed)))
+    (setq ewwm-secrets-compositor--typing-p nil
+          ewwm-secrets-compositor--last-result data)
+    (run-hook-with-args 'ewwm-secrets-compositor-error-hook
+                        (format "autotype aborted on surface %s after %d chars"
+                                (or surface-id "?")
+                                (or chars-typed 0)))))
+
 ;; ── Event registration ──────────────────────────────────────
 
 (defun ewwm-secrets-compositor--register-events ()
@@ -180,6 +191,7 @@ Idempotent: checks before adding each handler."
    '((:autotype-complete  . ewwm-secrets-compositor--on-autotype-complete)
      (:autotype-paused    . ewwm-secrets-compositor--on-autotype-paused)
      (:autotype-resumed   . ewwm-secrets-compositor--on-autotype-resumed)
+     (:autotype-aborted   . ewwm-secrets-compositor--on-autotype-aborted)
      (:autotype-error     . ewwm-secrets-compositor--on-autotype-error))))
 
 ;; ── Interactive commands ────────────────────────────────────

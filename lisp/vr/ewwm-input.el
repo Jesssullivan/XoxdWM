@@ -21,6 +21,8 @@
 (declare-function ewwm-launch-interactively "ewwm-launch")
 (declare-function ewwm-reset "ewwm")
 
+(defvar ewwm-surface-id)
+
 ;; ── Customization ────────────────────────────────────────────
 
 (defgroup ewwm-input nil
@@ -42,6 +44,19 @@ KEY-DESCRIPTION is a string like \"s-r\" or \"C-M-x\".")
 
 (defvar ewwm-input--suppress-focus-sync nil
   "Non-nil to suppress focus sync during programmatic buffer switches.")
+
+(defun ewwm-input--ipc-connected-p ()
+  "Return non-nil when the native compositor IPC client is connected."
+  (and (fboundp 'ewwm-ipc-send)
+       (fboundp 'ewwm-ipc-connected-p)
+       (funcall 'ewwm-ipc-connected-p)))
+
+(defun ewwm-input--send-native (message)
+  "Send native compositor IPC MESSAGE when connected.
+Return non-nil when MESSAGE was sent."
+  (when (ewwm-input--ipc-connected-p)
+    (funcall 'ewwm-ipc-send message)
+    t))
 
 ;; ── Key registration ─────────────────────────────────────────
 
@@ -108,33 +123,41 @@ Does not send IPC — call `ewwm-input--register-all-grabs' after connecting."
           (ws i))
       (setf (alist-get key ewwm-input--global-keys nil nil #'equal)
             (lambda () (interactive)
-              (when (fboundp 'ewwm-workspace-switch)
-                (funcall 'ewwm-workspace-switch ws))))))
+              (unless (ewwm-input--send-native
+                       `(:type :workspace-switch :workspace ,ws))
+                (when (fboundp 'ewwm-workspace-switch)
+                  (funcall 'ewwm-workspace-switch ws)))))))
   ;; Move surface to workspace: s-S-1 through s-S-9
   (dotimes (i 9)
     (let ((key (format "s-S-%d" (1+ i)))
           (ws i))
       (setf (alist-get key ewwm-input--global-keys nil nil #'equal)
             (lambda () (interactive)
-              (when (and ewwm-surface-id
-                         (fboundp 'ewwm-workspace-move-surface))
-                (funcall 'ewwm-workspace-move-surface ewwm-surface-id ws))))))
+              (when (bound-and-true-p ewwm-surface-id)
+                (unless (ewwm-input--send-native
+                         `(:type :workspace-move-surface
+                           :surface-id ,ewwm-surface-id
+                           :workspace ,ws))
+                  (when (fboundp 'ewwm-workspace-move-surface)
+                    (funcall 'ewwm-workspace-move-surface ewwm-surface-id ws))))))))
   ;; Layout cycling
   (setf (alist-get "s-SPC" ewwm-input--global-keys nil nil #'equal)
         (lambda () (interactive)
-          (when (fboundp 'ewwm-layout-cycle)
-            (funcall 'ewwm-layout-cycle))))
+          (unless (ewwm-input--send-native '(:type :layout-cycle))
+            (when (fboundp 'ewwm-layout-cycle)
+              (funcall 'ewwm-layout-cycle)))))
   ;; App launcher
   (setf (alist-get "s-&" ewwm-input--global-keys nil nil #'equal)
         (lambda () (interactive)
           (if (fboundp 'ewwm-launch-interactively)
               (funcall 'ewwm-launch-interactively)
             (async-shell-command (read-shell-command "$ ")))))
-  ;; Reset
+  ;; Config reload. The historical Lisp reset stays as disconnected fallback.
   (setf (alist-get "s-r" ewwm-input--global-keys nil nil #'equal)
         (lambda () (interactive)
-          (when (fboundp 'ewwm-reset)
-            (funcall 'ewwm-reset)))))
+          (unless (ewwm-input--send-native '(:type :config-reload))
+            (when (fboundp 'ewwm-reset)
+              (funcall 'ewwm-reset))))))
 
 ;; ── Intercept mode toggle ────────────────────────────────────
 

@@ -310,7 +310,7 @@ Functions receive (SURFACE-ID METHOD).")
     (setq ewwm-vr-eye--dwell-surface (plist-get msg :surface-id))))
 
 (defun ewwm-vr-eye--on-gaze-focus-request (msg)
-  "Handle :gaze-focus-request event MSG from compositor."
+  "Handle canonical :gaze-focus-requested or legacy :gaze-focus-request MSG."
   (let ((sid (plist-get msg :surface-id))
         (dwell-ms (plist-get msg :dwell-ms)))
     (ewwm-vr-eye--process-focus-request sid dwell-ms)))
@@ -639,6 +639,7 @@ POLICY is a symbol: `gaze-only', `gaze-primary', `gaze-assist', or `disabled'."
      (:gaze-calibration-drift . ewwm-vr-eye--on-gaze-calibration-drift)
      (:gaze-dwell            . ewwm-vr-eye--on-gaze-dwell)
      (:gaze-dwell-progress   . ewwm-vr-eye--on-gaze-dwell-progress)
+     (:gaze-focus-requested  . ewwm-vr-eye--on-gaze-focus-request)
      (:gaze-focus-request    . ewwm-vr-eye--on-gaze-focus-request)
      (:gaze-cooldown         . ewwm-vr-eye--on-gaze-cooldown)
      (:gaze-saccade-state    . ewwm-vr-eye--on-gaze-saccade-state)

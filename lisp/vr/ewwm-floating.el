@@ -30,6 +30,22 @@ When nil, use `pop-to-buffer' in a side window."
 
 ;; ── Toggle floating ──────────────────────────────────────────
 
+(defun ewwm-floating--set-state (surface-id floating)
+  "Mirror native FLOATING state for SURFACE-ID in the Emacs app layer."
+  (when-let ((buf (ewwm--get-buffer surface-id)))
+    (with-current-buffer buf
+      (setq ewwm-surface-state (if floating 'floating 'managed))
+      (when (derived-mode-p 'ewwm-mode)
+        (ewwm--refresh-buffer-content)))))
+
+(defun ewwm-floating--relayout-current-workspace ()
+  "Relayout the current Emacs workspace mirror when available."
+  (when (and (boundp 'ewwm-workspace-current-index)
+             (fboundp 'ewwm-layout--apply-current))
+    (funcall 'ewwm-layout--apply-current
+             (ewwm--buffers-on-workspace
+              ewwm-workspace-current-index))))
+
 (defun ewwm-floating-toggle (&optional surface-id)
   "Toggle floating mode for SURFACE-ID or current surface.
 Sends IPC to compositor and updates buffer state."
@@ -37,24 +53,20 @@ Sends IPC to compositor and updates buffer state."
   (let ((sid (or surface-id
                  (and (derived-mode-p 'ewwm-mode) ewwm-surface-id))))
     (when sid
-      (when-let ((buf (ewwm--get-buffer sid)))
-        (with-current-buffer buf
-          (setq ewwm-surface-state
-                (if (eq ewwm-surface-state 'floating) 'managed 'floating))
-          (when (derived-mode-p 'ewwm-mode)
-            (ewwm--refresh-buffer-content))))
-      ;; Send IPC
-      (when (and (fboundp 'ewwm-ipc-send)
-                 (fboundp 'ewwm-ipc-connected-p)
-                 (funcall 'ewwm-ipc-connected-p))
-        (funcall 'ewwm-ipc-send
-                 `(:type :surface-float :surface-id ,sid)))
+      (let* ((buf (ewwm--get-buffer sid))
+             (enable (not (and buf
+                               (eq (buffer-local-value
+                                    'ewwm-surface-state buf)
+                                   'floating)))))
+        (ewwm-floating--set-state sid enable)
+        ;; Send IPC
+        (when (and (fboundp 'ewwm-ipc-send)
+                   (fboundp 'ewwm-ipc-connected-p)
+                   (funcall 'ewwm-ipc-connected-p))
+          (funcall 'ewwm-ipc-send
+                   `(:type :surface-float :surface-id ,sid :enable ,enable))))
       ;; Re-layout current workspace (floating surface removed/added to tiling)
-      (when (and (boundp 'ewwm-workspace-current-index)
-                 (fboundp 'ewwm-layout--apply-current))
-        (funcall 'ewwm-layout--apply-current
-                 (ewwm--buffers-on-workspace
-                  ewwm-workspace-current-index))))))
+      (ewwm-floating--relayout-current-workspace))))
 
 ;; ── Floating surface queries ─────────────────────────────────
 

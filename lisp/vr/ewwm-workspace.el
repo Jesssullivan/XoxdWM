@@ -142,6 +142,25 @@ Updates buffer-local variable and sends IPC."
       (funcall 'ewwm-layout--apply-current
                (ewwm--buffers-on-workspace ewwm-workspace-current-index)))))
 
+;; ── Native event mirror ──────────────────────────────────────
+
+(defun ewwm-workspace--on-surface-workspace-changed (msg)
+  "Mirror native surface workspace state from IPC event MSG."
+  (let ((surface-id (plist-get msg :id))
+        (workspace (or (plist-get msg :new-workspace)
+                       (plist-get msg :workspace))))
+    (when (and surface-id (integerp workspace))
+      (when-let ((buf (ewwm--get-buffer surface-id)))
+        (with-current-buffer buf
+          (setq ewwm-workspace workspace)
+          (when (derived-mode-p 'ewwm-mode)
+            (ewwm--refresh-buffer-content))))
+      (when (and (boundp 'ewwm-workspace-current-index)
+                 (fboundp 'ewwm-layout--apply-current))
+        (funcall 'ewwm-layout--apply-current
+                 (ewwm--buffers-on-workspace
+                  ewwm-workspace-current-index))))))
+
 ;; ── Query ────────────────────────────────────────────────────
 
 (defun ewwm-workspace-list ()

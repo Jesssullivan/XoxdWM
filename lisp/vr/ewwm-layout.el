@@ -49,6 +49,24 @@
   "Usable output area plist (:x N :y N :w N :h N).
 Reduced by layer-shell exclusive zones (e.g., waybar).")
 
+(defun ewwm-layout--ipc-connected-p ()
+  "Return non-nil when the native compositor IPC client is connected."
+  (and (fboundp 'ewwm-ipc-send)
+       (fboundp 'ewwm-ipc-connected-p)
+       (funcall 'ewwm-ipc-connected-p)))
+
+(defun ewwm-layout--normalize-layout (layout)
+  "Normalize LAYOUT keyword/string/symbol to an Emacs layout symbol."
+  (cond
+   ((keywordp layout)
+    (intern (substring (symbol-name layout) 1)))
+   ((symbolp layout) layout)
+   ((stringp layout)
+    (intern (if (string-prefix-p ":" layout)
+                (substring layout 1)
+              layout)))
+   (t layout)))
+
 ;; ── Layout application ───────────────────────────────────────
 
 (defun ewwm-layout--apply-current (buffers)
@@ -169,22 +187,27 @@ BUFFERS list determines which buffer is visible."
    (list (intern (completing-read "Layout: "
                                   (mapcar #'symbol-name ewwm-layout--cycle-list)
                                   nil t))))
+  (setq layout (ewwm-layout--normalize-layout layout))
   (setq ewwm-layout--current layout)
-  (ewwm-layout--apply-current
-   (ewwm--buffers-on-workspace
-    (if (boundp 'ewwm-workspace-current-index)
-        ewwm-workspace-current-index
-      0)))
+  (if (ewwm-layout--ipc-connected-p)
+      (funcall 'ewwm-ipc-send `(:type :layout-set :layout ,layout))
+    (ewwm-layout--apply-current
+     (ewwm--buffers-on-workspace
+      (if (boundp 'ewwm-workspace-current-index)
+          ewwm-workspace-current-index
+        0))))
   (run-hook-with-args 'ewwm-layout-change-hook layout)
   (message "ewwm: layout %s" layout))
 
 (defun ewwm-layout-cycle ()
   "Cycle through available layouts."
   (interactive)
-  (let* ((pos (cl-position ewwm-layout--current ewwm-layout--cycle-list))
-         (next-pos (mod (1+ (or pos 0)) (length ewwm-layout--cycle-list)))
-         (next (nth next-pos ewwm-layout--cycle-list)))
-    (ewwm-layout-set next)))
+  (if (ewwm-layout--ipc-connected-p)
+      (funcall 'ewwm-ipc-send '(:type :layout-cycle))
+    (let* ((pos (cl-position ewwm-layout--current ewwm-layout--cycle-list))
+           (next-pos (mod (1+ (or pos 0)) (length ewwm-layout--cycle-list)))
+           (next (nth next-pos ewwm-layout--cycle-list)))
+      (ewwm-layout-set next))))
 
 (defun ewwm-layout-current ()
   "Return the current layout mode."
@@ -211,6 +234,13 @@ Updates usable area and re-layouts."
                    :w ,(plist-get msg :w)
                    :h ,(plist-get msg :h))))
     (ewwm-layout--set-usable-area geometry)))
+
+(defun ewwm-layout--on-layout-changed (msg)
+  "Mirror native layout state from IPC event MSG."
+  (when-let ((layout (plist-get msg :layout)))
+    (setq ewwm-layout--current (ewwm-layout--normalize-layout layout))
+    (run-hook-with-args 'ewwm-layout-change-hook ewwm-layout--current)
+    (message "ewwm: layout %s (compositor)" ewwm-layout--current)))
 
 (defun ewwm-layout-usable-area ()
   "Return the current usable area plist, or nil if not set."

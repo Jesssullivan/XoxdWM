@@ -132,6 +132,24 @@ Creates buffer, applies manage rules, assigns workspace, triggers layout."
   (let ((geometry (plist-get msg :geometry)))
     (ewwm--update-surface-geometry (plist-get msg :id) geometry)))
 
+(defun ewwm-manage--on-float-changed (msg)
+  "Mirror native surface float state from IPC event MSG."
+  (let ((surface-id (plist-get msg :id))
+        (floating (plist-get msg :floating)))
+    (when-let ((buf (and surface-id (ewwm--get-buffer surface-id))))
+      (with-current-buffer buf
+        (setq ewwm-surface-state
+              (cond
+               (floating 'floating)
+               ((eq ewwm-surface-state 'floating) 'managed)
+               (t ewwm-surface-state)))
+        (when (derived-mode-p 'ewwm-mode)
+          (ewwm--refresh-buffer-content))))
+    (when (and (boundp 'ewwm-workspace-current-index)
+               (fboundp 'ewwm-layout--apply-current))
+      (funcall 'ewwm-layout--apply-current
+               (ewwm--buffers-on-workspace ewwm-workspace-current-index)))))
+
 ;; ── Manage rule matching ─────────────────────────────────────
 
 (defun ewwm-manage--match-rules (surface-data)
@@ -151,17 +169,23 @@ Returns the actions plist from the first matching rule, or nil."
   (let ((sid (or surface-id
                  (and (derived-mode-p 'ewwm-mode) ewwm-surface-id))))
     (when sid
-      (when-let ((buf (ewwm--get-buffer sid)))
-        (with-current-buffer buf
-          (setq ewwm-surface-state
-                (if (eq ewwm-surface-state 'fullscreen) 'managed 'fullscreen))
-          (when (derived-mode-p 'ewwm-mode)
-            (ewwm--refresh-buffer-content))))
-      (when (and (fboundp 'ewwm-ipc-send)
-                 (fboundp 'ewwm-ipc-connected-p)
-                 (funcall 'ewwm-ipc-connected-p))
-        (funcall 'ewwm-ipc-send
-                 `(:type :surface-fullscreen :surface-id ,sid))))))
+      (let* ((buf (ewwm--get-buffer sid))
+             (enable (not (and buf
+                               (eq (buffer-local-value
+                                    'ewwm-surface-state buf)
+                                   'fullscreen)))))
+        (when buf
+          (with-current-buffer buf
+            (setq ewwm-surface-state (if enable 'fullscreen 'managed))
+            (when (derived-mode-p 'ewwm-mode)
+              (ewwm--refresh-buffer-content))))
+        (when (and (fboundp 'ewwm-ipc-send)
+                   (fboundp 'ewwm-ipc-connected-p)
+                   (funcall 'ewwm-ipc-connected-p))
+          (funcall 'ewwm-ipc-send
+                   `(:type :surface-fullscreen
+                     :surface-id ,sid
+                     :enable ,enable)))))))
 
 ;; ── XWayland surface queries ────────────────────────────────
 
