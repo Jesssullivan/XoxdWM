@@ -1,8 +1,11 @@
 [Unit]
 Description=EXWM-VR Session Target
 Documentation=https://github.com/Jesssullivan/XoxdWM
-Wants=exwm-vr-compositor.service exwm-vr-emacs.service
+Wants=exwm-vr-compositor.service
 After=graphical-session.target
+
+# Emacs/eGreg is an optional application/control layer. Start
+# exwm-vr-emacs.service explicitly when that compatibility layer is desired.
 
 [Install]
 WantedBy=graphical-session.target

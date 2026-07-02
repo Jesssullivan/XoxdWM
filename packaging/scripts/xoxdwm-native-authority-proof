@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# Operator proof lane for native XoxdWM WM authority.
+
+set -euo pipefail
+
+socket="${XOXDWM_PROOF_IPC_SOCKET:-${XDG_RUNTIME_DIR:-}/ewwm-ipc.sock}"
+mutate="${XOXDWM_PROOF_MUTATE:-1}"
+timeout_seconds="${XOXDWM_PROOF_IPC_TIMEOUT:-5}"
+allow_emacs_service="${XOXDWM_PROOF_ALLOW_EMACS_SERVICE:-0}"
+evidence_file="${XOXDWM_PROOF_EVIDENCE:-}"
+launch_target="${XOXDWM_PROOF_LAUNCH_TARGET:-}"
+
+if [[ -z "${socket}" ]]; then
+    echo "native_authority_proof=failed"
+    echo "reason=missing_xdg_runtime_dir_or_socket"
+    exit 64
+fi
+
+if [[ "$(uname -s)" != "Linux" ]]; then
+    echo "native_authority_proof=failed"
+    echo "reason=linux_runtime_required"
+    exit 64
+fi
+
+append_evidence() {
+    if [[ -n "${evidence_file}" ]]; then
+        printf '%s\n' "$*" >> "${evidence_file}"
+    fi
+}
+
+echo "native_authority_gate=runtime_proof"
+echo "emacs_required=no"
+echo "ipc_socket=${socket}"
+echo "mutating_checks=${mutate}"
+echo "launch_target=${launch_target:-none}"
+append_evidence "# XoxdWM Native Authority Runtime Proof"
+append_evidence ""
+append_evidence "- host: $(hostname)"
+append_evidence "- date: $(date --iso-8601=seconds)"
+append_evidence "- ipc_socket: ${socket}"
+append_evidence "- emacs_required: no"
+
+if command -v systemctl >/dev/null 2>&1; then
+    if systemctl --user is-active --quiet exwm-vr-emacs.service; then
+        if [[ "${allow_emacs_service}" != "1" ]]; then
+            echo "native_authority_proof=failed"
+            echo "reason=exwm_vr_emacs_service_active"
+            echo "hint=set XOXDWM_PROOF_ALLOW_EMACS_SERVICE=1 only when Emacs is intentionally app-layer"
+            exit 1
+        fi
+        echo "emacs_service=active_allowed"
+        append_evidence "- emacs_service: active_allowed"
+    else
+        echo "emacs_service=inactive"
+        append_evidence "- emacs_service: inactive"
+    fi
+else
+    echo "emacs_service=unchecked_no_systemctl"
+    append_evidence "- emacs_service: unchecked_no_systemctl"
+fi
+
+XOXDWM_PROOF_IPC_SOCKET="${socket}" \
+XOXDWM_PROOF_MUTATE="${mutate}" \
+XOXDWM_PROOF_IPC_TIMEOUT="${timeout_seconds}" \
+XOXDWM_PROOF_LAUNCH_TARGET="${launch_target}" \
+python3 - <<'PY'
+import os
+import socket
+import struct
+import sys
+import time
+
+
+def fail(reason):
+    print("ipc_proof=failed")
+    print(f"reason={reason}")
+    sys.exit(1)
+
+
+path = os.environ["XOXDWM_PROOF_IPC_SOCKET"]
+mutate = os.environ.get("XOXDWM_PROOF_MUTATE", "1") == "1"
+launch_target = os.environ.get("XOXDWM_PROOF_LAUNCH_TARGET", "")
+timeout = float(os.environ.get("XOXDWM_PROOF_IPC_TIMEOUT", "5"))
+deadline = time.monotonic() + timeout
+client = None
+
+while time.monotonic() < deadline:
+    try:
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client.settimeout(1.0)
+        client.connect(path)
+        break
+    except OSError:
+        if client is not None:
+            client.close()
+            client = None
+        time.sleep(0.05)
+
+if client is None:
+    fail("ipc_socket_not_ready")
+
+
+def send(message):
+    payload = message.encode("utf-8")
+    client.sendall(struct.pack(">I", len(payload)) + payload)
+
+
+def recv():
+    header = client.recv(4)
+    if len(header) != 4:
+        fail("short_ipc_header")
+    length = struct.unpack(">I", header)[0]
+    chunks = []
+    remaining = length
+    while remaining:
+        chunk = client.recv(remaining)
+        if not chunk:
+            fail("short_ipc_payload")
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks).decode("utf-8", "replace")
+
+
+def expect(name, message, *needles):
+    send(message)
+    response = recv()
+    missing = [needle for needle in needles if needle not in response]
+    if missing:
+        print(f"{name}=failed")
+        print(f"response={response}")
+        fail(f"{name}_missing_{','.join(missing)}")
+    print(f"{name}=passed")
+    return response
+
+
+def sexp_string(value):
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+expect(
+    "hello",
+    '(:type :hello :id 1 :version 1 :client "native-authority-proof")',
+    ':server "ewwm-compositor"',
+)
+expect("workspace_list_initial", "(:type :workspace-list :id 2)", ":status :ok", ":workspaces")
+expect("layout_get_initial", "(:type :layout-get :id 3)", ":status :ok", ":layout")
+
+if mutate:
+    expect("layout_set_grid", "(:type :layout-set :id 4 :layout :grid)", ":status :ok", ":layout :grid")
+    expect("workspace_switch_1", "(:type :workspace-switch :id 5 :workspace 1)", ":status :ok")
+    expect("workspace_list_after_switch", "(:type :workspace-list :id 6)", ":status :ok", ":active t")
+    expect("workspace_switch_0", "(:type :workspace-switch :id 7 :workspace 0)", ":status :ok")
+    expect("layout_set_tiling", "(:type :layout-set :id 8 :layout :tiling)", ":status :ok", ":layout :tiling")
+    if launch_target:
+        expect(
+            "app_launch",
+            f"(:type :app-launch :id 9 :name {sexp_string(launch_target)})",
+            ":status :ok",
+            f':name "{launch_target}"',
+        )
+else:
+    print("mutating_checks=skipped")
+
+client.close()
+print("ipc_proof=passed")
+PY
+
+append_evidence "- ipc_proof: passed"
+append_evidence "- mutating_checks: ${mutate}"
+append_evidence "- launch_target: ${launch_target:-none}"
+append_evidence ""
+append_evidence "## Human Observation"
+append_evidence ""
+append_evidence "- visual_observed: TODO_yes_or_no"
+append_evidence "- app_launch_observed: TODO_yes_or_no"
+append_evidence "- focus_change_observed: TODO_yes_or_no"
+append_evidence "- workspace_visibility_observed: TODO_yes_or_no"
+append_evidence "- layout_reflow_observed: TODO_yes_or_no"
+append_evidence "- notes: TODO"
+
+echo "native_authority_proof=passed"
+if [[ -n "${evidence_file}" ]]; then
+    echo "evidence_file=${evidence_file}"
+fi

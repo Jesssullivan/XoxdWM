@@ -1,5 +1,5 @@
 [Unit]
-Description=EXWM-VR Emacs Window Manager
+Description=EXWM-VR Emacs Application Client
 Documentation=https://github.com/Jesssullivan/XoxdWM
 After=exwm-vr-compositor.service
 BindsTo=exwm-vr-compositor.service

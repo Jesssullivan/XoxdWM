@@ -58,7 +58,8 @@ let
         };
       };
       colors = themes.${theme} or themes."modus-vivendi";
-    in ''
+    in
+    ''
       # EXWM-VR Qutebrowser theme — generated from Emacs theme: ${theme}
       # Do not edit manually; managed by home-manager.
 
@@ -111,7 +112,8 @@ let
     ;;; exwm-vr-config.el ends here
   '';
 
-in {
+in
+{
   options.programs.exwm-vr = {
     enable = lib.mkEnableOption "EXWM-VR user configuration";
 
@@ -194,6 +196,8 @@ in {
     # --- Emacs options ---
 
     emacs = {
+      enable = lib.mkEnableOption "optional Emacs/eGreg application-control layer";
+
       package = lib.mkOption {
         type = lib.types.package;
         default = pkgs.emacs-pgtk;
@@ -222,7 +226,8 @@ in {
         type = lib.types.bool;
         default = false;
         description = ''
-          Generate systemd user services for compositor and Emacs.
+          Generate systemd user services for the compositor and optional Emacs
+          application-control layer.
           Useful for non-NixOS hosts (e.g. Rocky Linux with Nix).
           home-manager switch will install the services.
         '';
@@ -278,7 +283,8 @@ in {
             + "-L ${cfg.elisp.package}/share/emacs/site-lisp/ewwm/vr "
             + "-L ${cfg.elisp.package}/share/emacs/site-lisp/ewwm/ext"
           else "";
-      in {
+      in
+      {
         assertions = [
           {
             assertion = cfg.compositor.package != null;
@@ -286,46 +292,48 @@ in {
           }
         ];
 
-        systemd.user.services."exwm-vr-compositor" = {
-          aliases = [ "ewwm-compositor.service" ];
-          Unit = {
-            Description = "EXWM-VR Wayland Compositor";
-            Documentation = "https://github.com/Jesssullivan/XoxdWM";
+        systemd.user.services = {
+          "exwm-vr-compositor" = {
+            aliases = [ "ewwm-compositor.service" ];
+            Unit = {
+              Description = "EXWM-VR Wayland Compositor";
+              Documentation = "https://github.com/Jesssullivan/XoxdWM";
+            };
+            Service = {
+              ExecStart = "${compositorBin} ${compositorArgs}";
+              Restart = "on-failure";
+              RestartSec = 2;
+              Environment = [
+                "XDG_RUNTIME_DIR=%t"
+              ];
+            };
+            Install = {
+              WantedBy = [ "exwm-vr.target" ];
+            };
           };
-          Service = {
-            ExecStart = "${compositorBin} ${compositorArgs}";
-            Restart = "on-failure";
-            RestartSec = 2;
-            Environment = [
-              "XDG_RUNTIME_DIR=%t"
-            ];
-          };
-          Install = {
-            WantedBy = [ "exwm-vr.target" ];
-          };
-        };
-
-        systemd.user.services."exwm-vr-emacs" = {
-          aliases = [ "ewwm-emacs.service" ];
-          Unit = {
-            Description = "EXWM-VR Emacs Daemon";
-            Documentation = "https://github.com/Jesssullivan/XoxdWM";
-            After = [ "exwm-vr-compositor.service" ];
-            Requires = [ "exwm-vr-compositor.service" ];
-          };
-          Service = {
-            ExecStart = "${cfg.emacs.package}/bin/emacs --daemon ${emacsLoadFlags}"
-              + lib.optionalString (cfg.elisp.package != null)
+        } // lib.optionalAttrs cfg.emacs.enable {
+          "exwm-vr-emacs" = {
+            aliases = [ "ewwm-emacs.service" ];
+            Unit = {
+              Description = "EXWM-VR Emacs/eGreg Application Layer";
+              Documentation = "https://github.com/Jesssullivan/XoxdWM";
+              After = [ "exwm-vr-compositor.service" ];
+              Requires = [ "exwm-vr-compositor.service" ];
+            };
+            Service = {
+              ExecStart = "${cfg.emacs.package}/bin/emacs --daemon ${emacsLoadFlags}"
+                + lib.optionalString (cfg.elisp.package != null)
                 " -l ${cfg.configDir}/config.el";
-            Restart = "on-failure";
-            RestartSec = 3;
-            Environment = [
-              "XDG_RUNTIME_DIR=%t"
-            ] ++ lib.optional (elispLoadPath != "")
-              "EMACSLOADPATH=${elispLoadPath}:";
-          };
-          Install = {
-            WantedBy = [ "exwm-vr.target" ];
+              Restart = "on-failure";
+              RestartSec = 3;
+              Environment = [
+                "XDG_RUNTIME_DIR=%t"
+              ] ++ lib.optional (elispLoadPath != "")
+                "EMACSLOADPATH=${elispLoadPath}:";
+            };
+            Install = {
+              WantedBy = [ "exwm-vr.target" ];
+            };
           };
         };
 
@@ -334,7 +342,9 @@ in {
           Unit = {
             Description = "EXWM-VR Session";
             Documentation = "https://github.com/Jesssullivan/XoxdWM";
-            Wants = [ "exwm-vr-compositor.service" "exwm-vr-emacs.service" ];
+            Wants =
+              [ "exwm-vr-compositor.service" ]
+              ++ lib.optional cfg.emacs.enable "exwm-vr-emacs.service";
           };
           Install = {
             WantedBy = [ "graphical-session.target" ];

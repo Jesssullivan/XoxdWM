@@ -1,4 +1,4 @@
-# RPM spec for EXWM-VR (XoxdWM) - VR-first Wayland compositor + Emacs WM
+# RPM spec for EXWM-VR (XoxdWM) - VR-first Wayland compositor + optional Emacs app layer
 # Targets: Rocky Linux 9 (EPEL required) and Rocky Linux 10
 
 %global project_name    exwm-vr
@@ -43,7 +43,7 @@
 Name:           %{project_name}
 Version:        %{package_version}
 Release:        1%{?dist}
-Summary:        VR-first transhuman Emacs window manager (Wayland)
+Summary:        VR-first Wayland compositor with optional Emacs app layer
 License:        GPL-3.0-or-later
 URL:            https://github.com/Jesssullivan/XoxdWM
 Source0:        %{project_name}-%{version}.tar.gz
@@ -133,13 +133,15 @@ BuildRequires:  epel-release
 # Package descriptions
 # ---------------------------------------------------------------------------
 %description
-EXWM-VR (XoxdWM) is a VR-first transhuman Emacs window manager built on
-Smithay (Wayland compositor), Emacs (pgtk) as the WM brain, and Monado
-(OpenXR runtime) for VR headset integration.  This meta-package pulls in the
-currently supported native Rocky package components for the release lane.
+EXWM-VR (XoxdWM) is a VR-first Wayland compositor and developer desktop built
+on Smithay (Wayland compositor), a native compositor policy surface, optional
+Emacs/eGreg application clients, and Monado (OpenXR runtime) for VR headset
+integration.  This meta-package pulls in the currently supported native Rocky
+package components for the release lane without making the legacy Elisp control
+layer a hard runtime dependency.
 
 Requires:       %{name}-compositor = %{version}-%{release}
-Requires:       %{name}-elisp = %{version}-%{release}
+Suggests:       %{name}-elisp = %{version}-%{release}
 %if %{with monado_integration}
 Requires:       %{name}-monado = %{version}-%{release}
 %endif
@@ -182,9 +184,13 @@ Summary:        EXWM-VR Emacs Lisp modules
 BuildArch:      noarch
 Requires:       emacs >= 29.1
 Requires:       %{name}-compositor = %{version}-%{release}
+Requires(post): systemd
+Requires(preun): systemd
+Requires(postun): systemd
 
 %description elisp
-Emacs Lisp modules for EXWM-VR: core WM logic (ewwm-core, ewwm-workspace,
+Optional Emacs/eGreg application-layer modules for EXWM-VR: legacy core WM
+logic (ewwm-core, ewwm-workspace,
 ewwm-layout, ewwm-input, ewwm-manage, ewwm-floating), VR integration
 (ewwm-vr, ewwm-vr-scene, ewwm-vr-display, ewwm-vr-eye), accessibility
 (ewwm-vr-wink, ewwm-vr-gaze-zone, ewwm-vr-fatigue), secrets management
@@ -306,7 +312,7 @@ cargo build --release --no-default-features \
 # Native Rocky RPMs currently build the host-runnable compositor without the
 # `vr` feature; the full VR lane still depends on libuvc packaging that is not
 # yet proven on named Rocky hosts.
-cargo build --release \
+cargo build --release --features full-backend \
     --jobs %{_smp_build_ncpus} \
     %{?_cargo_extra_args}
 # Save the native compositor binary before the headless build overwrites
@@ -404,6 +410,10 @@ ELISP_EOF
 %ifnarch s390x
 install -Dpm 0644 %{SOURCE20} \
     %{buildroot}%{_userunitdir}/exwm-vr-compositor.service
+install -Dpm 0755 packaging/scripts/xoxdwm-native-authority-proof \
+    %{buildroot}%{_libexecdir}/%{project_name}/native-authority-proof
+ln -s ../libexec/%{project_name}/native-authority-proof \
+    %{buildroot}%{_bindir}/xoxdwm-native-authority-proof
 %if %{with monado_integration}
 install -Dpm 0644 %{SOURCE21} \
     %{buildroot}%{_userunitdir}/exwm-vr-monado.service
@@ -411,6 +421,8 @@ install -Dpm 0755 packaging/scripts/exwm-vr-monado-launch \
     %{buildroot}%{_libexecdir}/%{project_name}/monado-launch
 install -Dpm 0755 packaging/scripts/exwm-vr-openxr-smoke \
     %{buildroot}%{_libexecdir}/%{project_name}/openxr-smoke
+install -Dpm 0755 packaging/scripts/exwm-vr-hmd-connector \
+    %{buildroot}%{_libexecdir}/%{project_name}/hmd-connector
 %endif
 install -Dpm 0644 %{SOURCE22} \
     %{buildroot}%{_userunitdir}/exwm-vr-emacs.service
@@ -499,7 +511,7 @@ cargo test --release --no-default-features \
     %{?_cargo_extra_args} || \
     echo "WARN: Rust tests (headless) -- skipped on mock build"
 %else
-cargo test --release %{?_cargo_extra_args} || \
+cargo test --release --features full-backend %{?_cargo_extra_args} || \
     echo "WARN: Rust tests require Linux DRM/Wayland -- skipped on mock build"
 %endif
 popd
@@ -517,12 +529,10 @@ popd
 # --- compositor ---
 %post compositor
 %systemd_user_post exwm-vr-compositor.service
-%systemd_user_post exwm-vr-emacs.service
 %systemd_user_post exwm-vr.target
 
 %preun compositor
 %systemd_user_preun exwm-vr-compositor.service
-%systemd_user_preun exwm-vr-emacs.service
 %systemd_user_preun exwm-vr.target
 
 %postun compositor
@@ -530,6 +540,7 @@ popd
 
 # --- elisp ---
 %post elisp
+%systemd_user_post exwm-vr-emacs.service
 # Re-byte-compile after install (picks up user's Emacs version)
 %{_bindir}/emacs --batch \
     -L %{emacs_sitelisp}/core \
@@ -541,6 +552,12 @@ popd
     %{emacs_sitelisp}/vr/*.el \
     %{emacs_sitelisp}/ext/*.el \
     2>/dev/null || :
+
+%preun elisp
+%systemd_user_preun exwm-vr-emacs.service
+
+%postun elisp
+%systemd_user_postun_with_restart exwm-vr-emacs.service
 
 # --- monado ---
 %if %{with monado_integration}
@@ -610,13 +627,14 @@ fi
 %files compositor
 %license LICENSE
 %{_bindir}/%{compositor_name}
+%{_bindir}/xoxdwm-native-authority-proof
 %{_userunitdir}/exwm-vr-compositor.service
-%{_userunitdir}/exwm-vr-emacs.service
 %{_userunitdir}/exwm-vr.target
 %{_datadir}/wayland-sessions/exwm-vr.desktop
+%dir %{_libexecdir}/%{project_name}
+%{_libexecdir}/%{project_name}/native-authority-proof
 %dir %{_datadir}/%{project_name}
 %{_datadir}/%{project_name}/exwm-vr-session
-%{_datadir}/%{project_name}/exwm-vr-session-init.el
 %{_datadir}/xdg-desktop-portal/exwm-vr-portals.conf
 %dir %{_localstatedir}/lib/%{project_name}
 %endif
@@ -629,6 +647,9 @@ fi
 %{emacs_sitelisp}/vr/
 %{emacs_sitelisp}/ext/
 %{_datadir}/emacs/site-lisp/site-start.d/%{project_name}-init.el
+%dir %{_datadir}/%{project_name}
+%{_userunitdir}/exwm-vr-emacs.service
+%{_datadir}/%{project_name}/exwm-vr-session-init.el
 
 # --- monado (skip on s390x -- no VR hardware) ---
 %if %{with monado_integration}
@@ -638,6 +659,7 @@ fi
 %{_userunitdir}/exwm-vr-monado.service
 %{_libexecdir}/%{project_name}/monado-launch
 %{_libexecdir}/%{project_name}/openxr-smoke
+%{_libexecdir}/%{project_name}/hmd-connector
 %{_udevrulesdir}/99-exwm-vr.rules
 %dir %{_sysconfdir}/xdg/openxr
 %dir %{_sysconfdir}/xdg/openxr/1
@@ -709,7 +731,7 @@ fi
 * Wed Feb 11 2026 EXWM-VR Maintainers <maintainers@xoxdwm.dev> - 0.1.0-1
 - Initial RPM packaging
 - Compositor: Smithay 0.7 with OpenXR VR, eye tracking, gaze focus
-- Elisp: full WM brain (ewwm-*), VR modules, secrets management
+- Elisp: compatibility/app-layer clients (ewwm-*), VR modules, secrets management
 - Monado: OpenXR runtime integration with DRM lease
 - BCI: BrainFlow Python venv for brain-computer interface
 - SELinux: type enforcement policy for all components

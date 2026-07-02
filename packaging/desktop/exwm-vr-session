@@ -15,6 +15,7 @@ export XDG_SESSION_TYPE=wayland
 # socket instead of inheriting an ambient nested display from the greeter.
 export EXWM_VR_COMPOSITOR_BACKEND="${EXWM_VR_COMPOSITOR_BACKEND:-drm}"
 export EXWM_VR_WAYLAND_SOCKET="${EXWM_VR_WAYLAND_SOCKET:-wayland-0}"
+export EXWM_VR_START_EMACS="${EXWM_VR_START_EMACS:-0}"
 
 # ── Wayland toolkit hints ────────────────────────────────────────────
 # These ensure apps use Wayland natively instead of XWayland fallback.
@@ -74,6 +75,7 @@ if command -v systemctl >/dev/null 2>&1 && systemctl --user list-unit-files exwm
     systemctl --user import-environment \
         DBUS_SESSION_BUS_ADDRESS \
         EXWM_VR_COMPOSITOR_BACKEND \
+        EXWM_VR_START_EMACS \
         EXWM_VR_WAYLAND_SOCKET \
         LIBSEAT_BACKEND \
         XDG_CURRENT_DESKTOP \
@@ -96,6 +98,10 @@ if command -v systemctl >/dev/null 2>&1 && systemctl --user list-unit-files exwm
 
     echo "Starting EXWM-VR via systemd user target..."
     systemctl --user start exwm-vr.target
+    if [ "${EXWM_VR_START_EMACS}" = "1" ]; then
+        systemctl --user start exwm-vr-emacs.service || \
+            echo "WARN: exwm-vr-emacs.service could not be started" >&2
+    fi
 
     # Wait until the compositor reaches a stable running or failed state.
     seen_active=0
@@ -157,10 +163,12 @@ if [ ! -S "$WAYLAND_SOCKET" ]; then
 fi
 export WAYLAND_DISPLAY="${EXWM_VR_WAYLAND_SOCKET}"
 
-# Start Emacs as a foreground daemon.
-/usr/bin/emacs --fg-daemon=exwm-vr --quick \
-    --load /usr/share/exwm-vr/exwm-vr-session-init.el &
-EMACS_PID=$!
+if [ "${EXWM_VR_START_EMACS}" = "1" ]; then
+    # Start Emacs as a foreground daemon for the optional app/control layer.
+    /usr/bin/emacs --fg-daemon=exwm-vr --quick \
+        --load /usr/share/exwm-vr/exwm-vr-session-init.el &
+    EMACS_PID=$!
+fi
 
 # The session lives as long as the compositor does.
 wait "$COMPOSITOR_PID"

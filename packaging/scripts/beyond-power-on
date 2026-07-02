@@ -38,8 +38,9 @@ CMD_BRIGHTNESS = 0x49  # 'I'
 CMD_FAN_SPEED = 0x46   # 'F'
 CMD_LED_COLOR = 0x4C   # 'L'
 
-# Power-on uses report ID 0x06
-POWER_ON_REPORT_ID = 0x06
+# The Beyond HID descriptor has no explicit report IDs. Feature reports use
+# implicit report ID 0, with the command byte at byte[1].
+POWER_ON_REPORT_ID = 0x00
 
 # Linux hidraw ioctl numbers
 # HIDIOCSFEATURE(len) = _IOC(_IOC_WRITE|_IOC_READ, 'H', 0x06, len)
@@ -168,16 +169,15 @@ def build_power_on_sequence():
 
     Matches compositor/src/vr/beyond_hid.rs build_power_on_sequence().
     The device has no explicit HID report IDs — uses implicit ID 0.
-    Byte layout: [0x00 (report_id), 0x00, 0x22, phase, 0x00, ...zeros]
+    Byte layout: [0x00 (report_id), 0x22, phase, 0x00, ...zeros]
     """
     packets = []
     for phase in [0x00, 0x00, 0x00, 0x01, 0x02]:
         pkt = bytearray(REPORT_SIZE)
-        pkt[0] = 0x00   # report ID (implicit 0, no IDs in descriptor)
-        pkt[1] = 0x00   # padding
-        pkt[2] = 0x22   # power-on command
-        pkt[3] = phase   # phase (0x00 ×3, then 0x01, 0x02)
-        pkt[4] = 0x00
+        pkt[0] = POWER_ON_REPORT_ID
+        pkt[1] = 0x22    # power-on command
+        pkt[2] = phase   # phase (0x00 x3, then 0x01, 0x02)
+        pkt[3] = 0x00
         packets.append(pkt)
     return packets
 

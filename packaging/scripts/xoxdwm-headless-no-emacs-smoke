@@ -1,0 +1,198 @@
+#!/usr/bin/env bash
+# Verify that the native compositor can start without Emacs owning WM startup.
+
+set -euo pipefail
+
+timeout_seconds="${1:-1}"
+case "${timeout_seconds}" in
+""|*[!0-9]*)
+    echo "timeout_seconds must be a positive integer" >&2
+    exit 64
+    ;;
+esac
+
+if [[ "${timeout_seconds}" -lt 1 ]]; then
+    echo "timeout_seconds must be >= 1" >&2
+    exit 64
+fi
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd -- "${script_dir}/../.." && pwd)"
+
+runtime_tmp=""
+if [[ -z "${XDG_RUNTIME_DIR:-}" ]]; then
+    runtime_tmp="$(mktemp -d "${TMPDIR:-/tmp}/xoxdwm-runtime.XXXXXX")"
+    chmod 700 "${runtime_tmp}"
+    export XDG_RUNTIME_DIR="${runtime_tmp}"
+fi
+
+cleanup() {
+    if [[ -n "${runtime_tmp}" ]]; then
+        rm -rf "${runtime_tmp}"
+    fi
+}
+trap cleanup EXIT
+
+socket_suffix="xoxdwm-$RANDOM-$$"
+wayland_socket="${XOXDWM_WAYLAND_SOCKET:-wayland-${socket_suffix}}"
+ipc_socket="${XOXDWM_IPC_SOCKET:-${XDG_RUNTIME_DIR}/xoxdwm-ipc-${socket_suffix}.sock}"
+ipc_probe_timeout="${XOXDWM_SMOKE_IPC_PROBE_TIMEOUT:-30}"
+
+unset EMACS INSIDE_EMACS ALTERNATE_EDITOR EDITOR VISUAL
+
+args=(
+    --backend headless
+    --headless-exit-after "${timeout_seconds}"
+    --wayland-socket "${wayland_socket}"
+    --ipc-socket "${ipc_socket}"
+)
+
+if [[ -n "${XOXDWM_COMPOSITOR_BIN:-}" ]]; then
+    command=( "${XOXDWM_COMPOSITOR_BIN}" "${args[@]}" )
+elif command -v ewwm-compositor >/dev/null 2>&1; then
+    command=( ewwm-compositor "${args[@]}" )
+else
+    command=(
+        cargo run
+        --manifest-path "${repo_root}/compositor/Cargo.toml"
+        --no-default-features
+        --
+        "${args[@]}"
+    )
+fi
+
+echo "native_authority_gate=boot_without_emacs"
+echo "emacs_required=no"
+echo "backend=headless"
+echo "timeout_seconds=${timeout_seconds}"
+echo "wayland_socket=${wayland_socket}"
+echo "ipc_socket=${ipc_socket}"
+echo "ipc_probe_timeout=${ipc_probe_timeout}"
+
+set +e
+"${command[@]}" &
+compositor_pid=$!
+sleep "${XOXDWM_SMOKE_CHILD_PROBE_DELAY:-0.2}" 2>/dev/null || true
+
+if command -v pgrep >/dev/null 2>&1 \
+    && pgrep -P "${compositor_pid}" -f '[e]macs' >/dev/null 2>&1; then
+    kill "${compositor_pid}" >/dev/null 2>&1 || true
+    wait "${compositor_pid}" >/dev/null 2>&1 || true
+    echo "boot_without_emacs_smoke=failed"
+    echo "reason=emacs_child_process_detected"
+    exit 1
+fi
+
+XOXDWM_IPC_PROBE_SOCKET="${ipc_socket}" \
+XOXDWM_IPC_PROBE_TIMEOUT="${ipc_probe_timeout}" \
+XOXDWM_COMPOSITOR_PID="${compositor_pid}" \
+python3 - <<'PY'
+import os
+import socket
+import struct
+import sys
+import time
+
+
+def fail(reason):
+    print("ipc_probe=failed")
+    print(f"reason={reason}")
+    sys.exit(1)
+
+
+path = os.environ["XOXDWM_IPC_PROBE_SOCKET"]
+timeout = float(os.environ.get("XOXDWM_IPC_PROBE_TIMEOUT", "30"))
+compositor_pid = int(os.environ.get("XOXDWM_COMPOSITOR_PID", "0") or "0")
+deadline = time.monotonic() + timeout
+client = None
+
+
+def compositor_alive():
+    if compositor_pid <= 0:
+        return True
+    try:
+        os.kill(compositor_pid, 0)
+        return True
+    except OSError:
+        return False
+
+while time.monotonic() < deadline:
+    if not compositor_alive():
+        fail("compositor_exited_before_ipc_probe")
+    if not os.path.exists(path):
+        time.sleep(0.05)
+        continue
+    try:
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client.settimeout(1.0)
+        client.connect(path)
+        break
+    except OSError:
+        if client is not None:
+            client.close()
+            client = None
+        time.sleep(0.05)
+
+if client is None:
+    fail("ipc_socket_not_ready")
+
+
+def send(message):
+    payload = message.encode("utf-8")
+    client.sendall(struct.pack(">I", len(payload)) + payload)
+
+
+def recv():
+    header = client.recv(4)
+    if len(header) != 4:
+        fail("short_ipc_header")
+    length = struct.unpack(">I", header)[0]
+    chunks = []
+    remaining = length
+    while remaining:
+        chunk = client.recv(remaining)
+        if not chunk:
+            fail("short_ipc_payload")
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks).decode("utf-8", "replace")
+
+
+send('(:type :hello :id 1 :version 1 :client "boot-without-emacs-smoke")')
+hello = recv()
+if ':server "ewwm-compositor"' not in hello:
+    fail("hello_handshake_failed")
+
+send("(:type :workspace-list :id 2)")
+workspaces = recv()
+if ":status :ok" not in workspaces or ":workspaces" not in workspaces:
+    fail("workspace_list_failed")
+
+client.close()
+print("ipc_probe=passed")
+PY
+probe_status=$?
+
+if [[ "${probe_status}" -ne 0 ]]; then
+    if kill -0 "${compositor_pid}" >/dev/null 2>&1; then
+        kill "${compositor_pid}" >/dev/null 2>&1 || true
+    fi
+    wait "${compositor_pid}"
+    compositor_status=$?
+    echo "boot_without_emacs_smoke=failed"
+    echo "reason=ipc_probe_failed"
+    echo "compositor_exit_status=${compositor_status}"
+    exit "${probe_status}"
+fi
+
+wait "${compositor_pid}"
+status=$?
+set -e
+
+if [[ "${status}" -ne 0 ]]; then
+    echo "boot_without_emacs_smoke=failed"
+    echo "exit_status=${status}"
+    exit "${status}"
+fi
+
+echo "boot_without_emacs_smoke=passed"

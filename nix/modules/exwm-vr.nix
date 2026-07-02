@@ -10,6 +10,7 @@ let
     mkMerge
     types
     optional
+    optionalAttrs
     optionalString
     concatStringsSep
     literalExpression
@@ -60,7 +61,8 @@ let
     "LH_OVERRIDE_IPD_MM=64"
   ]);
 
-in {
+in
+{
 
   #
   # ── Interface ──────────────────────────────────────────────────────────
@@ -92,6 +94,8 @@ in {
     # ── Emacs ───────────────────────────────────────────────────────────
 
     emacs = {
+      enable = mkEnableOption (mdDoc "optional Emacs/eGreg application-control layer");
+
       package = mkOption {
         type = types.package;
         default = pkgs.emacs-pgtk;
@@ -281,7 +285,7 @@ in {
           cat > $out/share/wayland-sessions/exwm-vr.desktop << 'EOF'
           [Desktop Entry]
           Name=EXWM-VR
-          Comment=VR-first Emacs Window Manager (Wayland)
+          Comment=XoxdWM native Wayland developer desktop
           Exec=${cfg.compositor.package}/bin/ewwm-compositor
           TryExec=${cfg.compositor.package}/bin/ewwm-compositor
           Type=Application
@@ -291,10 +295,9 @@ in {
       ];
 
       # ── Required system packages ────────────────────────────────────
-      environment.systemPackages = [
-        cfg.compositor.package
-        emacsWithPackages
-      ];
+      environment.systemPackages =
+        [ cfg.compositor.package ]
+        ++ optional cfg.emacs.enable emacsWithPackages;
 
       # ── User groups ─────────────────────────────────────────────────
       users.groups.ewwm = { };
@@ -306,63 +309,67 @@ in {
       ];
 
       # ── Compositor systemd user service ─────────────────────────────
-      systemd.user.services."exwm-vr-compositor" = {
-        description = "EXWM-VR Wayland Compositor";
-        documentation = [ "https://github.com/Jesssullivan/XoxdWM" ];
-        aliases = [ "ewwm-compositor.service" ];
+      systemd.user.services = {
+        "exwm-vr-compositor" = {
+          description = "EXWM-VR Wayland Compositor";
+          documentation = [ "https://github.com/Jesssullivan/XoxdWM" ];
+          aliases = [ "ewwm-compositor.service" ];
 
-        wantedBy = [ "graphical-session.target" ];
-        before = [ "exwm-vr-emacs.service" ];
+          wantedBy = [ "graphical-session.target" ];
+          before = optional cfg.emacs.enable "exwm-vr-emacs.service";
 
-        environment = {
-          XDG_CURRENT_DESKTOP = "EXWM-VR";
-          __EGL_VENDOR_LIBRARY_DIRS = "/run/opengl-driver/share/glvnd/egl_vendor.d";
+          environment = {
+            XDG_CURRENT_DESKTOP = "EXWM-VR";
+            __EGL_VENDOR_LIBRARY_DIRS = "/run/opengl-driver/share/glvnd/egl_vendor.d";
+          };
+
+          serviceConfig = {
+            ExecStart = compositorCmd;
+            Restart = "on-failure";
+            RestartSec = 2;
+            # Hardening
+            ProtectHome = "read-only";
+            NoNewPrivileges = true;
+            RestrictNamespaces = true;
+            LockPersonality = true;
+            MemoryDenyWriteExecute = false; # GPU JIT requires W+X pages
+            SupplementaryGroups = [ "video" "input" ];
+          };
         };
+      } // optionalAttrs cfg.emacs.enable {
+        # ── Emacs systemd user service ────────────────────────────────
+        "exwm-vr-emacs" = {
+          description = "EXWM-VR Emacs/eGreg application layer";
+          documentation = [ "https://github.com/Jesssullivan/XoxdWM" ];
+          aliases = [ "ewwm-emacs.service" ];
 
-        serviceConfig = {
-          ExecStart = compositorCmd;
-          Restart = "on-failure";
-          RestartSec = 2;
-          # Hardening
-          ProtectHome = "read-only";
-          NoNewPrivileges = true;
-          RestrictNamespaces = true;
-          LockPersonality = true;
-          MemoryDenyWriteExecute = false; # GPU JIT requires W+X pages
-          SupplementaryGroups = [ "video" "input" ];
-        };
-      };
+          requires = [ "exwm-vr-compositor.service" ];
+          after = [ "exwm-vr-compositor.service" ];
+          wantedBy = [ "exwm-vr.target" ];
 
-      # ── Emacs systemd user service ──────────────────────────────────
-      systemd.user.services."exwm-vr-emacs" = {
-        description = "EXWM-VR Emacs Window Manager Brain";
-        documentation = [ "https://github.com/Jesssullivan/XoxdWM" ];
-        aliases = [ "ewwm-emacs.service" ];
+          environment = {
+            XDG_CURRENT_DESKTOP = "EXWM-VR";
+          };
 
-        requires = [ "exwm-vr-compositor.service" ];
-        after = [ "exwm-vr-compositor.service" ];
-        wantedBy = [ "graphical-session.target" ];
-
-        environment = {
-          XDG_CURRENT_DESKTOP = "EXWM-VR";
-        };
-
-        serviceConfig = let
-          emacsArgs = concatStringsSep " " ([
-            "${emacsWithPackages}/bin/emacs"
-            "--daemon=ewwm"
-          ] ++ optional (cfg.emacs.initFile != null)
-            "--load ${cfg.emacs.initFile}"
-          );
-        in {
-          ExecStart = emacsArgs;
-          ExecStop = "${emacsWithPackages}/bin/emacsclient --socket-name=ewwm --eval (kill-emacs)";
-          Restart = "on-failure";
-          RestartSec = 3;
-          ProtectSystem = "strict";
-          ProtectHome = "read-only";
-          NoNewPrivileges = true;
-          PrivateTmp = true;
+          serviceConfig =
+            let
+              emacsArgs = concatStringsSep " " ([
+                "${emacsWithPackages}/bin/emacs"
+                "--daemon=ewwm"
+              ] ++ optional (cfg.emacs.initFile != null)
+                "--load ${cfg.emacs.initFile}"
+              );
+            in
+            {
+              ExecStart = emacsArgs;
+              ExecStop = "${emacsWithPackages}/bin/emacsclient --socket-name=ewwm --eval (kill-emacs)";
+              Restart = "on-failure";
+              RestartSec = 3;
+              ProtectSystem = "strict";
+              ProtectHome = "read-only";
+              NoNewPrivileges = true;
+              PrivateTmp = true;
+            };
         };
       };
 
@@ -370,8 +377,12 @@ in {
       systemd.user.targets."exwm-vr" = {
         description = "EXWM-VR Session";
         aliases = [ "ewwm-session.target" ];
-        requires = [ "exwm-vr-compositor.service" "exwm-vr-emacs.service" ];
-        after = [ "exwm-vr-compositor.service" "exwm-vr-emacs.service" ];
+        requires =
+          [ "exwm-vr-compositor.service" ]
+          ++ optional cfg.emacs.enable "exwm-vr-emacs.service";
+        after =
+          [ "exwm-vr-compositor.service" ]
+          ++ optional cfg.emacs.enable "exwm-vr-emacs.service";
         wantedBy = [ "graphical-session.target" ];
       };
     }
@@ -545,10 +556,10 @@ in {
           AmbientCapabilities = "CAP_SYS_NICE";
           # Hardening
           ProtectHome = "read-only";
-          NoNewPrivileges = false;  # required for AmbientCapabilities
+          NoNewPrivileges = false; # required for AmbientCapabilities
           RestrictNamespaces = true;
           LockPersonality = true;
-          MemoryDenyWriteExecute = false;  # GPU JIT requires W+X pages
+          MemoryDenyWriteExecute = false; # GPU JIT requires W+X pages
           SupplementaryGroups = [ "video" ];
         };
       };

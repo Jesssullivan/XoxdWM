@@ -1,5 +1,5 @@
 {
-  description = "EXWM-VR: VR-first transhuman Emacs window manager";
+  description = "XoxdWM: native Wayland/XR developer desktop with optional Emacs/eGreg app clients";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -83,7 +83,8 @@
               inherit (prev) lib linuxKernel fetchpatch fetchurl;
               pkgs = prev;
             };
-          in {
+          in
+          {
             linuxPackages_beyond = prev.linuxPackages_latest.extend (lpSelf: lpPrev: {
               kernel = kLib.mkXrKernel {
                 baseKernel = lpPrev.kernel;
@@ -148,7 +149,7 @@
             monado
             openxr-loader
             libuvc
-            cage   # single-window Wayland compositor for testing
+            cage # single-window Wayland compositor for testing
             weston # headless Wayland compositor
           ]);
 
@@ -182,164 +183,166 @@
               };
             };
 
-        in builtins.foldl' pkgs.lib.recursiveUpdate {} [
+        in
+        builtins.foldl' pkgs.lib.recursiveUpdate { } [
           {
-          devShells.default = pkgs.mkShell {
-            inherit buildInputs;
+            devShells.default = pkgs.mkShell {
+              inherit buildInputs;
 
-            shellHook = ''
-              export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
-            '' + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
-              export PKG_CONFIG_PATH="${pkgs.lib.makeSearchPathOutput "dev" "lib/pkgconfig" waylandLibs}"
-              export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath waylandLibs}"
-              export XDG_DATA_DIRS="$XDG_DATA_DIRS:${pkgs.monado}/share"
-              export OPENXR_RUNTIME_JSON="${pkgs.monado}/share/openxr/1/openxr_monado.json"
-            '' + ''
-              echo "exwm-vr dev shell ready"
-              echo "  rustc: $(rustc --version)"
-              echo "  emacs: $(emacs --version | head -1)"
-              echo ""
-              echo "  cachix: use 'cachix use exwm-vr' to enable binary cache"
-            '';
-          };
-
-          # BIOS analysis shell — Ghidra, UEFITool, binwalk for Dell firmware RE
-          devShells.bios-tools = pkgs.mkShell {
-            buildInputs = with pkgs; [
-              uefitool
-              binwalk
-              p7zip
-            ] ++ lib.optionals stdenv.isLinux [
-              ghidra
-            ];
-            shellHook = ''
-              echo "BIOS analysis shell ready"
-              echo "  uefitool: available"
-              echo "  binwalk: $(binwalk --version 2>/dev/null | head -1)"
-              echo "  7z: $(7z 2>&1 | head -2 | tail -1)"
-              echo ""
-              echo "Workflow:"
-              echo "  1. just bios-download"
-              echo "  2. just bios-extract"
-              echo "  3. uefitool packaging/bios/extracted/*.bin"
-              echo "  4. ghidra  # import extracted UEFI modules"
-            '';
-          };
-
-          # Full compositor with VR support
-          packages.compositor = mkCompositor {
-            pname = "ewwm-compositor";
-            features = [ "full-backend" "vr" ];
-            extraBuildInputs = [ pkgs.openxr-loader ];
-          };
-
-          # Headless compositor (no full-backend, no VR) for s390x / minimal
-          packages.compositor-headless = mkCompositor {
-            pname = "ewwm-compositor-headless";
-            features = [ ];
-          };
-
-          # --- OCI container images via nix2container ---
-
-          packages.oci-headless = n2c.buildImage {
-            name = "ewwm-compositor-headless";
-            tag = "latest";
-            config = {
-              entrypoint = [ "${self.packages.${system}.compositor-headless}/bin/ewwm-compositor" ];
-              cmd = [ "--headless" ];
-            };
-          };
-
-          packages.oci-compositor = n2c.buildImage {
-            name = "ewwm-compositor";
-            tag = "latest";
-            config = {
-              entrypoint = [ "${self.packages.${system}.compositor}/bin/ewwm-compositor" ];
-            };
-          };
-
-          packages.oci-full = n2c.buildImage {
-            name = "ewwm-compositor-full";
-            tag = "latest";
-            copyToRoot = [ emacsPkg ];
-            config = {
-              entrypoint = [ "${self.packages.${system}.compositor}/bin/ewwm-compositor" ];
-            };
-          };
-
-          packages.default = self.packages.${system}.compositor;
-
-          # Elisp package: all .el files for load-path
-          packages.ewwm-elisp = pkgs.runCommand "ewwm-elisp-${version}" { } ''
-            mkdir -p $out/share/emacs/site-lisp/ewwm/{core,vr,ext}
-            cp ${./lisp/core}/*.el $out/share/emacs/site-lisp/ewwm/core/ 2>/dev/null || true
-            cp ${./lisp/vr}/*.el $out/share/emacs/site-lisp/ewwm/vr/ 2>/dev/null || true
-            cp ${./lisp/ext}/*.el $out/share/emacs/site-lisp/ewwm/ext/ 2>/dev/null || true
-          '';
-          }
-          (pkgs.lib.optionalAttrs (pkgs.stdenv.isLinux) (
-          let
-            kLib = xrKernelLib {
-              inherit (pkgs) lib linuxKernel fetchpatch fetchurl;
-              inherit pkgs;
-            };
-
-            # Chapel 2.8 — parallel programming language for BCI analysis
-            chapel = import ./nix/packages/chapel.nix { inherit (pkgs) lib stdenv fetchurl python3 llvmPackages_18 gmp which perl bash cmake; };
-
-            # Patched wlroots 0.18 — Bigscreen Beyond non_desktop detection
-            wlroots-beyond = import ./nix/packages/wlroots-beyond.nix { inherit pkgs; };
-
-            # Sway 1.10 linked against patched wlroots
-            sway-beyond = import ./nix/packages/sway-beyond.nix { inherit pkgs wlroots-beyond; };
-
-            # Monado OpenXR runtime with Beyond build flags
-            monado-beyond = import ./nix/packages/monado-beyond.nix {
-              inherit pkgs nixpkgs-xr system;
-            };
-          in {
-            # XR-patched kernel for NixOS — build and cache via Attic:
-            #   nix build .#kernel-xr
-            #   attic push xr-cache result/
-            # Subsequent builds with the xr-cache substituter get binary substitution.
-            packages.kernel-xr = kLib.mkXrKernel {
-              baseKernel = pkgs.linuxPackages_latest.kernel;
-            };
-
-            # Patched wlroots + sway for Bigscreen Beyond VR — build and cache:
-            #   nix build .#wlroots-beyond
-            #   nix build .#sway-beyond
-            #   attic push xr-cache result/
-            #   nix copy --to ssh://honey result/
-            packages.wlroots-beyond = wlroots-beyond;
-            packages.sway-beyond = sway-beyond;
-            packages.monado-beyond = monado-beyond;
-
-            # Chapel 2.8 compiler + runtime for BCI batch analysis
-            packages.chapel = chapel;
-
-            # Chapel development shell with Mason package manager
-            devShells.chapel-dev = pkgs.mkShell {
-              buildInputs = [ chapel ];
               shellHook = ''
-                echo "Chapel dev shell ready"
-                echo "  chpl: $(chpl --version 2>/dev/null || echo 'in PATH')"
-                echo "  mason: $(mason --version 2>/dev/null || echo 'available')"
+                export LIBCLANG_PATH="${pkgs.llvmPackages.libclang.lib}/lib"
+              '' + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+                export PKG_CONFIG_PATH="${pkgs.lib.makeSearchPathOutput "dev" "lib/pkgconfig" waylandLibs}"
+                export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath waylandLibs}"
+                export XDG_DATA_DIRS="$XDG_DATA_DIRS:${pkgs.monado}/share"
+                export OPENXR_RUNTIME_JSON="${pkgs.monado}/share/openxr/1/openxr_monado.json"
+              '' + ''
+                echo "exwm-vr dev shell ready"
+                echo "  rustc: $(rustc --version)"
+                echo "  emacs: $(emacs --version | head -1)"
                 echo ""
-                echo "Build: cd analysis && mason build"
-                echo "Test:  cd analysis && mason test"
+                echo "  cachix: use 'cachix use exwm-vr' to enable binary cache"
               '';
             };
+
+            # BIOS analysis shell — Ghidra, UEFITool, binwalk for Dell firmware RE
+            devShells.bios-tools = pkgs.mkShell {
+              buildInputs = with pkgs; [
+                uefitool
+                binwalk
+                p7zip
+              ] ++ lib.optionals stdenv.isLinux [
+                ghidra
+              ];
+              shellHook = ''
+                echo "BIOS analysis shell ready"
+                echo "  uefitool: available"
+                echo "  binwalk: $(binwalk --version 2>/dev/null | head -1)"
+                echo "  7z: $(7z 2>&1 | head -2 | tail -1)"
+                echo ""
+                echo "Workflow:"
+                echo "  1. just bios-download"
+                echo "  2. just bios-extract"
+                echo "  3. uefitool packaging/bios/extracted/*.bin"
+                echo "  4. ghidra  # import extracted UEFI modules"
+              '';
+            };
+
+            # Full compositor with VR support
+            packages.compositor = mkCompositor {
+              pname = "ewwm-compositor";
+              features = [ "full-backend" "vr" ];
+              extraBuildInputs = [ pkgs.openxr-loader ];
+            };
+
+            # Headless compositor (no full-backend, no VR) for s390x / minimal
+            packages.compositor-headless = mkCompositor {
+              pname = "ewwm-compositor-headless";
+              features = [ ];
+            };
+
+            # --- OCI container images via nix2container ---
+
+            packages.oci-headless = n2c.buildImage {
+              name = "ewwm-compositor-headless";
+              tag = "latest";
+              config = {
+                entrypoint = [ "${self.packages.${system}.compositor-headless}/bin/ewwm-compositor" ];
+                cmd = [ "--headless" ];
+              };
+            };
+
+            packages.oci-compositor = n2c.buildImage {
+              name = "ewwm-compositor";
+              tag = "latest";
+              config = {
+                entrypoint = [ "${self.packages.${system}.compositor}/bin/ewwm-compositor" ];
+              };
+            };
+
+            packages.oci-full = n2c.buildImage {
+              name = "ewwm-compositor-full";
+              tag = "latest";
+              copyToRoot = [ emacsPkg ];
+              config = {
+                entrypoint = [ "${self.packages.${system}.compositor}/bin/ewwm-compositor" ];
+              };
+            };
+
+            packages.default = self.packages.${system}.compositor;
+
+            # Elisp package: all .el files for load-path
+            packages.ewwm-elisp = pkgs.runCommand "ewwm-elisp-${version}" { } ''
+              mkdir -p $out/share/emacs/site-lisp/ewwm/{core,vr,ext}
+              cp ${./lisp/core}/*.el $out/share/emacs/site-lisp/ewwm/core/ 2>/dev/null || true
+              cp ${./lisp/vr}/*.el $out/share/emacs/site-lisp/ewwm/vr/ 2>/dev/null || true
+              cp ${./lisp/ext}/*.el $out/share/emacs/site-lisp/ewwm/ext/ 2>/dev/null || true
+            '';
           }
+          (pkgs.lib.optionalAttrs (pkgs.stdenv.isLinux) (
+            let
+              kLib = xrKernelLib {
+                inherit (pkgs) lib linuxKernel fetchpatch fetchurl;
+                inherit pkgs;
+              };
+
+              # Chapel 2.8 — parallel programming language for BCI analysis
+              chapel = import ./nix/packages/chapel.nix { inherit (pkgs) lib stdenv fetchurl python3 llvmPackages_18 gmp which perl bash cmake; };
+
+              # Patched wlroots 0.18 — Bigscreen Beyond non_desktop detection
+              wlroots-beyond = import ./nix/packages/wlroots-beyond.nix { inherit pkgs; };
+
+              # Sway 1.10 linked against patched wlroots
+              sway-beyond = import ./nix/packages/sway-beyond.nix { inherit pkgs wlroots-beyond; };
+
+              # Monado OpenXR runtime with Beyond build flags
+              monado-beyond = import ./nix/packages/monado-beyond.nix {
+                inherit pkgs nixpkgs-xr system;
+              };
+            in
+            {
+              # XR-patched kernel for NixOS — build and cache via Attic:
+              #   nix build .#kernel-xr
+              #   attic push xr-cache result/
+              # Subsequent builds with the xr-cache substituter get binary substitution.
+              packages.kernel-xr = kLib.mkXrKernel {
+                baseKernel = pkgs.linuxPackages_latest.kernel;
+              };
+
+              # Patched wlroots + sway for Bigscreen Beyond VR — build and cache:
+              #   nix build .#wlroots-beyond
+              #   nix build .#sway-beyond
+              #   attic push xr-cache result/
+              #   nix copy --to ssh://honey result/
+              packages.wlroots-beyond = wlroots-beyond;
+              packages.sway-beyond = sway-beyond;
+              packages.monado-beyond = monado-beyond;
+
+              # Chapel 2.8 compiler + runtime for BCI batch analysis
+              packages.chapel = chapel;
+
+              # Chapel development shell with Mason package manager
+              devShells.chapel-dev = pkgs.mkShell {
+                buildInputs = [ chapel ];
+                shellHook = ''
+                  echo "Chapel dev shell ready"
+                  echo "  chpl: $(chpl --version 2>/dev/null || echo 'in PATH')"
+                  echo "  mason: $(mason --version 2>/dev/null || echo 'available')"
+                  echo ""
+                  echo "Build: cd analysis && mason build"
+                  echo "Test:  cd analysis && mason test"
+                '';
+              };
+            }
           ))
           (pkgs.lib.optionalAttrs (system == "x86_64-linux") {
-          # NixOS VM integration tests (require KVM)
-          checks.boot-test = import ./nix/tests/boot-test.nix {
-            inherit pkgs self;
-          };
-          checks.full-stack-test = import ./nix/tests/full-stack-test.nix {
-            inherit pkgs self home-manager;
-          };
+            # NixOS VM integration tests (require KVM)
+            checks.boot-test = import ./nix/tests/boot-test.nix {
+              inherit pkgs self;
+            };
+            checks.full-stack-test = import ./nix/tests/full-stack-test.nix {
+              inherit pkgs self home-manager;
+            };
           })
         ]
       );
@@ -347,106 +350,110 @@
       # Cross-compilation outputs (not produced by eachDefaultSystem)
       crossOutputs = {
         # Cross-compile for aarch64-linux from x86_64-linux
-        packages.aarch64-linux = let
-          pkgs = import nixpkgs {
-            system = "x86_64-linux";
-            crossSystem.config = "aarch64-unknown-linux-gnu";
-            overlays = [
-              rust-overlay.overlays.default
-            ];
-          };
-          waylandLibs = mkWaylandLibs pkgs;
-        in {
-          compositor = pkgs.rustPlatform.buildRustPackage {
-            pname = "ewwm-compositor";
-            inherit version;
-            src = ./compositor;
-            cargoLock.lockFile = ./compositor/Cargo.lock;
+        packages.aarch64-linux =
+          let
+            pkgs = import nixpkgs {
+              system = "x86_64-linux";
+              crossSystem.config = "aarch64-unknown-linux-gnu";
+              overlays = [
+                rust-overlay.overlays.default
+              ];
+            };
+            waylandLibs = mkWaylandLibs pkgs;
+          in
+          {
+            compositor = pkgs.rustPlatform.buildRustPackage {
+              pname = "ewwm-compositor";
+              inherit version;
+              src = ./compositor;
+              cargoLock.lockFile = ./compositor/Cargo.lock;
 
-            nativeBuildInputs = with pkgs.buildPackages; [
-              pkg-config
-              clang
-              llvmPackages.libclang
-            ];
+              nativeBuildInputs = with pkgs.buildPackages; [
+                pkg-config
+                clang
+                llvmPackages.libclang
+              ];
 
-            buildInputs = waylandLibs ++ [ pkgs.libuvc pkgs.openxr-loader ];
+              buildInputs = waylandLibs ++ [ pkgs.libuvc pkgs.openxr-loader ];
 
-            buildFeatures = [ "full-backend" "vr" ];
+              buildFeatures = [ "full-backend" "vr" ];
 
-            LIBCLANG_PATH = "${pkgs.buildPackages.llvmPackages.libclang.lib}/lib";
-            LIBRARY_PATH = pkgs.lib.makeLibraryPath (waylandLibs ++ [ pkgs.libuvc pkgs.openxr-loader ]);
+              LIBCLANG_PATH = "${pkgs.buildPackages.llvmPackages.libclang.lib}/lib";
+              LIBRARY_PATH = pkgs.lib.makeLibraryPath (waylandLibs ++ [ pkgs.libuvc pkgs.openxr-loader ]);
 
-            meta = with pkgs.lib; {
-              description = "EXWM-VR Wayland compositor built on Smithay (aarch64)";
-              license = licenses.gpl3Plus;
-              platforms = [ "aarch64-linux" ];
+              meta = with pkgs.lib; {
+                description = "EXWM-VR Wayland compositor built on Smithay (aarch64)";
+                license = licenses.gpl3Plus;
+                platforms = [ "aarch64-linux" ];
+              };
+            };
+
+            compositor-headless = pkgs.rustPlatform.buildRustPackage {
+              pname = "ewwm-compositor-headless";
+              inherit version;
+              src = ./compositor;
+              cargoLock.lockFile = ./compositor/Cargo.lock;
+
+              nativeBuildInputs = with pkgs.buildPackages; [
+                pkg-config
+                clang
+                llvmPackages.libclang
+              ];
+
+              buildInputs = waylandLibs ++ [ pkgs.libuvc ];
+
+              buildNoDefaultFeatures = true;
+
+              LIBCLANG_PATH = "${pkgs.buildPackages.llvmPackages.libclang.lib}/lib";
+              LIBRARY_PATH = pkgs.lib.makeLibraryPath (waylandLibs ++ [ pkgs.libuvc ]);
+
+              meta = with pkgs.lib; {
+                description = "EXWM-VR Wayland compositor headless (aarch64)";
+                license = licenses.gpl3Plus;
+                platforms = [ "aarch64-linux" ];
+              };
             };
           };
-
-          compositor-headless = pkgs.rustPlatform.buildRustPackage {
-            pname = "ewwm-compositor-headless";
-            inherit version;
-            src = ./compositor;
-            cargoLock.lockFile = ./compositor/Cargo.lock;
-
-            nativeBuildInputs = with pkgs.buildPackages; [
-              pkg-config
-              clang
-              llvmPackages.libclang
-            ];
-
-            buildInputs = waylandLibs ++ [ pkgs.libuvc ];
-
-            buildNoDefaultFeatures = true;
-
-            LIBCLANG_PATH = "${pkgs.buildPackages.llvmPackages.libclang.lib}/lib";
-            LIBRARY_PATH = pkgs.lib.makeLibraryPath (waylandLibs ++ [ pkgs.libuvc ]);
-
-            meta = with pkgs.lib; {
-              description = "EXWM-VR Wayland compositor headless (aarch64)";
-              license = licenses.gpl3Plus;
-              platforms = [ "aarch64-linux" ];
-            };
-          };
-        };
 
         # Cross-compile for s390x-linux from x86_64-linux
-        packages.s390x-linux = let
-          pkgs = import nixpkgs {
-            system = "x86_64-linux";
-            crossSystem.config = "s390x-unknown-linux-gnu";
-            overlays = [
-              rust-overlay.overlays.default
-            ];
-          };
-          waylandLibs = mkWaylandLibs pkgs;
-        in {
-          compositor-headless = pkgs.rustPlatform.buildRustPackage {
-            pname = "ewwm-compositor-headless";
-            inherit version;
-            src = ./compositor;
-            cargoLock.lockFile = ./compositor/Cargo.lock;
+        packages.s390x-linux =
+          let
+            pkgs = import nixpkgs {
+              system = "x86_64-linux";
+              crossSystem.config = "s390x-unknown-linux-gnu";
+              overlays = [
+                rust-overlay.overlays.default
+              ];
+            };
+            waylandLibs = mkWaylandLibs pkgs;
+          in
+          {
+            compositor-headless = pkgs.rustPlatform.buildRustPackage {
+              pname = "ewwm-compositor-headless";
+              inherit version;
+              src = ./compositor;
+              cargoLock.lockFile = ./compositor/Cargo.lock;
 
-            nativeBuildInputs = with pkgs.buildPackages; [
-              pkg-config
-              clang
-              llvmPackages.libclang
-            ];
+              nativeBuildInputs = with pkgs.buildPackages; [
+                pkg-config
+                clang
+                llvmPackages.libclang
+              ];
 
-            buildInputs = waylandLibs ++ [ pkgs.libuvc ];
+              buildInputs = waylandLibs ++ [ pkgs.libuvc ];
 
-            buildNoDefaultFeatures = true;
+              buildNoDefaultFeatures = true;
 
-            LIBCLANG_PATH = "${pkgs.buildPackages.llvmPackages.libclang.lib}/lib";
-            LIBRARY_PATH = pkgs.lib.makeLibraryPath (waylandLibs ++ [ pkgs.libuvc ]);
+              LIBCLANG_PATH = "${pkgs.buildPackages.llvmPackages.libclang.lib}/lib";
+              LIBRARY_PATH = pkgs.lib.makeLibraryPath (waylandLibs ++ [ pkgs.libuvc ]);
 
-            meta = with pkgs.lib; {
-              description = "EXWM-VR Wayland compositor headless (s390x)";
-              license = licenses.gpl3Plus;
-              platforms = [ "s390x-linux" ];
+              meta = with pkgs.lib; {
+                description = "EXWM-VR Wayland compositor headless (s390x)";
+                license = licenses.gpl3Plus;
+                platforms = [ "s390x-linux" ];
+              };
             };
           };
-        };
       };
 
     in
