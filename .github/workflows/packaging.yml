@@ -202,6 +202,7 @@ jobs:
         with:
           name: rpm-package
           path: 'rpms/*.rpm'
+          retention-days: 7
 
   package-deb:
     name: Package DEB
@@ -257,6 +258,7 @@ jobs:
         with:
           name: deb-package
           path: '*.deb'
+          retention-days: 7
 
   release:
     name: Create Release
