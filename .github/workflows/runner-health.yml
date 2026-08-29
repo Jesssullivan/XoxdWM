@@ -16,6 +16,32 @@ jobs:
     # Health checks target the shared GloriousFlywheel Nix capability lane only
     # after this repo has proved reachability. Before that, hosted Linux keeps
     # the workflow honest instead of leaving jobs queued without runners.
+    #
+    # Why GF_SHARED_RUNNERS_REACHABLE is still unset here, measured 2026-08-29:
+    #
+    #   * `tinyland-nix` runners now exist and are online -- 17 runners in the
+    #     tinyland-inc org, including the tinyland-nix-zmgh7 set plus -heavy,
+    #     -kvm, -operator and -compute-expansion. The 2026-04-25 finding (zero
+    #     tinyland-nix runners; one macOS `xoxd-bates`) is obsolete;
+    #     `xoxd-bates` is no longer in the inventory at all.
+    #
+    #   * But THIS repo is `Jesssullivan/XoxdWM`, owned by a User account, not
+    #     by `tinyland-inc`. Organization runner groups can only be shared with
+    #     repositories inside that organization, so no value of
+    #     GF_SHARED_RUNNERS_REACHABLE can make an org runner pick up a job here.
+    #     Setting it to 'true' would not enable the lane, it would strand jobs
+    #     on a label nothing serves.
+    #
+    #   * There is an in-org fork, `tinyland-inc/XoxdWM`, which is eligible by
+    #     ownership -- but it is public, and the org's `Default` runner group
+    #     (visibility=all) has allows_public=false, while the `tinyland-public`
+    #     group (allows_public=true, visibility=selected) lists only
+    #     bazel-registry and ci-templates. So the fork is ineligible too, and
+    #     the fix there is a runner-group membership decision, not a variable.
+    #
+    # The blocker is therefore repo ownership plus runner-group membership, not
+    # runner supply. Flipping this variable is not the remaining work.
+    # Tracked as TIN-592 / XoxdWM#11 / GloriousFlywheel#413.
     runs-on: ${{ vars.USE_SELFHOSTED == 'true' && vars.GF_SHARED_RUNNERS_REACHABLE == 'true' && 'tinyland-nix' || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
